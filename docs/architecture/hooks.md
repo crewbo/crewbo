@@ -18,7 +18,9 @@ Sources:
 | `post_edit` | Detect shell writes the parser missed; renew leases | Compare hashes of claimed files touched since `pre_shell` | `additionalContext` naming any crossed claim; record `ClaimViolation` |
 | `stop` | Agent finished a turn | Checkpoint, push ref, trigger merge-tree | None (never blocks stopping) |
 
-All responses are JSON on stdout only. The hook never prints anything else to stdout. Diagnostics go to a log file.
+All responses are JSON on stdout only. The hook never prints anything else to stdout. Diagnostics go to `hook.log` in the data directory.
+
+Main loop (`internal/hooks`, #35): read stdin (1 MiB cap), decode with the agent adapter, find the repository root by walking up to `.git` (directory or file; no git process), normalise target paths, then one daemon call (`decide` for edits with targets, `event` otherwise) within 300 ms. Outside a git repository the hook stays silent. Every failure allows the action with a warning that starts "Crewbo could not check claims for this action, so it was allowed:". An unknown agent or event name exits 0 with no output. Deny reasons name the path, the holder and the task, and only suggest actions that exist.
 
 Input handling: strip a leading UTF-8 byte order mark before decoding (a PowerShell 5.1 test harness added one and the probe silently allowed). Input that still fails to decode is logged and answered with an allow plus a visible warning, never a silent allow.
 
