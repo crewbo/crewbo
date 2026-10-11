@@ -24,6 +24,11 @@ tasks:
       - go test -race -coverprofile=coverage.out ./...
       - go tool cover -func=coverage.out
 
+  cover:gate:
+    desc: Fail if gated packages are below 85% coverage
+    cmds:
+      - bash scripts/coverage-gate.sh 85
+
   lint:
     desc: golangci-lint and buf lint
     cmds:

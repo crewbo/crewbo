@@ -49,6 +49,9 @@ jobs:
       - name: Test
         if: hashFiles('**/*.go') != ''
         run: go test -race -coverprofile=coverage.out ./...
+      - name: Coverage gate (85% for claims, shellparse, hooks, dispatch)
+        if: matrix.os == 'ubuntu-latest' && hashFiles('**/*.go') != ''
+        run: scripts/coverage-gate.sh 85
 
   lint:
     runs-on: ubuntu-latest
