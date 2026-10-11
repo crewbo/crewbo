@@ -71,3 +71,5 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | gitx | Pass `-c core.longpaths=true` on every OS and run git with GIT_TERMINAL_PROMPT=0 | Git for Windows reads it, others ignore it, so no OS branch in gitx; unattended git must never wait for credentials | #18
 2026-10-11 | gitx | Use `merge-tree --write-tree -z --name-only --no-messages` (all available in git 2.38 docs) and treat exit 1 as a conflict only when a tree OID was printed | git 2.55.0 exits 1 for an unknown ref with empty stdout | #18
 2026-10-11 | security | gitx rejects refs that are empty or start with `-` | Prevents git option injection from refs received from other machines | #18
+2026-10-11 | platform | Local IPC is AF_UNIX on every OS using Go's net package; no named-pipe dependency | Go supports AF_UNIX on Windows 10 build 17063+; one implementation, stdlib only; resolves U-16 | #15
+2026-10-11 | platform | Windows minimum becomes Windows 10 version 1803 (build 17134), the first release at or above build 17063; PRD NFR says "Windows 10+", flagged to Ronel | AF_UNIX support | #15

@@ -4,7 +4,7 @@ Targets: Windows 10+, macOS 13+, Linux x86_64 and arm64 (including Arch-based Om
 
 | Concern | Windows | macOS | Linux | Handling |
 | --- | --- | --- | --- | --- |
-| Local IPC | Named pipe `\\.\pipe\crewbo-<user-sid>`, ACL current user only | Unix socket in `$TMPDIR/crewbo-<uid>/` (0700) | Unix socket in `$XDG_RUNTIME_DIR/crewbo/` (0700), fallback `/tmp/crewbo-<uid>/` | `internal/platform` `Listener` and `Dialer`. Named pipe library choice is a decision-log item in M1 |
+| Local IPC | AF_UNIX socket `%LOCALAPPDATA%\crewbo\run\daemon.sock` (Go supports it on Windows 10 build 17063+, so version 1803 or later); access through the folder's user-only ACL (U-29) | Unix socket `$TMPDIR/crewbo-<uid>/daemon.sock`, dir 0700, file 0600 | Unix socket `$XDG_RUNTIME_DIR/crewbo/daemon.sock`, fallback `/tmp/crewbo-<uid>/`, dir 0700, file 0600 | `platform.Listen` / `platform.Dial` (#15). One stdlib implementation, no named-pipe library. Socket paths limited to 103 bytes (macOS) |
 | Data dir | `%LOCALAPPDATA%\crewbo` | `~/Library/Application Support/crewbo` | `$XDG_DATA_HOME/crewbo` or `~/.local/share/crewbo` | `platform.Resolve` (#11); relative `XDG_*` values ignored per the XDG spec |
 | Config dir | `%APPDATA%\crewbo` | `~/Library/Application Support/crewbo` (same as data) | `$XDG_CONFIG_HOME/crewbo` or `~/.config/crewbo` | `platform.Resolve` |
 | Runtime dir | `%LOCALAPPDATA%\crewbo\run` (fallback token file only) | `$TMPDIR/crewbo-<uid>` | `$XDG_RUNTIME_DIR/crewbo`, else `$TMPDIR` or `/tmp` + `/crewbo-<uid>` | `Paths.Ensure` creates it 0700 and refuses a symlink, a non-directory or another user's directory |
