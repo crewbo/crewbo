@@ -58,14 +58,33 @@ jobs:
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.14.0
-      - name: Check generated code is current
+      - name: Fetch main for breaking-change detection
+        id: main
+        if: hashFiles('proto/**/*.proto') != '' && github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin main:main
+          if git ls-tree -r --name-only main -- proto | grep -q '\.proto$'; then
+            echo "has_proto=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_proto=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: buf lint and breaking
         if: hashFiles('proto/**/*.proto') != ''
         uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
         with:
           lint: true
-          breaking: ${{ github.event_name == 'pull_request' }}
-          breaking_against: https://github.com/${{ github.repository }}.git#branch=main
+          format: true
+          # Skipped until main has .proto files: there is nothing to compare against.
+          breaking: ${{ steps.main.outputs.has_proto == 'true' }}
+          breaking_against: .git#branch=main
           push: false
+          pr_comment: false
+      - name: Check generated code is current
+        if: hashFiles('proto/**/*.proto') != ''
+        run: |
+          buf generate
+          git add -A internal/protocol
+          git diff --cached --exit-code -- internal/protocol
 
   secrets:
     runs-on: ubuntu-latest
