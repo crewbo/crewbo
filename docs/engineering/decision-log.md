@@ -50,3 +50,5 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | claims | Claim paths compare case-insensitively on every OS | Claims cross machines; a case-only difference is the same file on Windows and macOS. Resolves a wording difference between data-model.md and cross-platform.md | #13
 2026-10-11 | claims | internal/claims normalises with the path package, not path/filepath | Paths from any OS must normalise identically on every OS | #13
 2026-10-11 | claims | Set.Add rejects claims whose lease is not active at the given time | An already-expired claim would be accepted and silently ignored; found by a lease test | #13
+2026-10-11 | platform | Path rules split per OS (paths_linux.go, paths_darwin.go, paths_windows.go) with injected Env; each OS's tests run on that OS in CI | Matches the platform rule in CLAUDE.md; no global state | #11
+2026-10-11 | platform | macOS keeps config and data in the same Application Support folder; Linux runtime fallback honours $TMPDIR before /tmp | Apple convention; respects a user's chosen temp dir | #11
