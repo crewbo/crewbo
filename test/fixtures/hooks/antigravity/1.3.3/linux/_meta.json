@@ -1,0 +1,8 @@
+{
+  "agent": "antigravity-cli",
+  "agent_version": "1.3.3",
+  "os": "Omarchy (Arch Linux) x86_64",
+  "captured": "2026-10-11",
+  "method": "crewbo/spikes S9 probe via workspace .agents/hooks.json with agy -p; scrubbed: home paths, conversation ids",
+  "spikes_commit": "see crewbo/spikes S9"
+}

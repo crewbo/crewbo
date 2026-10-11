@@ -18,5 +18,6 @@ To change an accepted decision, write a new ADR that supersedes it and set the o
 | [0010](0010-monorepo-layout-and-toolchain.md) | Monorepo layout and toolchain | Accepted |
 | [0011](0011-sync-server-licence.md) | Sync server licence | Proposed |
 | [0012](0012-crewbo-ide-long-term.md) | Crewbo IDE as a long-term product | Proposed |
+| [0013](0013-antigravity-v1-stretch.md) | Antigravity adapter as a v1 stretch goal | Proposed |
 
 "Accepted" for 0002 to 0010 means accepted in the PRD (2026-10-10) and pending Ronel's review of this package at Gate A.

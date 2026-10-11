@@ -81,3 +81,11 @@ Open:
 
 Next:
 - M1-09 gitx (#18).
+
+## 2026-10-11 (Antigravity spike)
+
+Done:
+- S9 live spike with agy 1.3.3 on Omarchy: deny works (also under skip-permissions), silent hook passes through, `{}` blocks, context injection works. Fixtures added. ADR 0013 proposed (Antigravity as v1 stretch).
+
+Next:
+- Ronel: accept or reject ADR 0013. Claude: M1-09 gitx (#18).
