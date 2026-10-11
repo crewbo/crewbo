@@ -42,3 +42,4 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | hooks | No re-trust prompt handling needed on upgrade for Codex | Trust hash covers the hook entry, not the binary (U-02) | phase0-findings.md
 2026-10-11 | testing | macOS checks by the teammate are Codex-only or plain Terminal; Claude Code on macOS waits for a Mac user with a Claude Code plan | Teammate has a Codex plan only | U-23
 2026-10-11 | doctor | `crewbo doctor` checks the login shell's startup files for stdout output | Codex runs hooks with the login shell (`zsh -c` reads ~/.zshenv) | U-25
+2026-10-11 | gate | Gate B: conditional go. Conditions: 6 more independent interviews and same-repo confirmation by end of M1; re-check before M2 | Hooks block on 2 of 3 OSes for both agents' coverage; 3 of 4 interviewed teams mix vendors, small sample | phase0-findings.md

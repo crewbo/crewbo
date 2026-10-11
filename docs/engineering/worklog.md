@@ -59,3 +59,13 @@ Next:
 - Ronel: Windows rerun (agent-prompts/windows-rerun.md), interviews.
 - Teammate: Codex-only macOS rerun for S7 and latency (agent-prompts/macos-rerun.md).
 - Then Gate B.
+
+## 2026-10-11 (Gate B)
+
+Done:
+- Repo settings applied by Ronel and verified (squash only, delete branches on merge, Dependabot alerts and fixes, read-only workflow token).
+- Interviews: 4 teams, 3 mix vendors. Gate B closed as conditional go.
+
+Next:
+- Gate C for M1: Ronel reviews the M1 issue list (M1-01 to M1-10).
+- Ronel: 6 more independent interviews and same-repo confirmation by end of M1.

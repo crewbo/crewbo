@@ -16,8 +16,8 @@ Source precedence: Ronel's explicit instructions > PRD > accepted ADRs > `docs/r
 ## Current phase
 
 - Gate A approved 2026-10-11 (PR #1).
-- Current: M0, Phase 0 spikes in the private repo `crewbo/spikes`. Linux, Windows and macOS (Codex only) done; interviews pending; Claude Code on macOS untested (no Mac with a Claude Code plan). Findings: `docs/research/phase0-findings.md`.
-- Next gate: **Gate B** (go / no-go), target Oct 17. No product code before it.
+- Gate B closed 2026-10-11: **conditional go** (6 more independent interviews and same-repo confirmation due by end of M1; re-check before M2). Findings: `docs/research/phase0-findings.md`. Claude Code on macOS untested (U-23).
+- Next: **Gate C** for M1 (protocol and daemon skeleton); issue list in `docs/engineering/implementation-plan.md`. No product code until Ronel approves it.
 
 ## Commands
 

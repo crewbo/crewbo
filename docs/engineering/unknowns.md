@@ -13,7 +13,7 @@ Rule: 90-minute timebox per unknown. Unresolved by then, take the fallback and l
 | U-07 | Codex App Server `turn/steer` on daemon-owned threads; `codex exec` exit code on failure | Claude | Phase 0 S2b | Hooks only for Codex; parse JSONL for failure | Exit code resolved (1 on turn.failed). turn/steer not tested; fallback hooks-only taken |
 | U-08 | Whether Omarchy runs a secret service by default | Claude | Phase 0 S7 on this machine | 0600 key file | Resolved: gnome-keyring present by default here. New risk U-18 |
 | U-09 | Lease behaviour when a laptop sleeps mid-claim | Claude + Ronel | Phase 0 S6 with suspend | Expire and warn on wake | Open |
-| U-10 | Whether teams actually mix agent vendors | Ronel | Interview 10 hackathon teams | Narrow positioning to cross-machine, single-vendor teams | Open |
+| U-10 | Whether teams actually mix agent vendors | Ronel | Interview 10 hackathon teams | Narrow positioning to cross-machine, single-vendor teams | Partly answered: 3 of 4 interviewed teams mix vendors; 6 more and the same-repo question pending (Gate B conditions) |
 | U-11 | Installed Claude Code (2.1.294) predates features the research cites (`onFailure` 2.1.295, observed 2.1.296 binary) | Claude | Check release notes; decide minimum supported version | Avoid post-2.1.294 features in v1 | Open, new 2026-10-11 |
 | U-12 | `NotebookEdit` input field name for the target path | Claude | Capture in Phase 0 | Parse both `notebook_path` and `file_path` | Resolved: `notebook_path`, absolute (S1) |
 | U-13 | Codex `UserPromptSubmit` and `Stop` input field names | Claude | Capture in Phase 0 | Treat unknown fields as optional | Resolved: `prompt`; Stop has `stop_hook_active`, `last_assistant_message` (S2) |

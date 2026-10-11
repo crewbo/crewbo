@@ -1,6 +1,6 @@
 # Phase 0 findings
 
-Status: interim, 2026-10-11. Linux (Omarchy), Windows and macOS (Codex only) results are in; team interviews are pending. Gate B is decided after those arrive.
+Status: Gate B closed 2026-10-11 with a **conditional go** (Ronel). Linux, Windows and macOS (Codex only) results and 4 of 10 team interviews are in; conditions below.
 
 Reproduce everything from `crewbo/spikes` (Linux: commit 68e385b; Windows: 40b2686, report in `results/windows/report.md`; macOS: 2f6f70d, report in `results/macos/report.md`). Founder machine (Linux): Omarchy (Arch Linux, x86_64, i5-13420H), Claude Code 2.1.294, codex-cli 0.161.0, git 2.55.0, Go 1.27.2.
 
@@ -112,6 +112,31 @@ PRD gate: go if hooks block reliably on at least 2 of 3 OSes and at least 3 of 1
 - Linux: both agents block reliably.
 - Windows: both agents block reliably (Claude Code 2.1.296, Codex 0.154.0). Hook criterion (2 of 3 OSes) met.
 - macOS: Codex blocks reliably (0.162.1). Claude Code on macOS untested: no available Mac has a Claude Code plan (U-23).
-- Interviews: pending.
+- Interviews: 4 of 10 done, 3 mix vendors (below).
 
-Interim recommendation: **go on the hook criterion** (Linux and Windows); the vendor-mix criterion depends on the interviews. Start M1 work that does not depend on per-OS hook behaviour (claims, simulator, protocol, gitx) only after Gate B, as planned. Nothing found so far requires a superseding ADR.
+### Interviews (S8, U-10)
+
+Collected by Ronel, 2026-10-11. Ronel is not a member of any interviewed team. Members are listed without names.
+
+| Team | Size | Operating systems | Agents per member | Mixes vendors |
+| --- | --- | --- | --- | --- |
+| 1 | 6 | Omarchy, Ubuntu x3, macOS, Windows | Claude Code + Codex; Codex; Claude Code x4 | Yes |
+| 2 | 4 | Omarchy, Ubuntu, macOS, Windows | Claude Code + Codex; Claude Code; Codex; Codex | Yes |
+| 3 | 3 | macOS, Windows x2 | Antigravity x3 | No (single vendor, not supported in v1) |
+| 4 | 4 | Ubuntu x4 | Claude Code x3; Claude Code + Codex | Yes, through one member |
+
+Observations:
+- 3 of 4 teams include more than one agent vendor; 3 of 4 span two or more operating systems; every team has at least 3 people.
+- The interviews recorded which agents members use, not whether two agents worked on the same repository in the same project. Team 4's mix rests on one member.
+- 1 of 4 teams uses only Antigravity, supporting the v2 adapter plan.
+- Sample: 4 teams against a planned 10.
+
+### Decision
+
+**Conditional go** (Ronel, 2026-10-11). The hook criterion is met (Claude Code on Linux and Windows, Codex on all three OSes). The vendor criterion is met on count (3 mixed-vendor teams) with a small sample. Conditions:
+
+1. Complete 6 more interviews with independent teams by the end of M1, asking explicitly whether two or more agents worked on the same repository in their last project.
+2. Confirm that question for teams 1, 2 and 4.
+3. Re-check at the Gate C review before M2. If fewer than 3 of 10 teams confirm same-repository vendor mixing, apply the U-10 fallback (narrow positioning to cross-machine, single-vendor teams). That is a PRD change and needs Ronel's decision and a superseding ADR.
+
+M1 (claims, simulator, protocol, gitx, daemon skeleton) does not depend on the vendor question, so it can start once its Gate C issue list is approved. Nothing in Phase 0 requires a superseding ADR.
