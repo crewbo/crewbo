@@ -1,0 +1,57 @@
+a.txt	echo hi > a.txt
+a.txt	echo hi >> a.txt
+a.txt	printf "x\n" > a.txt
+a.txt	cat <<EOF > a.txt\nhello\nEOF
+a.txt	cat > a.txt <<'EOF'\nhello\nEOF
+a.txt	sed -i "s/a/b/" a.txt
+a.txt	sed -i.bak -e "s/a/b/" a.txt
+a.txt	sed --in-place "s/a/b/" a.txt
+a.txt	perl -pi -e "s/a/b/" a.txt
+a.txt	echo hi | tee a.txt
+a.txt	echo hi | tee -a a.txt
+a.txt	cp b.txt a.txt
+a.txt	cp -r src/b.txt a.txt
+a.txt	mv b.txt a.txt
+a.txt	mv a.txt b.txt
+a.txt	rm a.txt
+a.txt	rm -f src/a.txt
+a.txt	truncate -s 0 a.txt
+a.txt	touch a.txt
+a.txt	git checkout -- a.txt
+a.txt	git restore a.txt
+a.txt	cd src && echo hi > a.txt
+a.txt	echo hi > "a.txt"
+a.txt	echo hi > 'src/a.txt'
+a.txt	make build && echo done > a.txt
+a.txt	ls; echo x > a.txt
+a.txt	if true; then echo x > a.txt; fi
+a.txt	for f in 1 2; do echo $f >> a.txt; done
+a.txt	(echo x) > a.txt
+a.txt	{ echo x; echo y; } > a.txt
+a.txt	echo x 2>&1 > a.txt
+a.txt	echo x &> a.txt
+a.txt	F=a.txt; echo x > $F
+a.txt	echo x > $(echo a.txt)
+a.txt	python3 -c "open('a.txt','w').write('x')"
+a.txt	node -e "require('fs').writeFileSync('a.txt','x')"
+a.txt	./scripts/gen.sh
+a.txt	npm run format
+a.txt	awk -i inplace "{print}" a.txt
+a.txt	find . -name a.txt -exec sed -i "s/a/b/" {} \;
+a.txt	ls | xargs sed -i "s/a/b/"
+a.txt	patch -p1 < fix.diff
+a.txt	git apply fix.diff
+a.txt	dd if=/dev/zero of=a.txt bs=1 count=1
+a.txt	install -m 644 b.txt a.txt
+a.txt	ln -sf b.txt a.txt
+a.txt	gofmt -w a.txt
+a.txt	prettier --write a.txt
+-	cat a.txt
+-	grep -r foo .
+-	ls -la
+-	git status
+-	go test ./...
+-	echo hi > /dev/null
+-	sed "s/a/b/" a.txt
+-	diff a.txt b.txt
+-	wc -l a.txt

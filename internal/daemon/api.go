@@ -49,6 +49,10 @@ type Request struct {
 	Event   string `json:"event,omitempty"` // event: normalised hook event name
 
 	Paths []string `json:"paths,omitempty"` // decide: repository-relative paths
+	// decide for shell commands: the command line, and whether its writes
+	// could not be parsed (then a literal mention of a claimed file denies).
+	Command string `json:"command,omitempty"`
+	Opaque  bool   `json:"opaque,omitempty"`
 
 	// claim_add: canonical patterns for Repo, held by Session (and Member).
 	Patterns     []string `json:"patterns,omitempty"`

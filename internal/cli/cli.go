@@ -17,6 +17,7 @@ import (
 	"github.com/crewbo/crewbo/internal/hooks/claudecode"
 	"github.com/crewbo/crewbo/internal/hooks/codex"
 	"github.com/crewbo/crewbo/internal/platform"
+	"github.com/crewbo/crewbo/internal/shellparse"
 )
 
 // Exit codes returned by Run.
@@ -156,7 +157,7 @@ func runHook(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		log.Warn("hook: unknown agent or event, allowing", "agent", args[0], "event", args[1], "paths_err", perr)
 		return ExitOK
 	}
-	return hooks.Run(ctx, a, kind, stdin, stdout, hooks.Deps{Paths: p, Log: log})
+	return hooks.Run(ctx, a, kind, stdin, stdout, hooks.Deps{Paths: p, Log: log, ParseShell: parseShell})
 }
 
 // hookLog appends to hook.log in the data directory, or discards when that
@@ -169,4 +170,15 @@ func hookLog(p platform.Paths, perr error) *slog.Logger {
 		}
 	}
 	return slog.New(slog.DiscardHandler)
+}
+
+// parseShell finds shell write targets. PowerShell gets its own parser in
+// M2-05; until then its commands are treated as opaque, so the daemon's
+// literal-mention check still applies.
+func parseShell(command string, sh hooks.Shell) ([]string, bool) {
+	if sh == hooks.PowerShell {
+		return nil, true
+	}
+	r := shellparse.POSIX(command)
+	return r.Targets, r.Opaque
 }
