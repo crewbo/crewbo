@@ -1,0 +1,37 @@
+a.txt	Add-Content -Path a.txt -Value 'shell' -Encoding utf8
+a.txt	Add-Content -LiteralPath .\a.txt -Value 'shell'
+a.txt	Set-Content a.txt 'hello'
+a.txt	sc -Path src\a.txt -Value x
+a.txt	ac a.txt x
+a.txt	"hi" | Out-File -FilePath a.txt
+a.txt	"hi" | Out-File a.txt -Append
+a.txt	Get-Date > a.txt
+a.txt	Get-Date >> a.txt
+a.txt	Write-Output x 2> a.txt
+a.txt	"x" | Tee-Object -FilePath a.txt
+a.txt	Clear-Content -Path a.txt
+a.txt	Remove-Item a.txt -Force
+a.txt	rm -Recurse -Force a.txt
+a.txt	del a.txt
+a.txt	Copy-Item b.txt a.txt
+a.txt	Copy-Item -Path b.txt -Destination a.txt
+a.txt	cp b.txt a.txt
+a.txt	Move-Item a.txt b.txt
+a.txt	Move-Item -Path b.txt -Destination a.txt
+a.txt	New-Item -ItemType File -Path a.txt
+a.txt	Rename-Item a.txt b.txt
+a.txt	Set-Content -Pa a.txt -Va x
+a.txt	Set-Content -Path:a.txt -Value x
+a.txt	$f = 'a.txt'; Set-Content $f 'x'
+a.txt	Set-Content (Join-Path src a.txt) x
+a.txt	[IO.File]::WriteAllText('a.txt', 'x')
+a.txt	python -c "open('a.txt','w')"
+a.txt	.\gen.ps1 a.txt
+a.txt	cd src; Set-Content a.txt x
+-	Get-Content a.txt
+-	Select-String -Path a.txt -Pattern foo
+-	Test-Path a.txt
+-	Get-ChildItem -Recurse
+-	Write-Output a.txt
+-	Get-Date 2>&1
+-	Get-Content a.txt | Measure-Object
