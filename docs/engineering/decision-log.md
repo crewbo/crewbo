@@ -75,3 +75,6 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | platform | Windows minimum becomes Windows 10 version 1803 (build 17134), the first release at or above build 17063; PRD NFR says "Windows 10+", flagged to Ronel | AF_UNIX support | #15
 2026-10-11 | product | PRD platform target changed from "Windows 10+" to "Windows 10 version 1803 or later and Windows 11" | AF_UNIX needs build 17063+; earlier versions are out of Microsoft support; Ronel asked for a recommendation | PRD
 2026-10-11 | security | Local daemon connections require a per-start random token on every OS (first line of each connection) | Closes U-29 by design instead of a manual two-account Windows test; same approach as Claude Code on Windows | #16
+2026-10-11 | daemon | Local API is newline-delimited JSON (Hello with token, then Request and Response), plain Go structs | Small, debuggable; protobuf is reserved for daemon to server | #16
+2026-10-11 | daemon | Token is written only after Listen succeeds, compared in constant time, removed on shutdown | A refused second daemon must never replace the live token | #16
+2026-10-11 | lint | gosec excluded for _test.go files | Tests build binaries and read temp files on purpose; production code stays covered | #16
