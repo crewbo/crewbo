@@ -1,0 +1,15 @@
+{
+  "session_id": "session-01",
+  "transcript_path": "C:\\Users\\USER\\.claude\\projects\\C--work-repo\\TRANSCRIPT.jsonl",
+  "cwd": "C:\\work\\s1\\repo",
+  "prompt_id": "prompt-01",
+  "permission_mode": "acceptEdits",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "The hook blocked both changes to blocked.txt, and the edit to free.txt went through.\n\n1. **Edit 'original' \u2192 'changed' in blocked.txt:** Blocked. The exact error was:\n   `PreToolUse:Edit hook error: blocked.txt is claimed by alice for task 12 (crewbo probe).`\n2. **Append the line `shell` to blocked.txt with the shell:** Blocked. The exact error was:\n   `PreToolUse:PowerShell hook error: blocked.txt is claimed by alice for task 12 (crewbo probe).`\n3. **Edit 'original' \u2192 'changed' in free.txt:** Succeeded. free.txt now reads `changed`.\n\nAs you asked, I didn't retry the blocked steps any other way, so blocked.txt still contains just `original`.",
+  "background_tasks": [],
+  "session_crons": []
+}

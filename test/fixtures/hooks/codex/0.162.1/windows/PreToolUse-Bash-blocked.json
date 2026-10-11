@@ -1,0 +1,14 @@
+{
+  "session_id": "session-03",
+  "turn_id": "turn-02",
+  "transcript_path": "C:\\Users\\USER\\.claude\\projects\\C--work-repo\\TRANSCRIPT.jsonl",
+  "cwd": "C:\\work\\u02\\repo",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5.6-luna",
+  "permission_mode": "default",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "Add-Content -LiteralPath .\\blocked.txt -Value 'shell'"
+  },
+  "tool_use_id": "tool_use-07"
+}

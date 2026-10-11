@@ -1,0 +1,19 @@
+{
+  "session_id": "session-01",
+  "transcript_path": "C:\\Users\\USER\\.claude\\projects\\C--work-repo\\TRANSCRIPT.jsonl",
+  "cwd": "C:\\work\\s1\\repo",
+  "prompt_id": "prompt-01",
+  "permission_mode": "acceptEdits",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "C:\\work\\s1\\repo\\blocked.txt",
+    "old_string": "original",
+    "new_string": "changed",
+    "replace_all": false
+  },
+  "tool_use_id": "tool_use-02"
+}
