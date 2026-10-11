@@ -22,7 +22,7 @@ Draft for Gate A. Field types are logical; storage types are decided with the SQ
 
 ## Path normalisation
 
-Every path stored or compared is repository-relative, uses `/`, has no `.` or `..` segments, and is compared case-sensitively except on Windows and default macOS volumes, where the daemon also checks a case-folded form and treats a case-only match as a conflict. Absolute paths from agents (Claude sends backslash paths on Windows) are converted by the daemon before any comparison.
+Every path stored or compared is repository-relative, uses `/`, has no `.` or `..` segments, and is compared case-insensitively on every OS: claims cross machines, and a path that differs only in case is the same file on a default Windows or macOS checkout (implemented in `internal/claims`, #13). Absolute paths from agents (Claude sends backslash paths on Windows) are converted by the daemon before any comparison.
 
 ## Glob overlap
 

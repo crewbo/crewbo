@@ -47,3 +47,6 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | process | M1 tracked as GitHub milestone "M1" with issues #10 to #19 and label `task` | Gate C approval; Ronel | GitHub
 2026-10-11 | cli | Subcommand routing with the standard library, no CLI framework | Few commands in v1; no dependency needed | #10
 2026-10-11 | ci | golangci-lint pinned to v2.14.0 (was v2.13.2) | v2.13.2 cannot read export data from Go 1.27.2 (typecheck errors); v2.14.0 checked locally | #10
+2026-10-11 | claims | Claim paths compare case-insensitively on every OS | Claims cross machines; a case-only difference is the same file on Windows and macOS. Resolves a wording difference between data-model.md and cross-platform.md | #13
+2026-10-11 | claims | internal/claims normalises with the path package, not path/filepath | Paths from any OS must normalise identically on every OS | #13
+2026-10-11 | claims | Set.Add rejects claims whose lease is not active at the given time | An already-expired claim would be accepted and silently ignored; found by a lease test | #13
