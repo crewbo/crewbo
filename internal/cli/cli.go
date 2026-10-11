@@ -14,6 +14,7 @@ import (
 
 	"github.com/crewbo/crewbo/internal/daemon"
 	"github.com/crewbo/crewbo/internal/hooks"
+	"github.com/crewbo/crewbo/internal/hooks/claudecode"
 	"github.com/crewbo/crewbo/internal/platform"
 )
 
@@ -116,13 +117,16 @@ func runStatus(ctx context.Context, stdout, stderr io.Writer) int {
 		return write(stderr, ExitError, "crewbo: daemon did not answer: %v\n", err)
 	}
 	st := resp.Status
-	return write(stdout, ExitOK, "crewbo daemon running: version %s, pid %d, up %s, %d active claims\n",
-		st.Version, st.PID, time.Since(st.Started).Round(time.Second), st.ActiveClaims)
+	return write(stdout, ExitOK, "crewbo daemon running: version %s, pid %d, up %s, %d active claims, %d agent sessions\n",
+		st.Version, st.PID, time.Since(st.Started).Round(time.Second), st.ActiveClaims, st.Sessions)
 }
 
 // adapterFor returns the hook adapter for an agent name.
-func adapterFor(string) (hooks.Adapter, bool) {
-	// Adapters are added by M2-02 (claude-code) and M2-03 (codex).
+func adapterFor(name string) (hooks.Adapter, bool) {
+	switch name {
+	case claudecode.Name:
+		return claudecode.Adapter{}, true
+	}
 	return nil, false
 }
 
