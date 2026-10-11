@@ -6,7 +6,7 @@ Targets: Windows 10+, macOS 13+, Linux x86_64 and arm64 (including Arch-based Om
 | --- | --- | --- | --- | --- |
 | Local IPC | Named pipe `\\.\pipe\crewbo-<user-sid>`, ACL current user only | Unix socket in `$TMPDIR/crewbo-<uid>/` (0700) | Unix socket in `$XDG_RUNTIME_DIR/crewbo/` (0700), fallback `/tmp/crewbo-<uid>/` | `internal/platform` `Listener` and `Dialer`. Named pipe library choice is a decision-log item in M1 |
 | Data dir | `%LOCALAPPDATA%\crewbo` | `~/Library/Application Support/crewbo` | `$XDG_DATA_HOME/crewbo` or `~/.local/share/crewbo` | `os.UserConfigDir` / `os.UserCacheDir` plus a platform helper for data |
-| Binary install path | `%LOCALAPPDATA%\crewbo\bin\crewbo.exe`; warn if the path contains spaces or `&` (Codex runs hooks via cmd.exe, U-03) | `~/.local/bin` or Homebrew prefix | `~/.local/bin` or package manager | Hook entries use the absolute path with forward slashes |
+| Binary install path | `%LOCALAPPDATA%\crewbo\bin\crewbo.exe`; refuse to install hooks if the path contains spaces or `&`: an unquoted spaced path made Codex skip hooks silently in Phase 0 (U-22) | `~/.local/bin` or Homebrew prefix | `~/.local/bin` or package manager | Hook entries use the absolute path with forward slashes |
 | Paths from agents | Claude sends absolute backslash paths in `file_path` | POSIX | POSIX | Convert to repo-relative `/` form before any comparison |
 | Case sensitivity | Case-insensitive (NTFS default) | Case-insensitive (APFS default) | Case-sensitive | Case-fold comparison on Windows and macOS; treat case-only matches as conflicts everywhere |
 | Long paths | MAX_PATH 260 unless long paths enabled | n/a | n/a | Pass `-c core.longpaths=true` to git; keep worktree root short (`<repo>/.crewbo/wt/<short-id>`) |

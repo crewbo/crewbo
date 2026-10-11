@@ -20,6 +20,10 @@ Sources:
 
 All responses are JSON on stdout only. The hook never prints anything else to stdout. Diagnostics go to a log file.
 
+Input handling: strip a leading UTF-8 byte order mark before decoding (a PowerShell 5.1 test harness added one and the probe silently allowed). Input that still fails to decode is logged and answered with an allow plus a visible warning, never a silent allow.
+
+Observed on Windows (Phase 0): Claude Code routes shell commands through its `PowerShell` tool, so the `Bash|PowerShell` matcher is required. Codex 0.154.0 sends relative paths in `apply_patch` headers there (absolute in 0.161.0 on Linux); a Codex hook command whose unquoted path contains a space does not run and Codex reports no error (U-22).
+
 ## Per-agent mapping
 
 | Crewbo event | Claude Code event and matcher | Codex event and matcher |
@@ -102,7 +106,7 @@ User-level `~/.claude/settings.json`, exec form (`args` present means no shell) 
 
 User-level `~/.codex/hooks.json` or `[hooks]` in `~/.codex/config.toml` [CX]. Fields: `type: "command"`, `command`, optional `commandWindows` / `command_windows`, `timeout` (seconds, default 600) [CX].
 
-- Non-managed hooks run only after the user trusts them in `/hooks`; trust is recorded against "the hook's current hash" and changed hooks are skipped until re-trusted [CX]. Whether the hash covers the binary is U-02. The entry is kept byte-for-byte stable across upgrades.
+- Non-managed hooks run only after the user trusts them in `/hooks`; trust is recorded against "the hook's current hash" and changed hooks are skipped until re-trusted [CX]. Phase 0 on Windows (0.162.1) showed the hash covers the hook entry, not the executable: after rebuilding the binary, `/hooks` still showed `Trusted` and the new binary ran (U-02 resolved). The entry is kept byte-for-byte stable across upgrades, so upgrades need no re-trust.
 - `--dangerously-bypass-hook-trust` exists on `codex exec` (confirmed in `codex exec --help`, 0.161.0). Crewbo does not use it in v1.
 - How Codex spawns the command per OS is not on the docs page. Phase 0 on Linux observed `/usr/bin/bash -c <command>`, with no login flag, contradicting the research's `$SHELL -lc`. Windows (`cmd.exe /C` per research) and whether `$SHELL` or the passwd shell is used remain open (U-03, U-19).
 - `permission_mode` arrives as `bypassPermissions` for `codex exec --sandbox workspace-write`; it does not describe the sandbox.

@@ -16,7 +16,7 @@ Source precedence: Ronel's explicit instructions > PRD > accepted ADRs > `docs/r
 ## Current phase
 
 - Gate A approved 2026-10-11 (PR #1).
-- Current: M0, Phase 0 spikes in the private repo `crewbo/spikes`. Linux done; Windows, macOS and interviews pending. Findings: `docs/research/phase0-findings.md`.
+- Current: M0, Phase 0 spikes in the private repo `crewbo/spikes`. Linux and Windows done; macOS and interviews pending. Findings: `docs/research/phase0-findings.md`.
 - Next gate: **Gate B** (go / no-go), target Oct 17. No product code before it.
 
 ## Commands
@@ -116,7 +116,9 @@ docs/                product, research, architecture, adr, engineering, runbooks
 - `ANTHROPIC_API_KEY` in the environment silently switches `claude -p` to API billing. The daemon strips it from dispatched runs unless the member opts in. ([authentication precedence](https://code.claude.com/docs/en/authentication#authentication-precedence): "In non-interactive mode (`-p`), the key is always used when present.")
 - Never launch `claude -p` with `--bare`: it skips hooks and MCP. Always pass `--permission-mode` explicitly; the installed CLI (2.1.294) offers `acceptEdits`, `auto`, `bypassPermissions`, `manual`, `dontAsk`, `plan`.
 - `zalando/go-keyring` can block for over 60 s when D-Bus cannot activate a secret service; wrap every call in a timeout (Phase 0 S7).
-- Codex `apply_patch` headers carry absolute paths in 0.161.0; Claude sends absolute `file_path` (backslashes on Windows). Normalise both to repo-relative before comparing claims.
+- Codex `apply_patch` headers carry absolute paths in 0.161.0 on Linux and relative paths in 0.154.0 on Windows; Claude sends absolute `file_path` (backslashes on Windows). Normalise all to repo-relative before comparing claims.
+- A Codex hook command whose unquoted path contains a space never runs and Codex shows no error (Windows, Phase 0). Never install the hook binary under a path with spaces.
+- Strip a leading UTF-8 BOM from hook stdin; a BOM made the Phase 0 probe parse nothing and allow.
 - GitHub recommends at most 6 pushes per minute per repository, so checkpoint refs are pushed at agent stop, not on a timer. (research: `docs/research/hook-and-dispatch-internals.md`)
 - The `crewbo` org is on GitHub Free: branch protection is not enforced on the private repo, and macOS Actions minutes cost about 10 times Linux minutes. See `docs/engineering/repo-settings.md`.
 
