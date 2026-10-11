@@ -48,3 +48,14 @@ Blockers:
 
 Next:
 - macOS results, then Gate B. Optional Windows reruns for U-20, U-21, U-22 on current Codex.
+
+## 2026-10-11 (late)
+
+Done:
+- macOS Phase 0 (spikes PR #2, 2f6f70d, run by the teammate's Codex agent): Codex blocks on macOS; Codex hook shell resolved (login shell with -c). Claude Code on macOS untested (no plan). Fixtures and docs updated; U-23 to U-25 added.
+- Windows Codex rerun prompt and script pushed to spikes (a09241d, 589773f).
+
+Next:
+- Ronel: Windows rerun (agent-prompts/windows-rerun.md), interviews.
+- Teammate: Codex-only macOS rerun for S7 and latency (agent-prompts/macos-rerun.md).
+- Then Gate B.
