@@ -150,7 +150,7 @@ One compiled command, `crewbo hook <event>`, serves every agent (Claude Code and
 
 ## Non-functional requirements, privacy and failure modes
 
-**Targets (v1):** rooms up to 10 people; claim and intent propagation under 2 seconds; daemon memory under 100 MB; Windows 10+, macOS 13+, Linux x86_64 and arm64; Git 2.38 or later.
+**Targets (v1):** rooms up to 10 people; claim and intent propagation under 2 seconds; daemon memory under 100 MB; Windows 10 version 1803 or later and Windows 11 (AF_UNIX sockets need build 17063+), macOS 13+, Linux x86_64 and arm64; Git 2.38 or later.
 
 **Privacy**
 
