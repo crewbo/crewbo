@@ -79,3 +79,4 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | daemon | Token is written only after Listen succeeds, compared in constant time, removed on shutdown | A refused second daemon must never replace the live token | #16
 2026-10-11 | lint | gosec excluded for _test.go files | Tests build binaries and read temp files on purpose; production code stays covered | #16
 2026-10-11 | ci | Coverage gate is scripts/coverage-gate.sh (85% for claims, shellparse, hooks, dispatch; missing packages skipped), run on the Linux CI job and via `task cover:gate` | One script for CI and local use; coverage logic is OS-independent | #19
+2026-10-11 | daemon | `decide` also registers the session and renews its leases | One round trip per edit on the hook path | #43
