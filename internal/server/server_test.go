@@ -196,7 +196,8 @@ func TestHelloTimeout(t *testing.T) {
 
 func TestKeepalive(t *testing.T) {
 	s := New(quiet())
-	s.PingEvery, s.PongWait = 20*time.Millisecond, 100*time.Millisecond
+	// Wide margins: Windows sleeps in ~15.6 ms steps and CI runs with -race.
+	s.PingEvery, s.PongWait = 20*time.Millisecond, 300*time.Millisecond
 
 	// A daemon that reads answers pings and stays connected.
 	alive := dial(t, testServer(t, s))
@@ -204,7 +205,7 @@ func TestKeepalive(t *testing.T) {
 	if env, err := recv(t, alive); err != nil || env.GetWelcome() == nil {
 		t.Fatalf("welcome: %v %v", env, err)
 	}
-	for i := range 10 { // 400 ms, many ping periods; each Read answers pings
+	for i := range 15 { // 600 ms, past PongWait; each Read answers pings
 		time.Sleep(40 * time.Millisecond)
 		id := "r" + strconv.Itoa(i)
 		sendEnv(t, alive, &crewbov1.Envelope{Id: id, Body: &crewbov1.Envelope_ClaimRenew{ClaimRenew: &crewbov1.ClaimRenew{}}})
@@ -216,7 +217,7 @@ func TestKeepalive(t *testing.T) {
 	// A daemon that stops reading never pongs and is closed.
 	dead := dial(t, testServer(t, s))
 	sendEnv(t, dead, hello(1))
-	time.Sleep(400 * time.Millisecond) // no Read, so no pong
+	time.Sleep(900 * time.Millisecond) // no Read, so no pong within PongWait
 	if env, err := recv(t, dead); err != nil || env.GetWelcome() == nil {
 		t.Fatalf("welcome: %v %v", env, err)
 	}
