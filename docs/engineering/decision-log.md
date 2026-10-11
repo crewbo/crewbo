@@ -68,3 +68,6 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | adapters | Antigravity adapter judged feasible from docs; no scope change until a live spike answers U-27 and Ronel decides U-26 | Docs-only timebox | antigravity-hooks.md
 2026-10-11 | adapters | Antigravity adapter prints nothing for unblocked calls, never `{}` and never `allow` | S9: `{}` blocks the call; `allow` would bypass user permissions | antigravity-hooks.md
 2026-10-11 | product | ADR 0013 accepted: Antigravity adapter is a v1 stretch goal (M5b); PRD v1 non-goals and roadmap updated; Antigravity dispatch stays in v2 | Ronel | ADR 0013
+2026-10-11 | gitx | Pass `-c core.longpaths=true` on every OS and run git with GIT_TERMINAL_PROMPT=0 | Git for Windows reads it, others ignore it, so no OS branch in gitx; unattended git must never wait for credentials | #18
+2026-10-11 | gitx | Use `merge-tree --write-tree -z --name-only --no-messages` (all available in git 2.38 docs) and treat exit 1 as a conflict only when a tree OID was printed | git 2.55.0 exits 1 for an unknown ref with empty stdout | #18
+2026-10-11 | security | gitx rejects refs that are empty or start with `-` | Prevents git option injection from refs received from other machines | #18

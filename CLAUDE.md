@@ -121,6 +121,7 @@ docs/                product, research, architecture, adr, engineering, runbooks
 - Strip a leading UTF-8 BOM from hook stdin; a BOM made the Phase 0 probe parse nothing and allow.
 - Codex runs hook commands with the account's login shell and `-c` (`bash -c` on Linux, `/bin/zsh -c` on macOS), ignoring `$SHELL`. zsh reads `~/.zshenv` even then, so anything it prints corrupts hook JSON.
 - golangci-lint v2.13.2 (the Arch package as of 2026-10-11) fails with `export data version 5 is greater than maximum supported version 4` against the Go 1.27.2 toolchain. Use v2.14.0 or later (CI pins it), or run `GOTOOLCHAIN=local golangci-lint run`.
+- `git merge-tree` exits 1 both for conflicts and for an unknown ref (git 2.55.0, contrary to its docs); `gitx` treats exit 1 as a conflict only when a tree OID was printed.
 - GitHub recommends at most 6 pushes per minute per repository, so checkpoint refs are pushed at agent stop, not on a timer. (research: `docs/research/hook-and-dispatch-internals.md`)
 - The `crewbo` org is on GitHub Free: branch protection is not enforced on the private repo, and macOS Actions minutes cost about 10 times Linux minutes. See `docs/engineering/repo-settings.md`.
 
