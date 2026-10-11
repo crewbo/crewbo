@@ -10,7 +10,9 @@ package claims
 import (
 	"errors"
 	"fmt"
+	"path"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -144,6 +146,26 @@ func (s *Set) Decide(sessionID string, paths []string, now time.Time) Decision {
 		}
 	}
 	return Decision{Allow: true}
+}
+
+// MentionedBy returns an active claim held by another session whose path
+// appears literally in command, matching the full pattern or its file name
+// without regard to case. It is the fallback for shell commands whose writes
+// cannot be parsed (an interpreter, a script, `patch`): Phase 0 S3 measured
+// no false positives when it is applied only to such commands. Glob claims
+// are skipped, since a glob cannot be matched against free text.
+func (s *Set) MentionedBy(sessionID, command string, now time.Time) (Claim, bool) {
+	text := strings.ToLower(command)
+	for _, c := range s.Active(now) {
+		if c.Holder.SessionID == sessionID || IsGlob(c.Pattern) {
+			continue
+		}
+		p := strings.ToLower(c.Pattern)
+		if strings.Contains(text, p) || strings.Contains(text, path.Base(p)) {
+			return c, true
+		}
+	}
+	return Claim{}, false
 }
 
 // conflict returns the first active claim (by id, for determinism) that

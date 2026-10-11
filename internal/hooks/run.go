@@ -32,9 +32,10 @@ type Deps struct {
 	Paths   platform.Paths
 	Timeout time.Duration // DefaultTimeout when zero
 	Log     *slog.Logger  // discard when nil
-	// ShellTargets returns the files a shell command writes (M2-04). When
-	// nil, shell commands are recorded as events but not checked.
-	ShellTargets func(command string, shell Shell, cwd string) []string
+	// ParseShell returns the files a shell command writes, relative to the
+	// command's directory, and whether it also runs something whose writes
+	// cannot be parsed. When nil, shell commands are recorded but not checked.
+	ParseShell func(command string, shell Shell) (targets []string, opaque bool)
 }
 
 // Run handles one hook call and returns the exit code for the process.
@@ -79,9 +80,9 @@ func decide(ctx context.Context, a Adapter, kind Kind, in io.Reader, d Deps) Res
 	}
 
 	var paths []string
-	targets := ev.Paths
-	if ev.Kind == PreShell && d.ShellTargets != nil {
-		targets = d.ShellTargets(ev.Command, ev.Shell, ev.Cwd)
+	targets, opaque := ev.Paths, false
+	if ev.Kind == PreShell && d.ParseShell != nil {
+		targets, opaque = d.ParseShell(ev.Command, ev.Shell)
 	}
 	for _, p := range targets {
 		if !filepath.IsAbs(p) && !isWindowsAbs(p) {
@@ -104,8 +105,8 @@ func decide(ctx context.Context, a Adapter, kind Kind, in io.Reader, d Deps) Res
 	defer func() { _ = c.Close() }()
 
 	req := daemon.Request{Session: ev.Session, Agent: ev.Agent, Repo: root}
-	if (ev.Kind == PreEdit || ev.Kind == PreShell) && len(paths) > 0 {
-		req.Method, req.Paths = daemon.MethodDecide, paths
+	if (ev.Kind == PreEdit || ev.Kind == PreShell) && (len(paths) > 0 || opaque) {
+		req.Method, req.Paths, req.Command, req.Opaque = daemon.MethodDecide, paths, ev.Command, opaque
 	} else {
 		req.Method, req.Event = daemon.MethodEvent, string(ev.Kind)
 	}

@@ -145,7 +145,13 @@ func (d *Daemon) handle(req Request) Response {
 			return Response{ID: req.ID, Error: "decide: session is required"}
 		}
 		d.touch(req, "pre_edit", now)
-		dec := d.set(req.Repo).Decide(req.Session, req.Paths, now)
+		set := d.set(req.Repo)
+		dec := set.Decide(req.Session, req.Paths, now)
+		if dec.Allow && req.Opaque {
+			if c, ok := set.MentionedBy(req.Session, req.Command, now); ok {
+				dec = claims.Decision{Allow: false, Path: c.Pattern, BlockedBy: c}
+			}
+		}
 		resp := Response{ID: req.ID, Allow: dec.Allow, Path: dec.Path}
 		if !dec.Allow {
 			blocked := dec.BlockedBy

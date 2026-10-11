@@ -136,3 +136,31 @@ func TestDecide(t *testing.T) {
 		})
 	}
 }
+
+func TestMentionedBy(t *testing.T) {
+	s := NewSet()
+	for _, c := range []Claim{claim("c1", "src/auth.go", "alice"), claim("c2", "web/**", "alice"), claim("c3", "mine.txt", "bob")} {
+		if err := s.Add(c, t0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tests := []struct {
+		cmd  string
+		want string
+	}{
+		{`python3 -c "open('src/auth.go','w')"`, "c1"},
+		{`node -e "fs.writeFileSync('AUTH.GO')"`, "c1"}, // file name, any case
+		{"python3 gen.py --out web/index.ts", ""},       // glob claims are skipped
+		{"./scripts/touch-mine.sh mine.txt", ""},        // bob's own claim
+		{"python3 other.py", ""},
+	}
+	for _, tt := range tests {
+		c, ok := s.MentionedBy("bob", tt.cmd, t0)
+		if (tt.want == "") == ok || (ok && c.ID != tt.want) {
+			t.Errorf("MentionedBy(%q) = %v, %v; want %q", tt.cmd, c.ID, ok, tt.want)
+		}
+	}
+	if _, ok := s.MentionedBy("bob", "edit src/auth.go", t0.Add(time.Hour)); ok {
+		t.Error("expired claim matched")
+	}
+}

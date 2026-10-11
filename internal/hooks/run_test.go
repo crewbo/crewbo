@@ -208,16 +208,22 @@ func TestEventsRegisterSession(t *testing.T) {
 func TestShellTargetsAreChecked(t *testing.T) {
 	e := setup(t, true)
 	var out bytes.Buffer
-	d := Deps{Paths: e.paths, ShellTargets: func(cmd string, _ Shell, _ string) []string {
-		if cmd == "echo x >> src/auth.go" {
-			return []string{"src/auth.go"}
+	d := Deps{Paths: e.paths, ParseShell: func(cmd string, _ Shell) ([]string, bool) {
+		switch cmd {
+		case "echo x >> src/auth.go":
+			return []string{"src/auth.go"}, false
+		case "python3 fix.py src/auth.go":
+			return nil, true
 		}
-		return nil
+		return nil, false
 	}}
-	in := payload(t, Event{Session: "bob", Cwd: e.repo, Command: "echo x >> src/auth.go"})
-	Run(context.Background(), fakeAdapter{}, PreShell, strings.NewReader(in), &out, d)
-	if !strings.Contains(out.String(), `"Deny":true`) {
-		t.Errorf("shell write to a claimed file allowed: %s", out.String())
+	for cmd, deny := range map[string]bool{"echo x >> src/auth.go": true, "python3 fix.py src/auth.go": true, "ls src": false} {
+		out.Reset()
+		in := payload(t, Event{Session: "bob", Cwd: e.repo, Command: cmd})
+		Run(context.Background(), fakeAdapter{}, PreShell, strings.NewReader(in), &out, d)
+		if got := strings.Contains(out.String(), `"Deny":true`); got != deny {
+			t.Errorf("%q: deny = %v, want %v (%s)", cmd, got, deny, out.String())
+		}
 	}
 }
 
