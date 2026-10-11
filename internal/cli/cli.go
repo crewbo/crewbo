@@ -123,8 +123,7 @@ func runStatus(ctx context.Context, stdout, stderr io.Writer) int {
 
 // adapterFor returns the hook adapter for an agent name.
 func adapterFor(name string) (hooks.Adapter, bool) {
-	switch name {
-	case claudecode.Name:
+	if name == claudecode.Name {
 		return claudecode.Adapter{}, true
 	}
 	return nil, false
