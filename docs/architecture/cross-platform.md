@@ -1,6 +1,6 @@
 # Cross-platform notes
 
-Targets: Windows 10+, macOS 13+, Linux x86_64 and arm64 (including Arch-based Omarchy). "Untested on <OS>" applies to everything here until Phase 0 and CI confirm it.
+Targets: Windows 10 version 1803 or later and Windows 11, macOS 13+, Linux x86_64 and arm64 (including Arch-based Omarchy). "Untested on <OS>" applies to everything here until Phase 0 and CI confirm it.
 
 | Concern | Windows | macOS | Linux | Handling |
 | --- | --- | --- | --- | --- |
