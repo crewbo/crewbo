@@ -1,0 +1,9 @@
+# https://buf.build/docs/configuration/v2/buf-gen-yaml/
+# protoc-gen-go runs through `go run`, so its version is the
+# google.golang.org/protobuf version pinned in go.mod.
+version: v2
+plugins:
+  - local: ["go", "run", "google.golang.org/protobuf/cmd/protoc-gen-go"]
+    out: internal/protocol
+    opt:
+      - paths=source_relative

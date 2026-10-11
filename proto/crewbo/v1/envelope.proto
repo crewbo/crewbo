@@ -1,0 +1,96 @@
+// Daemon to sync server protocol, version 1.
+// Design: docs/architecture/protocol.md. Compatibility: field numbers are
+// never reused (removed fields are reserved), receivers ignore unknown
+// fields, and `buf breaking` runs against main in CI.
+syntax = "proto3";
+
+package crewbo.v1;
+
+import "crewbo/v1/claims.proto";
+import "crewbo/v1/event.proto";
+
+option go_package = "github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1";
+
+// Envelope is the single message type on the wire: one per WebSocket text
+// frame, encoded as Protobuf JSON.
+message Envelope {
+  // Client-generated UUIDv7. The server de-duplicates requests by id and
+  // replays the same Ack or Error for a repeated id.
+  string id = 1;
+
+  oneof body {
+    Hello hello = 10;
+    Welcome welcome = 11;
+    Ack ack = 12;
+    Error error = 13;
+    ClaimRequest claim_request = 20;
+    ClaimRelease claim_release = 21;
+    ClaimRenew claim_renew = 22;
+    Event event = 60;
+  }
+}
+
+// Hello is the first frame a daemon sends after connecting.
+message Hello {
+  // Major protocol version; 1 for this package.
+  int32 protocol_version = 1;
+  // Crewbo session token from the auth exchange. Sent here, never in the URL.
+  string session_token = 2;
+  string device_key_id = 3;
+  // Last applied sequence number per room, for replay.
+  repeated RoomCursor rooms = 4;
+}
+
+// RoomCursor is a daemon's position in one room's event log.
+message RoomCursor {
+  string room_id = 1;
+  uint64 last_seq = 2;
+}
+
+// Welcome answers Hello. It carries a snapshot only for rooms whose missed
+// events are no longer retained; other rooms are brought up to date by
+// replayed Events.
+message Welcome {
+  int32 protocol_version = 1;
+  repeated RoomSnapshot snapshots = 2;
+}
+
+// RoomSnapshot is the full claim state of a room at a sequence number.
+message RoomSnapshot {
+  string room_id = 1;
+  uint64 seq = 2;
+  repeated Claim claims = 3;
+}
+
+// Ack confirms a request. seq is the sequence number of the Event the
+// request produced, or 0 if it produced none.
+message Ack {
+  string request_id = 1;
+  uint64 seq = 2;
+}
+
+// Error rejects a request.
+message Error {
+  string request_id = 1;
+  ErrorCode code = 2;
+  // Human-readable detail for logs and CLI output.
+  string message = 3;
+  // For ERROR_CODE_CONFLICT: the active claims that block the request.
+  repeated Claim blocking_claims = 4;
+}
+
+// ErrorCode classifies an Error.
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  // The receiver does not know this request type.
+  ERROR_CODE_UNSUPPORTED = 1;
+  // The request overlaps an active claim of another session.
+  ERROR_CODE_CONFLICT = 2;
+  ERROR_CODE_UNAUTHENTICATED = 3;
+  // Only the room lead may perform this action.
+  ERROR_CODE_NOT_LEAD = 4;
+  ERROR_CODE_INVALID = 5;
+  ERROR_CODE_TOO_LARGE = 6;
+  // The daemon's protocol_version is too old for this server.
+  ERROR_CODE_UPGRADE_REQUIRED = 7;
+}

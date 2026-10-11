@@ -37,7 +37,7 @@ Task runner is [Task](https://taskfile.dev) (`Taskfile.yml`). On Arch Linux the 
 | Run sync server locally | `task serve` |
 | Extension dev | Not set up yet (M5) |
 
-`task build` and `task test` work since M1-01; `task lint` needs `.proto` files for its buf step (M1-03). Toolchain: Go 1.27.2 (go.mod toolchain directive), buf, golangci-lint v2, gofumpt, goreleaser, Task.
+All commands except `task test:e2e` and extension dev work since M1-03. `task generate` runs `buf generate`, which runs protoc-gen-go through `go run` at the version pinned in `go.mod`. Toolchain: Go 1.27.2 (go.mod toolchain directive), buf, golangci-lint v2, gofumpt, goreleaser, Task.
 
 ## Repo map
 

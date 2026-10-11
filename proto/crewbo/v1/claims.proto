@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package crewbo.v1;
+
+option go_package = "github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1";
+
+// Claim is an advisory lease on a repository-relative path or glob
+// (internal/claims, ADR 0003). Patterns use "/" and are canonical.
+message Claim {
+  string id = 1;
+  string room_id = 2;
+  string pattern = 3;
+  string session_id = 4;
+  string member_id = 5;
+  // Optional: the dispatched task the claim belongs to.
+  string task_id = 6;
+  // Lease end in server time. The server is the time authority for expiry.
+  int64 lease_expires_unix_ms = 7;
+}
+
+// ClaimRequest asks for new claims for one agent session.
+message ClaimRequest {
+  string room_id = 1;
+  string session_id = 2;
+  repeated string patterns = 3;
+  string task_id = 4;
+}
+
+// ClaimRelease gives up claims before their lease ends.
+message ClaimRelease {
+  string room_id = 1;
+  repeated string claim_ids = 2;
+}
+
+// ClaimRenew extends every active claim of a session, sent on hook events.
+message ClaimRenew {
+  string room_id = 1;
+  string session_id = 2;
+}

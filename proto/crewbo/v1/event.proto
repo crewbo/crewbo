@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package crewbo.v1;
+
+import "crewbo/v1/claims.proto";
+
+option go_package = "github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1";
+
+// Event is one committed entry of a room's append-only log. The server
+// assigns seq gap-free per room; daemons apply events strictly in seq order.
+message Event {
+  string room_id = 1;
+  uint64 seq = 2;
+  int64 server_time_unix_ms = 3;
+  string actor_member_id = 4;
+
+  oneof body {
+    ClaimsGranted claims_granted = 10;
+    ClaimsReleased claims_released = 11;
+    ClaimsRenewed claims_renewed = 12;
+    ClaimsExpired claims_expired = 13;
+  }
+}
+
+// ClaimsGranted records claims added to the room.
+message ClaimsGranted {
+  repeated Claim claims = 1;
+}
+
+// ClaimsReleased records claims given up by their holder.
+message ClaimsReleased {
+  repeated string claim_ids = 1;
+}
+
+// ClaimsRenewed records a session's leases moving to a new end time.
+message ClaimsRenewed {
+  string session_id = 1;
+  int64 lease_expires_unix_ms = 2;
+}
+
+// ClaimsExpired records claims removed because their lease ended.
+message ClaimsExpired {
+  repeated string claim_ids = 1;
+}
