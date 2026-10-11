@@ -20,6 +20,12 @@ linters:
   exclusions:
     paths:
       - internal/protocol
+    rules:
+      # Tests build binaries, run subprocesses and read temporary files on
+      # purpose; gosec still covers all non-test code.
+      - path: _test\.go
+        linters:
+          - gosec
 
 formatters:
   enable:
