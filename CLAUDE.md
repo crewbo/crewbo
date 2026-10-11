@@ -17,7 +17,9 @@ Source precedence: Ronel's explicit instructions > PRD > accepted ADRs > `docs/r
 
 - Gate A approved 2026-10-11 (PR #1).
 - Gate B closed 2026-10-11: **go** (conditions met: 10 interviews, 9 teams mix vendors, same-repository use confirmed). Findings: `docs/research/phase0-findings.md`. Claude Code on macOS untested (U-23).
-- Next: **Gate C** for M1 (protocol and daemon skeleton); issue list in `docs/engineering/implementation-plan.md`. No product code until Ronel approves it.
+- M1 (protocol and daemon skeleton) and M2 (Claude Code and Codex hook adapters) complete on 2026-10-11 (PRs #20 to #54).
+- Next: small follow-ups from the Windows M2 check, then **Gate C for M3** (sync server and auth). No M3 code until Ronel approves the issue list.
+- **Start every session with `docs/engineering/handoff.md`** (state, habits, open items), then the latest `worklog.md` entry.
 
 ## Commands
 
@@ -107,7 +109,7 @@ docs/                product, research, architecture, adr, engineering, runbooks
 - Costly-to-reverse decisions: new ADR in `docs/adr/`.
 - Every other decision: one line in `docs/engineering/decision-log.md`.
 - Unknowns and fallbacks: `docs/engineering/unknowns.md`.
-- End of every session: append to `docs/engineering/worklog.md` (done, in progress, blockers, next step).
+- End of every session: append to `docs/engineering/worklog.md` (done, in progress, blockers, next step) and update `docs/engineering/handoff.md`.
 
 ## Known gotchas
 

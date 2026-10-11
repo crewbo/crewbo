@@ -89,3 +89,14 @@ Done:
 
 Next:
 - Ronel: accept or reject ADR 0013. Claude: M1-09 gitx (#18).
+
+## 2026-10-11 (end of day, handoff)
+
+Done:
+- M1 complete (PRs #20 to #34) and M2 complete (PRs #45 to #54): daemon, local claims, Claude Code and Codex adapters, POSIX and PowerShell shell parsing, post-shell hash check, hooks install, MCP tools.
+- Windows M2 end-to-end check by Ronel (crewbo/spikes PR #3): every feature works on Windows; three hooks install/uninstall bugs found.
+- macOS Codex-only check prompt for gavriel953 (crewbo/spikes `agent-prompts/macos-m2.md`).
+- `docs/engineering/handoff.md` written for the next session.
+
+Next:
+- Fix the three hooks install findings; record Windows M2 results; review the macOS results; then Gate C for M3.
