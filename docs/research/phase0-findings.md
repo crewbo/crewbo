@@ -124,12 +124,39 @@ Collected by Ronel, 2026-10-11. Ronel is not a member of any interviewed team. M
 | 2 | 4 | Omarchy, Ubuntu, macOS, Windows | Claude Code + Codex; Claude Code; Codex; Codex | Yes |
 | 3 | 3 | macOS, Windows x2 | Antigravity x3 | No (single vendor, not supported in v1) |
 | 4 | 4 | Ubuntu x4 | Claude Code x3; Claude Code + Codex | Yes, through one member |
+| 5 | 4 | macOS, Windows x2, Ubuntu | Antigravity + Kiro + GitHub Copilot + Cursor; Kiro + Antigravity x2; Freebuff + OpenCode | Yes (no v1 agent) |
+| 6 | 6 | Ubuntu x4, macOS, Windows | Antigravity + Freebuff + OpenCode; Codex + Antigravity + Freebuff + OpenCode + local LLM; Freebuff; Claude Code + Antigravity; Claude Code + Kiro + Antigravity + Cursor + Freebuff + OpenCode; Claude Code | Yes |
+| 7 | 3 | Windows x3 | Codex; Antigravity; Claude Code | Yes |
+| 8 | 4 | macOS x4 (one Intel) | Claude Code; Claude Code + Codex; Claude Code + Codex + Antigravity; Claude Code + Codex + Cursor | Yes |
+| 9 | 3 | Windows x2, macOS | Claude Code + Codex; Antigravity; Cursor + Codex | Yes |
+| 10 | 4 | macOS x2 (one Intel), Windows x2 | Codex; Claude Code + Antigravity; Cursor + Claude Code; Claude Code + Codex + Antigravity | Yes |
 
 Observations:
 - 3 of 4 teams include more than one agent vendor; 3 of 4 span two or more operating systems; every team has at least 3 people.
 - The interviews recorded which agents members use, not whether two agents worked on the same repository in the same project. Team 4's mix rests on one member.
 - 1 of 4 teams uses only Antigravity, supporting the v2 adapter plan.
 - Sample: 4 teams against a planned 10.
+
+### Full interview set (10 teams, 2026-10-11)
+
+Teams 5 to 10 were added after the Gate B decision, completing condition 1 (10 interviews). Counts below were computed from the table with a script, not by hand.
+
+| Measure | Result |
+| --- | --- |
+| Teams with more than one agent vendor | 9 of 10 (all but team 3) |
+| Teams with both a Claude Code and a Codex user | 8 of 10 |
+| Teams fully covered by v1 (every member uses Claude Code or Codex) | 5 of 10 (teams 1, 2, 4, 8, 10) |
+| Teams with no member covered by v1 | 2 of 10 (teams 3, 5) |
+| Members covered by v1 | 30 of 41 (73%) |
+| Members using each agent | Claude Code 23, Codex 15, Antigravity 15, Cursor 5, Freebuff 5, Kiro 4, OpenCode 4, GitHub Copilot 1, local LLM 1 |
+| Uncovered members who use Antigravity | 9 of 11 |
+| Teams spanning two or more operating systems | 8 of 10 |
+
+Observations:
+- The vendor-mix criterion (at least 3 of 10) is met by a wide margin on agents used.
+- Condition 2 is still open: the interviews record which agents members use, not whether two agents worked on the same repository in the same project.
+- Antigravity is used by as many members as Codex and appears in 7 of 10 teams. An Antigravity adapter would raise member coverage from 73% to 95% (39 of 41). It is planned for v2; moving it earlier is a PRD scope question for Ronel (U-26).
+- A member whose agent has no adapter is not blocked by claims and does not renew leases, so partial coverage weakens enforcement for the whole team.
 
 ### Decision
 
