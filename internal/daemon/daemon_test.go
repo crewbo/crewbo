@@ -77,7 +77,7 @@ func claimSet(t *testing.T) *claims.Set {
 
 func TestStatusAndDecide(t *testing.T) {
 	p := testPaths(t)
-	start(t, Config{Paths: p, Version: "v0.0.0-test", Claims: claimSet(t)})
+	start(t, Config{Paths: p, Version: "v0.0.0-test", Claims: map[string]*claims.Set{"": claimSet(t)}})
 	c, err := dial(t, p)
 	if err != nil {
 		t.Fatal(err)

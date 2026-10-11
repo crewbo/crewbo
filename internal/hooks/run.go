@@ -73,7 +73,7 @@ func decide(ctx context.Context, a Adapter, kind Kind, in io.Reader, d Deps) Res
 	if err != nil {
 		return Result{Warning: fmt.Sprintf("could not read the %s hook input (%v)", a.Name(), err)}
 	}
-	root, ok := repoRoot(ev.Cwd)
+	root, ok := RepoRoot(ev.Cwd)
 	if !ok {
 		return Result{} // not in a git repository: no claims apply
 	}
@@ -126,6 +126,8 @@ func denyReason(resp daemon.Response) string {
 	until := ""
 	if c := resp.BlockedBy; c != nil {
 		switch {
+		case c.Holder.SessionID == daemon.TerminalSession && c.Holder.MemberID != "":
+			holder = c.Holder.MemberID + " (from a terminal)"
 		case c.Holder.MemberID != "":
 			holder = c.Holder.MemberID + "'s agent"
 		case c.Holder.SessionID != "":
@@ -141,10 +143,10 @@ func denyReason(resp daemon.Response) string {
 	return fmt.Sprintf("%s is claimed by %s%s (Crewbo). Work on other files, or ask them to release it.", resp.Path, holder, until)
 }
 
-// repoRoot walks up from dir to the nearest directory containing .git (a
+// RepoRoot walks up from dir to the nearest directory containing .git (a
 // directory, or a file in worktrees and submodules). It does not run git, so
 // the hook stays fast.
-func repoRoot(dir string) (string, bool) {
+func RepoRoot(dir string) (string, bool) {
 	if dir == "" {
 		return "", false
 	}

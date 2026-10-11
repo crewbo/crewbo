@@ -86,3 +86,6 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | claudecode | Claude Code adapter never prints on Stop; allow prints nothing; warnings and context go in additionalContext | additionalContext on Stop continues the conversation (hooks reference); silence means no decision | #36
 2026-10-11 | codex | Codex adapter treats "Bash" commands as PowerShell on Windows | Phase 0: Codex 0.154.0 on Windows ran Add-Content under tool name Bash | #37
 2026-10-11 | codex | Codex adapter output is limited to hookSpecificOutput deny and additionalContext; Stop and allow print nothing | Unsupported fields fail the hook open (Codex docs) | #37
+2026-10-11 | daemon | Claims are kept per repository (map keyed by RepoKey: symlinks resolved, slashes, case folded) | A claim must not block the same path in other repositories; hook and terminal must agree on the key | #44
+2026-10-11 | cli | Terminal claims use session "terminal", lease 30 min by default (`--for`, at most 8 h), and block every agent including the user's own | No hook event renews them; teammates and rooms refine ownership in M3 | #44
+2026-10-11 | daemon | claim_add is all or nothing; a conflict rolls back the request's claims and returns the blocking claim | Partial claims surprise users | #44

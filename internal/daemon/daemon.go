@@ -16,6 +16,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,9 +36,11 @@ const (
 type Config struct {
 	Paths   platform.Paths
 	Version string
-	Claims  *claims.Set      // initial claim set; empty when nil
-	Now     func() time.Time // clock; time.Now when nil
-	Log     *slog.Logger
+	// Claims holds initial claim sets keyed by repository root (any path
+	// spelling; keys are normalised with RepoKey).
+	Claims map[string]*claims.Set
+	Now    func() time.Time // clock; time.Now when nil
+	Log    *slog.Logger
 }
 
 // Daemon is one running crewbo daemon.
@@ -45,8 +48,9 @@ type Daemon struct {
 	cfg     Config
 	started time.Time
 	calls   chan call
-	// sessions is owned by the owner goroutine, like the claim set.
+	// sessions and claims are owned by the owner goroutine.
 	sessions map[string]*Session
+	claims   map[string]*claims.Set // keyed by RepoKey
 }
 
 type call struct {
@@ -56,16 +60,17 @@ type call struct {
 
 // New returns a Daemon; call Run to start it.
 func New(cfg Config) *Daemon {
-	if cfg.Claims == nil {
-		cfg.Claims = claims.NewSet()
-	}
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	return &Daemon{cfg: cfg, calls: make(chan call), sessions: map[string]*Session{}}
+	d := &Daemon{cfg: cfg, calls: make(chan call), sessions: map[string]*Session{}, claims: map[string]*claims.Set{}}
+	for repo, set := range cfg.Claims {
+		d.claims[RepoKey(repo)] = set
+	}
+	return d
 }
 
 // Run serves until ctx is cancelled, then closes the socket, waits for open
@@ -140,17 +145,33 @@ func (d *Daemon) handle(req Request) Response {
 			return Response{ID: req.ID, Error: "decide: session is required"}
 		}
 		d.touch(req, "pre_edit", now)
-		dec := d.cfg.Claims.Decide(req.Session, req.Paths, now)
+		dec := d.set(req.Repo).Decide(req.Session, req.Paths, now)
 		resp := Response{ID: req.ID, Allow: dec.Allow, Path: dec.Path}
 		if !dec.Allow {
 			blocked := dec.BlockedBy
 			resp.BlockedBy = &blocked
 		}
 		return resp
+	case MethodClaimAdd:
+		return d.claimAdd(req, now)
+	case MethodClaimList:
+		return Response{ID: req.ID, Claims: d.set(req.Repo).Active(now)}
+	case MethodClaimRelease:
+		n := 0
+		set := d.set(req.Repo)
+		for _, id := range req.IDs {
+			if set.Release(id) {
+				n++
+			}
+		}
+		if n == 0 && len(req.IDs) > 0 {
+			return Response{ID: req.ID, Error: "no matching claims in this repository"}
+		}
+		return Response{ID: req.ID, Released: n}
 	case MethodStatus:
 		return Response{ID: req.ID, Status: &Status{
 			Version: d.cfg.Version, PID: os.Getpid(), Started: d.started,
-			ActiveClaims: len(d.cfg.Claims.Active(now)), Sessions: len(d.sessions),
+			ActiveClaims: d.activeClaims(now), Sessions: len(d.sessions),
 		}}
 	default:
 		return Response{ID: req.ID, Error: fmt.Sprintf("unknown method %q", req.Method)}
@@ -173,7 +194,82 @@ func (d *Daemon) touch(req Request, event string, now time.Time) {
 		s.Repo = req.Repo
 	}
 	s.LastSeen, s.LastEvent = now, event
-	d.cfg.Claims.Renew(req.Session, now, claims.DefaultLease)
+	for _, set := range d.claims {
+		set.Renew(req.Session, now, claims.DefaultLease)
+	}
+}
+
+// set returns the claim set for a repository, creating it on first use.
+func (d *Daemon) set(repo string) *claims.Set {
+	key := RepoKey(repo)
+	s, ok := d.claims[key]
+	if !ok {
+		s = claims.NewSet()
+		d.claims[key] = s
+	}
+	return s
+}
+
+func (d *Daemon) activeClaims(now time.Time) int {
+	n := 0
+	for _, s := range d.claims {
+		n += len(s.Active(now))
+	}
+	return n
+}
+
+// claimAdd grants all patterns or none: on a conflict, the claims already
+// added by this request are released and the blocking claim is returned.
+func (d *Daemon) claimAdd(req Request, now time.Time) Response {
+	if req.Session == "" || len(req.Patterns) == 0 {
+		return Response{ID: req.ID, Error: "claim_add: session and patterns are required"}
+	}
+	lease := DefaultCLILease
+	if req.LeaseSeconds > 0 {
+		lease = min(time.Duration(req.LeaseSeconds)*time.Second, MaxCLILease)
+	}
+	set := d.set(req.Repo)
+	var granted []claims.Claim
+	for _, p := range req.Patterns {
+		c := claims.Claim{
+			ID: newClaimID(), Pattern: p, TaskID: req.Task, LeaseExpires: now.Add(lease),
+			Holder: claims.Holder{SessionID: req.Session, MemberID: req.Member},
+		}
+		if err := set.Add(c, now); err != nil {
+			for _, g := range granted {
+				set.Release(g.ID)
+			}
+			resp := Response{ID: req.ID, Error: err.Error()}
+			var ce *claims.ConflictError
+			if errors.As(err, &ce) {
+				blocked := ce.Existing
+				resp.BlockedBy, resp.Path = &blocked, p
+			}
+			return resp
+		}
+		granted = append(granted, c)
+	}
+	return Response{ID: req.ID, Claims: granted}
+}
+
+func newClaimID() string {
+	b := make([]byte, 6)
+	_, _ = rand.Read(b) // crypto/rand.Read never returns an error (Go 1.24+)
+	return "c-" + hex.EncodeToString(b)
+}
+
+// RepoKey identifies a repository across path spellings: symlinks resolved
+// (macOS /tmp is /private/tmp), forward slashes, case folded (Windows tools
+// disagree on drive-letter case). Claims are per repository, so a hook and
+// a terminal in the same checkout must map to the same key.
+func RepoKey(repo string) string {
+	if repo == "" {
+		return ""
+	}
+	if r, err := filepath.EvalSymlinks(repo); err == nil {
+		repo = r
+	}
+	return strings.ToLower(filepath.ToSlash(filepath.Clean(repo)))
 }
 
 // serve authenticates one connection and answers its requests in order.

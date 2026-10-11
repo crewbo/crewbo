@@ -67,7 +67,10 @@ func setup(t *testing.T, withDaemon bool) env {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	go func() { defer close(done); _ = daemon.New(daemon.Config{Paths: e.paths, Claims: set}).Run(ctx) }()
+	go func() {
+		defer close(done)
+		_ = daemon.New(daemon.Config{Paths: e.paths, Claims: map[string]*claims.Set{repo: set}}).Run(ctx)
+	}()
 	t.Cleanup(func() { cancel(); <-done })
 	deadline := time.Now().Add(5 * time.Second)
 	for {
@@ -227,10 +230,10 @@ func TestRepoRootFindsWorktreeGitFile(t *testing.T) {
 	if err := os.MkdirAll(sub, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if got, ok := repoRoot(sub); !ok || got != dir {
+	if got, ok := RepoRoot(sub); !ok || got != dir {
 		t.Errorf("repoRoot = %q, %v; want %q", got, ok, dir)
 	}
-	if _, ok := repoRoot(""); ok {
+	if _, ok := RepoRoot(""); ok {
 		t.Error("empty dir reported a repository")
 	}
 }
@@ -254,5 +257,12 @@ func TestIsWindowsAbs(t *testing.T) {
 		if got := isWindowsAbs(p); got != want {
 			t.Errorf("isWindowsAbs(%q) = %v, want %v", p, got, want)
 		}
+	}
+}
+
+func TestDenyReasonForTerminalClaim(t *testing.T) {
+	got := denyReason(daemon.Response{Path: "a.go", BlockedBy: &claims.Claim{Holder: claims.Holder{SessionID: daemon.TerminalSession, MemberID: "ronel"}}})
+	if !strings.Contains(got, "a.go is claimed by ronel (from a terminal)") {
+		t.Errorf("denyReason = %q", got)
 	}
 }

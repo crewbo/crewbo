@@ -157,7 +157,10 @@ func TestCapturedEditIsDenied(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	go func() { defer close(done); _ = daemon.New(daemon.Config{Paths: paths, Claims: set}).Run(ctx) }()
+	go func() {
+		defer close(done)
+		_ = daemon.New(daemon.Config{Paths: paths, Claims: map[string]*claims.Set{repo: set}}).Run(ctx)
+	}()
 	t.Cleanup(func() { cancel(); <-done })
 	waitForDaemon(t, paths)
 
