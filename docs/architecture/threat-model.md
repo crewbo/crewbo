@@ -57,6 +57,7 @@ flowchart LR
 | Tampering | Malicious dispatched task text instructs the agent to exfiltrate secrets | Verbatim approval gate; fresh worktree; teammate's own non-bypass permission mode; text never interpreted by the daemon |
 | Information disclosure | Logs contain task text or tokens | `slog` handlers never log task bodies, tokens or keys; redaction tests |
 | Elevation | Launch with `bypassPermissions` or `danger-full-access` | Launcher allow-lists modes; tests assert flags |
+| Tampering | A ref or branch name from a room event (for example `--upload-pack=...`) reaches git as an option | `gitx` rejects refs that are empty or start with `-`; paths follow `--`; git runs without a shell (#18) |
 | Repudiation | Teammate denies approving a task | Approval event signed by the teammate's device key and logged |
 
 ### Dispatch path (prompt injection)
