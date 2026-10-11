@@ -41,6 +41,9 @@ type Event struct {
 	Command string   // pre_shell: the command line
 	Shell   Shell
 	Model   string // when the agent reports it
+	// ToolUseID pairs a pre_shell event with its post_edit event (both
+	// agents send the same tool_use_id before and after a tool call).
+	ToolUseID string
 }
 
 // Result is what the hook tells the agent.

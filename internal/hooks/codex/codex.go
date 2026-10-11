@@ -30,6 +30,7 @@ type input struct {
 	Cwd       string `json:"cwd"`
 	Model     string `json:"model"`
 	ToolName  string `json:"tool_name"`
+	ToolUseID string `json:"tool_use_id"`
 	ToolInput struct {
 		Command string `json:"command"` // Bash command or raw apply_patch text
 	} `json:"tool_input"`
@@ -44,7 +45,7 @@ func (a Adapter) Decode(kind hooks.Kind, payload []byte) (hooks.Event, error) {
 	if in.SessionID == "" {
 		return hooks.Event{}, fmt.Errorf("codex: payload has no session_id")
 	}
-	ev := hooks.Event{Kind: kind, Agent: Name, Session: in.SessionID, Cwd: in.Cwd, Model: in.Model}
+	ev := hooks.Event{Kind: kind, Agent: Name, Session: in.SessionID, Cwd: in.Cwd, Model: in.Model, ToolUseID: in.ToolUseID}
 	switch in.ToolName {
 	case "apply_patch":
 		ev.Paths = PatchPaths(in.ToolInput.Command)
