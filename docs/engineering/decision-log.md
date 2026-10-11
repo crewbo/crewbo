@@ -27,3 +27,6 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | data | Invite default expiry 24 h | Hackathon length | data-model.md
 2026-10-11 | data | Glob overlap check is conservative prefix comparison in v1 | Never misses a conflict; false positives acceptable | data-model.md
 2026-10-11 | product | Long-term IDE recorded as ADR 0012 Proposed; PRD non-goal unchanged | PRD change needs Ronel's decision | ADR 0012
+2026-10-11 | ci | Skip CI for docs-only changes; macOS only on PRs, weekly and manual runs | Save Actions minutes while private; Ronel has Windows, a friend has a Mac for manual checks | repo-settings.md
+2026-10-11 | process | Repo settings are applied by Ronel with documented gh commands | Claude Code permission rules block settings changes | repo-settings.md
+2026-10-11 | community | CoC contact will be an address on crewbo.dev once the domain is set up | Ronel | U-17

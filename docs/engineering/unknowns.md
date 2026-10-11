@@ -20,4 +20,4 @@ Rule: 90-minute timebox per unknown. Unresolved by then, take the fallback and l
 | U-14 | `PreToolUse` deny honoured under `bypassPermissions` (Claude) and `danger-full-access` (Codex) | Claude | Phase 0 S1, S2 | Document that bypass modes may skip enforcement | Open, new |
 | U-15 | Hook round-trip latency budget (target 300 ms) on each OS | Claude + Ronel | Measure in Phase 0 S1 | Raise deadline; never above 1 s | Open, new |
 | U-16 | Windows named pipe library for Go (stdlib has none) | Claude | Evaluate in M1 (licence, maintenance) | Loopback TCP with a token file (0600 or user ACL) | Open, new |
-| U-17 | Code of conduct enforcement contact | Ronel | Pick an address (for example on crewbo.dev) | Keep placeholder while the repo is private | Open, new |
+| U-17 | Code of conduct enforcement contact | Ronel | Address on crewbo.dev once the domain mail is set up | Keep placeholder while the repo is private | Open, planned |
