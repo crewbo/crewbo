@@ -64,3 +64,5 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | store | Corruption detected by quick_check and driver result codes SQLITE_NOTADB and SQLITE_CORRUPT (primary code of extended codes) | Typed *sqlite.Error.Code() instead of message matching | #17
 2026-10-11 | ci | CI also builds with CGO_ENABLED=0 | Release builds use it; tests keep cgo because -race needs it | #17
 2026-10-11 | gate | Gate B condition 1 met: 10 teams interviewed, 9 mix vendors. Condition 2 (same-repository use) still open | Interviews from Ronel | phase0-findings.md
+2026-10-11 | gate | Gate B conditions met; conditional go becomes go | 10 interviews; Ronel confirmed same-repository use for all teams | phase0-findings.md
+2026-10-11 | adapters | Antigravity adapter judged feasible from docs; no scope change until a live spike answers U-27 and Ronel decides U-26 | Docs-only timebox | antigravity-hooks.md

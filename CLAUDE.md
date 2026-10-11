@@ -16,7 +16,7 @@ Source precedence: Ronel's explicit instructions > PRD > accepted ADRs > `docs/r
 ## Current phase
 
 - Gate A approved 2026-10-11 (PR #1).
-- Gate B closed 2026-10-11: **conditional go** (6 more independent interviews and same-repo confirmation due by end of M1; re-check before M2). Findings: `docs/research/phase0-findings.md`. Claude Code on macOS untested (U-23).
+- Gate B closed 2026-10-11: **go** (conditions met: 10 interviews, 9 teams mix vendors, same-repository use confirmed). Findings: `docs/research/phase0-findings.md`. Claude Code on macOS untested (U-23).
 - Next: **Gate C** for M1 (protocol and daemon skeleton); issue list in `docs/engineering/implementation-plan.md`. No product code until Ronel approves it.
 
 ## Commands
