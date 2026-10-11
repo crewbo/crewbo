@@ -92,7 +92,7 @@ $('crew').innerHTML = crew.map((m) => {
   const svg = v.kind === 'scene'
     ? sceneSVG({ scene: v.scene, color: m.color.base, size: 64 })
     : boSVG({ state: v.state, color: m.color.base, size: 64 });
-  const tint = m.s.online ? m.color.tint : '#737373';
+  const tint = m.s.online ? m.color.tint : '#858585';
   return `<div class="crew-row">${svg}<div><b>${m.name}</b><span>${m.line}</span><code style="color:${tint}">${m.agent}</code></div></div>`;
 }).join('');
 

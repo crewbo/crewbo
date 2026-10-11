@@ -10,7 +10,8 @@
 | `color.gray.800` | `#262626` | Strong body copy on light; prop fills on dark |
 | `color.gray.700` | `#404040` | Keys, desk lines, inactive controls on dark |
 | `color.gray.600` | `#525252` | Secondary text on light (7.81:1 on white) |
-| `color.gray.500` | `#737373` | Offline Bo on light; tertiary text on dark only |
+| `color.gray.500` | `#737373` | Offline Bo on light. Not for text on dark (3.78:1 on `#171717`) |
+| `color.gray.450` | `#858585` | Tertiary text on dark (4.86:1 on `#171717`, 5.19:1 on `#0F0F0F`). BDR-016 |
 | `color.gray.400` | `#A3A3A3` | Secondary text on dark (7.3:1 on `#141414`) |
 | `color.gray.200` | `#E5E5E5` | Borders on light |
 | `color.gray.100` | `#F5F5F5` | Card and section fill on light |
