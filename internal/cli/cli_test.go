@@ -27,7 +27,7 @@ func TestRun(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			code := Run(context.Background(), tt.args, &stdout, &stderr, info)
+			code := Run(context.Background(), tt.args, nil, &stdout, &stderr, info)
 			if code != tt.wantCode {
 				t.Errorf("exit code = %d, want %d", code, tt.wantCode)
 			}
@@ -52,7 +52,7 @@ type failingWriter struct{}
 func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("closed pipe") }
 
 func TestRunWriteFailure(t *testing.T) {
-	code := Run(context.Background(), []string{"version"}, failingWriter{}, failingWriter{}, BuildInfo{})
+	code := Run(context.Background(), []string{"version"}, nil, failingWriter{}, failingWriter{}, BuildInfo{})
 	if code != ExitError {
 		t.Errorf("exit code = %d, want %d", code, ExitError)
 	}

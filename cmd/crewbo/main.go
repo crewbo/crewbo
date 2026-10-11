@@ -19,7 +19,7 @@ var (
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), platform.ShutdownSignals()...)
-	code := cli.Run(ctx, os.Args[1:], os.Stdout, os.Stderr, cli.BuildInfo{Version: version, Commit: commit})
+	code := cli.Run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr, cli.BuildInfo{Version: version, Commit: commit})
 	stop()
 	os.Exit(code)
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -45,7 +46,7 @@ func isolate(t *testing.T) platform.Paths {
 func TestStatusNotRunning(t *testing.T) {
 	isolate(t)
 	var stdout, stderr bytes.Buffer
-	if code := Run(context.Background(), []string{"status"}, &stdout, &stderr, BuildInfo{}); code != ExitError {
+	if code := Run(context.Background(), []string{"status"}, nil, &stdout, &stderr, BuildInfo{}); code != ExitError {
 		t.Errorf("exit = %d, want %d", code, ExitError)
 	}
 	if !strings.Contains(stdout.String(), "not running") {
@@ -67,7 +68,7 @@ func TestStatusRunning(t *testing.T) {
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		stdout.Reset()
-		if Run(context.Background(), []string{"status"}, &stdout, &stderr, BuildInfo{}) == ExitOK {
+		if Run(context.Background(), []string{"status"}, nil, &stdout, &stderr, BuildInfo{}) == ExitOK {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -77,5 +78,19 @@ func TestStatusRunning(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "running: version v9.9.9") {
 		t.Errorf("stdout = %q", stdout.String())
+	}
+}
+
+func TestHookFailsOpenForUnknownAgentOrEvent(t *testing.T) {
+	p := isolate(t)
+	for _, args := range [][]string{{"hook"}, {"hook", "nope", "pre_edit"}, {"hook", "nope", "nope"}} {
+		var stdout, stderr bytes.Buffer
+		code := Run(context.Background(), args, strings.NewReader(`{"x":1}`), &stdout, &stderr, BuildInfo{})
+		if code != ExitOK || stdout.Len() != 0 {
+			t.Errorf("%v: exit %d, stdout %q; want 0 and nothing", args, code, stdout.String())
+		}
+	}
+	if b, err := os.ReadFile(filepath.Join(p.Data, "hook.log")); err != nil || !strings.Contains(string(b), "unknown agent or event") {
+		t.Errorf("hook.log = %q, %v", b, err)
 	}
 }

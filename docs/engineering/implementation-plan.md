@@ -59,6 +59,8 @@ Deliverables: `crewbo/spikes` README per spike; `docs/research/phase0-findings.m
 | M2-06 | `post_edit` hash check of claimed files | Detects writes the parser missed; records violation | Integration test with real files | M2-01 |
 | M2-07 | `crewbo hooks install` / `uninstall` for both agents (user-level config, exec form, stable entries) | Idempotent; preserves existing user hooks; backs up config | Unit tests on sample configs from 3 OSes | M2-02, M2-03 |
 | M2-08 | `crewbo mcp` read-only tools (team state, claims, intents) | Registered with both CLIs; tools return daemon state | Integration test with the SDK client | M1-07 |
+| M2-09 | Daemon `event` API: register sessions, renew leases on every hook event (#43) | `decide` also renews; status counts sessions | Daemon tests with an injected clock | M1-07 |
+| M2-10 | Local `crewbo claim add / list / release` before the sync server (#44) | Demo: a terminal claim blocks a Claude Code edit in the same repo | CLI tests; manual demo | M2-09 |
 
 ## M3: sync server and auth
 
