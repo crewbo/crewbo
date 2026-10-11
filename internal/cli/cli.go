@@ -8,9 +8,12 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/crewbo/crewbo/internal/daemon"
+	"github.com/crewbo/crewbo/internal/hooks"
 	"github.com/crewbo/crewbo/internal/platform"
 )
 
@@ -35,14 +38,15 @@ Usage:
 Commands:
   daemon    Run the Crewbo daemon in the foreground
   status    Show whether the daemon is running
+  hook      Handle an agent hook call (run by Claude Code and Codex)
   version   Print the version and commit
   help      Show this help
 `
 
 // Run executes the command named in args (without the program name),
-// writing to stdout and stderr, and returns the process exit code. ctx is
-// cancelled on a shutdown signal.
-func Run(ctx context.Context, args []string, stdout, stderr io.Writer, info BuildInfo) int {
+// reading stdin and writing to stdout and stderr, and returns the process
+// exit code. ctx is cancelled on a shutdown signal.
+func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer, info BuildInfo) int {
 	if len(args) == 0 {
 		return write(stdout, ExitOK, "%s", usage)
 	}
@@ -55,6 +59,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, info Buil
 		return runDaemon(ctx, stderr, info)
 	case "status":
 		return runStatus(ctx, stdout, stderr)
+	case "hook":
+		return runHook(ctx, args[1:], stdin, stdout)
 	default:
 		return write(stderr, ExitUsage, "crewbo: unknown command %q\n\n%s", args[0], usage)
 	}
@@ -112,4 +118,45 @@ func runStatus(ctx context.Context, stdout, stderr io.Writer) int {
 	st := resp.Status
 	return write(stdout, ExitOK, "crewbo daemon running: version %s, pid %d, up %s, %d active claims\n",
 		st.Version, st.PID, time.Since(st.Started).Round(time.Second), st.ActiveClaims)
+}
+
+// adapterFor returns the hook adapter for an agent name.
+func adapterFor(string) (hooks.Adapter, bool) {
+	// Adapters are added by M2-02 (claude-code) and M2-03 (codex).
+	return nil, false
+}
+
+var hookKinds = map[string]hooks.Kind{
+	"session_start": hooks.SessionStart, "prompt": hooks.Prompt, "pre_edit": hooks.PreEdit,
+	"pre_shell": hooks.PreShell, "post_edit": hooks.PostEdit, "stop": hooks.Stop,
+}
+
+// runHook always exits 0 unless an adapter asks otherwise: a misconfigured
+// hook must never block the agent (ADR 0004). Problems go to hook.log.
+func runHook(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer) int {
+	p, perr := paths()
+	log := hookLog(p, perr)
+	if len(args) != 2 {
+		log.Warn("hook: want `crewbo hook <agent> <event>`", "args", args)
+		return ExitOK
+	}
+	a, ok := adapterFor(args[0])
+	kind, kok := hookKinds[args[1]]
+	if !ok || !kok || perr != nil {
+		log.Warn("hook: unknown agent or event, allowing", "agent", args[0], "event", args[1], "paths_err", perr)
+		return ExitOK
+	}
+	return hooks.Run(ctx, a, kind, stdin, stdout, hooks.Deps{Paths: p, Log: log})
+}
+
+// hookLog appends to hook.log in the data directory, or discards when that
+// is not possible. stdout is reserved for the agent's JSON.
+func hookLog(p platform.Paths, perr error) *slog.Logger {
+	if perr == nil && os.MkdirAll(p.Data, 0o700) == nil {
+		f, err := os.OpenFile(filepath.Join(p.Data, "hook.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+		if err == nil {
+			return slog.New(slog.NewTextHandler(f, nil))
+		}
+	}
+	return slog.New(slog.DiscardHandler)
 }
