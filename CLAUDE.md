@@ -86,7 +86,7 @@ docs/                product, research, architecture, adr, engineering, runbooks
 - Wrap errors with `%w` and context. No panics outside `main`. Typed sentinel errors where callers branch.
 - Every goroutine has an owner and a `context.Context` cancellation path. Tests run with `-race`.
 - No global mutable state; inject dependencies through constructors.
-- `path/filepath` for paths, never string concatenation. Pass `-c core.longpaths=true` to git on Windows.
+- `path/filepath` for paths, never string concatenation. Pass `-c core.longpaths=true` to git on Windows. Exception: `internal/claims` compares paths reported from any OS (Windows backslash paths checked on Linux), so it uses OS-independent logic on slash paths with the `path` package.
 - Document every exported identifier.
 - Prefer the standard library. Every new dependency gets a decision-log entry (licence, maintenance, why not stdlib) and is pinned.
 - Coverage at least 85% for `internal/claims`, `internal/shellparse`, `internal/hooks/...`, `internal/dispatch`. Hook adapters test against golden fixtures.
