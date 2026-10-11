@@ -15,7 +15,12 @@ task build                           # builds ./bin/crewbo
 ./bin/crewbo claim list
 ```
 
-Hook installation for Claude Code and Codex (`crewbo hooks install`) is in progress; until then hooks are registered by hand as in `docs/architecture/hooks.md`.
+To make Claude Code and Codex respect claims, install Crewbo's hooks (your own hooks and settings are kept, with a backup):
+
+```sh
+./bin/crewbo hooks install          # then, in Codex, open /hooks and trust the crewbo hooks
+./bin/crewbo hooks uninstall        # removes only Crewbo's entries
+```
 
 ## License
 
