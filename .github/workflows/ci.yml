@@ -42,6 +42,10 @@ jobs:
       - name: Build
         if: hashFiles('**/*.go') != ''
         run: go build ./...
+      # Release builds use CGO_ENABLED=0 (ADR 0002); keep that path compiling.
+      - name: Build without cgo
+        if: hashFiles('**/*.go') != ''
+        run: CGO_ENABLED=0 go build ./...
       - name: Test
         if: hashFiles('**/*.go') != ''
         run: go test -race -coverprofile=coverage.out ./...
