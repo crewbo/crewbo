@@ -64,15 +64,24 @@ Deliverables: `crewbo/spikes` README per spike; `docs/research/phase0-findings.m
 
 ## M3: sync server and auth
 
+Refined for Gate C on 2026-10-11 with what M1 and M2 taught. Unchanged from the base plan: ADR 0008 (Go WebSocket hub in the same binary, one goroutine per room, SQLite) and ADR 0009 (GitHub device flow, server-issued session token, no GitHub token stored).
+
 | ID | Issue | Acceptance criteria | Test plan | Deps |
 | --- | --- | --- | --- | --- |
-| M3-01 | `crewbo serve` HTTP and WebSocket skeleton, TLS, health | Serves `/healthz`; refuses plain HTTP except localhost or `--insecure-lan` | Integration test | M1-03 |
-| M3-02 | Room goroutine, event log with gap-free seq, SQLite persistence | Restart preserves log; seq gap-free under concurrency | Unit plus `-race` stress test | M3-01, M1-08 |
-| M3-03 | Auth: GitHub device flow in CLI, session exchange on server | `crewbo login` works against a real OAuth app | Manual test plus unit tests with a fake GitHub | M3-01 |
-| M3-04 | Device keys: generate, keychain with 0600 fallback, register | Fallback path taken without secret service | Unit tests with fake keyring; manual on Omarchy | M3-03 |
-| M3-05 | Daemon sync client: hello, replay, local queue, reconnect | Resync after server restart and after offline edits | e2e: two daemons, one server, kill and restart | M3-02 |
-| M3-06 | Rooms: create, invite, join, leave, 10-member cap, lead role | Invite expiry and use limits enforced | Unit and e2e | M3-02, M3-03 |
-| M3-07 | Claims over the wire with server-time leases; propagation under 2 s | Measured p95 under 2 s on LAN | e2e timing test | M3-05, M1-04 |
+| M3-01 | `crewbo serve`: HTTP and WebSocket skeleton, TLS, `/healthz`, Envelope framing | Serves `/healthz`; refuses plain HTTP except on loopback or with `--insecure-lan`; WebSocket upgrade exchanges `Hello`/`Welcome`/`Error` Envelopes. Dependency `github.com/coder/websocket` (ISC, v1.8.15, 2026-06-15) gets a decision-log entry after checking its API at that tag | Integration tests with `httptest` and a real WebSocket client | M1-03 |
+| M3-02 | Room goroutine and gap-free event log in the server's own SQLite file (rooms, members, events) | Restart preserves the log; `seq` gap-free under concurrent writers; replay from any cursor | Unit plus `-race` stress test | M3-01, M1-08 |
+| M3-03 | `crewbo login`: GitHub device flow in the CLI; server verifies the GitHub token once and issues its own session token | `crewbo login` works against Ronel's OAuth app; honours `interval` and `slow_down` (+5 s); code expiry handled; GitHub token never stored by the server | Unit tests against a fake GitHub; manual login on Omarchy | M3-01 |
+| M3-04 | Device keys: Ed25519 generate, keychain with a hard 3 s timeout (U-18), 0600 file fallback, register public key with the server | Fallback taken when no secret service answers; never blocks over 3 s | Unit tests with a fake keyring; manual on Omarchy | M3-03 |
+| M3-05 | Daemon sync client: hello with room cursors, replay, `outbox` drain, reconnect with backoff; one room bound to one repository | Resync after server restart and after offline claims; local-only mode (M2 behaviour) when not logged in or not bound | e2e: two daemons, one server, kill and restart | M3-02, M3-03 |
+| M3-06 | Rooms: create, invite, join, leave, 10-member cap, lead role; `crewbo room` subcommands (create, invite, join, leave) bind the current repository | Invite expiry and use limits enforced; 11th member refused | Unit and e2e | M3-02, M3-03 |
+| M3-07 | Claims over the wire: server-time leases, terminal and agent claims carry the member identity, conflicts across machines denied by the hooks | A claim on daemon A blocks an edit through daemon B; propagation p95 under 2 s on LAN; offline daemon keeps its own claims and reconciles on reconnect | e2e timing test; manual two-machine check (Omarchy plus gavriel953 on macOS with Codex) | M3-05, M3-06, M1-04 |
+
+Notes from M1 and M2 that shape M3:
+
+- The daemon already keeps claims per repository, so a room maps to one repository; the binding lives in daemon state, not in the repo.
+- The `crewbo claim` terminal holder becomes the logged-in member; without login everything stays local as today.
+- `internal/store` already has `outbox` and `room_cursor`; `proto/crewbo/v1` already has Envelope, Hello, Welcome, Ack, Error, Claim messages and claim events. New messages go in their own `build(proto)` commit.
+- Needs from Ronel: a GitHub OAuth app under the `crewbo` org with device flow enabled (client ID only; the device flow needs no client secret, per docs.github.com "Authorizing OAuth apps", fetched 2026-10-11), and a reachable host for the two-machine check in M3-07.
 
 ## M4: lead dispatch
 

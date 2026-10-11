@@ -100,3 +100,15 @@ Done:
 
 Next:
 - Fix the three hooks install findings; record Windows M2 results; review the macOS results; then Gate C for M3.
+
+## 2026-10-11 (late, follow-ups and Gate C prep)
+
+Done:
+- PR #57 (issue #56): `crewbo hooks install/uninstall` keeps the original backup, keeps key order and `&<>` unescaped (byte-identical round trip), removes an emptied config. README notes masking by other deny hooks. CI green on all three OSes.
+- Windows M2 results recorded (`docs/research/m2-windows-check.md`); U-21 resolved; U-20 and U-22 still open.
+- Gate C for M3: refined issue list in `implementation-plan.md` M3 section.
+- Slip: a live-test chain failed at `task` (not on PATH; Arch has `go-task`) before the temp env was set, and a stale `bin/crewbo hooks uninstall` then created `{}` in Ronel's real `~/.codex/hooks.json` (it did not exist before; no hooks lost). File removed, state restored. #57 makes that uninstall a no-op.
+
+Next:
+- Ronel: merge #57 and the docs PR, approve the M3 list, register the OAuth app.
+- gavriel953: macOS M2 check (`agent-prompts/macos-m2.md`).

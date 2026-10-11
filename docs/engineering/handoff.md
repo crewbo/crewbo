@@ -1,6 +1,6 @@
 # Session handoff
 
-Last updated 2026-10-11 (end of the first build day). A new Claude Code session starts by reading this file, `CLAUDE.md`, and the latest entry in `docs/engineering/worklog.md`. Update this file at the end of every session.
+Last updated 2026-10-11 (late: install fixes and Gate C prep). A new Claude Code session starts by reading this file, `CLAUDE.md`, and the latest entry in `docs/engineering/worklog.md`. Update this file at the end of every session.
 
 ## Who and how
 
@@ -35,25 +35,23 @@ The repo stays private until ADR 0011 (sync server licence) is decided. Org is o
 
 `internal/claims` (pure claim/lease logic, 100%), `test/sim` (seeded simulator), `internal/platform` (paths, AF_UNIX IPC on all OSes, shutdown signals, agent shell dialect), `internal/protocol` + `proto/crewbo/v1` (generated, never edit), `internal/store` (SQLite, migrations; not yet used by the daemon), `internal/gitx` (system git; merge-tree; not yet used), `internal/daemon` (owner goroutine, token-authenticated JSON local API: decide, event, status, claim_add, claim_list, claim_release; per-repo claim sets; post-shell snapshots), `internal/hooks` (+ `claudecode`, `codex`, `install`), `internal/shellparse` (POSIX via mvdan.cc/sh, PowerShell tokenizer), `internal/mcpserver`, `internal/cli`.
 
-## Open follow-ups (do these first, as small PRs)
+## Open follow-ups
 
-1. **Fix `crewbo hooks install/uninstall` findings from the Windows M2 run** (`crewbo/spikes` PR #3, `results/windows-m2/report.md`):
-   - uninstall overwrites `.crewbo.bak`, losing the original: keep the first backup (or timestamp backups);
-   - JSON round trip escapes `&`, `<`, `>` as `&` and re-sorts keys: use an encoder with `SetEscapeHTML(false)` and consider preserving key order;
-   - a Codex `hooks.json` that did not exist before install is left as `{}` after uninstall: remove the file when it would be empty and Crewbo created it.
-   Also document: other user-level hooks (for example the ECC plugin's GateGuard) can deny first and mask Crewbo's message.
-2. **Record the Windows M2 results in the main repo**: findings into `docs/research/phase0-findings.md` or a new `docs/research/m2-windows-check.md`; unknowns: **U-21 resolved** (Codex 0.162.1 runs SessionStart under `codex exec`); PowerShell parser verified live; U-20 (Codex Windows sandbox for allowed edits) and U-22 (quoted spaced path) still open.
-3. **Ask Ronel to merge `crewbo/spikes` PR #3** (Windows results) if not done; then import nothing else from it (no new fixtures needed).
-4. **macOS:** gavriel953 runs `agent-prompts/macos-m2.md` (Codex only, includes the keyring and latency rerun). Review his `results/macos-m2` PR when it arrives, as was done for Windows.
-5. Then **Gate C for M3**.
+1. Hooks install findings from the Windows M2 run: fixed in PR #57 (issue #56), waiting for Ronel to merge.
+2. Windows M2 results recorded in `docs/research/m2-windows-check.md` (docs PR with the Gate C list). U-21 resolved; U-20 and U-22 open.
+3. **macOS:** gavriel953 runs `agent-prompts/macos-m2.md` (Codex only). Review his `results/macos-m2` PR when it arrives, as was done for Windows.
+4. Close milestone "M2" once #56 is closed (Ronel).
 
-## Gate C for M3 (prepare, do not start coding)
+## Gate C for M3 (presented, waiting for approval)
+
+The refined list is in `docs/engineering/implementation-plan.md` (M3 section). After approval: create issues M3-01 to M3-07 in a milestone "M3: sync server and auth", then start with M3-01. Original notes:
 
 Base list: `docs/engineering/implementation-plan.md` M3-01 to M3-07 (serve skeleton with TLS, room goroutine + gap-free event log, GitHub device-flow auth, device keys with keychain timeout fallback, daemon sync client with offline outbox and resync, rooms and invites with 10-member cap, claims over the wire with server-time leases and under 2 s propagation). Refine with what M1 and M2 taught: claims are now per repository in the daemon (map rooms to repositories); the local `crewbo claim` terminal session must become a member identity; `store` outbox and `room_cursor` tables already exist; `protocol` has Envelope/Hello/Welcome/Ack/Error/claims/Event; WebSocket library candidate `github.com/coder/websocket` (ISC; verify before use); keyring calls need a hard timeout (U-18). M3 needs Ronel to register a GitHub OAuth app (device flow enabled). Create the issues only after approval.
 
 ## Working habits that matter in this environment
 
 - **Lint:** the Arch `golangci-lint` 2.13.2 fails against Go 1.27.2. Download the official v2.14.0 linux-amd64 release into the session scratchpad and verify its SHA-256 against `golangci-lint-2.14.0-checksums.txt` (`gh release download v2.14.0 --repo golangci/golangci-lint -p 'golangci-lint-2.14.0-linux-amd64.tar.gz' -p 'golangci-lint-2.14.0-checksums.txt'`), or use `GOTOOLCHAIN=local golangci-lint run`. Always lint for Linux, `GOOS=windows` and `GOOS=darwin`.
+- **Live tests: isolate first, then run.** Put the whole live test in one script that exports `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and the XDG dirs, checks they are set, and exits on the first failure (`|| exit 1`). Build with `go-task build` (`task` is not on PATH here). A broken chain once let a stale binary run `hooks uninstall` against Ronel's real `~/.codex`.
 - **Gate commits explicitly.** `set -e` did not stop a failing chain in this shell. Use an `ok=1; cmd || ok=0; ...; [ $ok = 1 ] && git commit ...` pattern and never chain commit or push after a check with `;`.
 - **Before every PR:** `go test -race -count=1 ./...`, `scripts/coverage-gate.sh` (85% for claims, shellparse, hooks/..., dispatch), lint on 3 OSes, `gofmt`/`golangci-lint fmt --diff`. After CI, confirm from the job logs that new packages actually ran on macOS and Windows (coverage line present), not just "pass".
 - **Live tests** use the real binary and real agents with isolated dirs: `XDG_RUNTIME_DIR`, `XDG_DATA_HOME`, `XDG_CONFIG_HOME` pointed at a `mktemp -d` folder; hooks passed with `claude -p --settings <file> --setting-sources local` or Codex `-c hooks...`; never modify Ronel's real `~/.claude` or `~/.codex`. Note: `codex exec` adds `[projects."<dir>"] trust_level = "trusted"` entries to `~/.codex/config.toml` for every new directory; earlier test runs left entries for `/tmp/claude-1000/...` and `/home/ronel/Work/spikes/runs/...` (Ronel was told; he may delete them).
