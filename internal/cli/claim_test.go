@@ -11,6 +11,7 @@ import (
 
 	"github.com/crewbo/crewbo/internal/claims"
 	"github.com/crewbo/crewbo/internal/daemon"
+	"github.com/crewbo/crewbo/internal/hooks"
 )
 
 func TestToPattern(t *testing.T) {
@@ -115,5 +116,14 @@ func TestClaimOutsideRepoAndWithoutDaemon(t *testing.T) {
 	stderr.Reset()
 	if code := Run(context.Background(), []string{"claim", "list"}, nil, &stdout, &stderr, BuildInfo{}); code != ExitError || !strings.Contains(stderr.String(), "daemon is not running") {
 		t.Errorf("no daemon: %d %q", code, stderr.String())
+	}
+}
+
+func TestParseShellPicksDialect(t *testing.T) {
+	if got, opaque := parseShell("Add-Content -Path a.txt -Value x", hooks.PowerShell); len(got) != 1 || got[0] != "a.txt" || opaque {
+		t.Errorf("PowerShell: %q %v", got, opaque)
+	}
+	if got, _ := parseShell("echo x > b.txt", hooks.POSIX); len(got) != 1 || got[0] != "b.txt" {
+		t.Errorf("POSIX: %q", got)
 	}
 }
