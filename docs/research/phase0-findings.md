@@ -103,7 +103,9 @@ Run by a Codex agent on a teammate's Mac following `agent-prompts/macos.md`: mac
 | S6 merge-tree | Pass (two clones, one machine) | None |
 | S1 Claude Code | Not run: the teammate has no Claude Code plan (their install pointed at a proxy that returned 401) | Claude Code on macOS untested (U-23) |
 | S7 keyring | Not run: `go run` failed TLS verification of `proxy.golang.org` (`certificate signed by unknown authority`; `curl` exit 60). HTTPS was intercepted, possibly by the Codex sandbox or the network | New unknown U-24: daemon to sync server TLS on intercepting networks |
+| S7 keyring (rerun, plain Terminal) | Pass: set 42 ms, get and delete succeed (`crewbo/spikes` `results/macos-rerun/report.md`, PR #4). The TLS error did not recur; Keychain prompt and network not reported | Keyring works on macOS. U-24 stays open: the run does not show whether the earlier interception came from the Codex sandbox or the network |
 | Latency | Not measured (driver needed a Claude Code payload) | Rerun with a Codex payload |
+| Latency (rerun) | 100 runs of `probe codex pre_edit` with a captured payload: p50 2.30 ms, p95 4.99 ms, max 1172 ms. Exit codes not checked; the cause of the one slow run is unknown | Within the 300 ms budget at p95, like Linux. One run over 1 s is a reason to keep the hook deadline and fail-open path |
 
 ## Gate B status
 
