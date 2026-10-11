@@ -29,7 +29,7 @@ Task runner is [Task](https://taskfile.dev) (`Taskfile.yml`). On Arch Linux the 
 | Unit and integration tests | `task test` (`go test -race ./...`) |
 | Single test | `go test -race -run TestName ./internal/claims/` |
 | End-to-end tests | `task test:e2e` |
-| Coverage | `task cover` |
+| Coverage | `task cover`; gate: `task cover:gate` (`scripts/coverage-gate.sh`, also in CI) |
 | Lint | `task lint` (golangci-lint, buf lint) |
 | Format | `task fmt` (gofumpt via golangci-lint) |
 | Generate Protobuf | `task generate` (`buf generate`) |
