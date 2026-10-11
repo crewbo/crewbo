@@ -15,6 +15,7 @@ import (
 	"github.com/crewbo/crewbo/internal/daemon"
 	"github.com/crewbo/crewbo/internal/hooks"
 	"github.com/crewbo/crewbo/internal/hooks/claudecode"
+	"github.com/crewbo/crewbo/internal/hooks/codex"
 	"github.com/crewbo/crewbo/internal/platform"
 )
 
@@ -123,8 +124,11 @@ func runStatus(ctx context.Context, stdout, stderr io.Writer) int {
 
 // adapterFor returns the hook adapter for an agent name.
 func adapterFor(name string) (hooks.Adapter, bool) {
-	if name == claudecode.Name {
+	switch name {
+	case claudecode.Name:
 		return claudecode.Adapter{}, true
+	case codex.Name:
+		return codex.Adapter{PowerShell: platform.AgentShellIsPowerShell()}, true
 	}
 	return nil, false
 }

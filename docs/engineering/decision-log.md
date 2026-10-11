@@ -84,3 +84,5 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | hooks | Repository root found by walking up to `.git` (dir or file), no git process per hook | Keeps the hook fast; handles worktrees | #35
 2026-10-11 | hooks | Shell write detection is injected (Deps.ShellTargets) until the parser lands | Lets M2-01 merge before M2-04 | #35
 2026-10-11 | claudecode | Claude Code adapter never prints on Stop; allow prints nothing; warnings and context go in additionalContext | additionalContext on Stop continues the conversation (hooks reference); silence means no decision | #36
+2026-10-11 | codex | Codex adapter treats "Bash" commands as PowerShell on Windows | Phase 0: Codex 0.154.0 on Windows ran Add-Content under tool name Bash | #37
+2026-10-11 | codex | Codex adapter output is limited to hookSpecificOutput deny and additionalContext; Stop and allow print nothing | Unsupported fields fail the hook open (Codex docs) | #37
