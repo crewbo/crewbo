@@ -69,3 +69,15 @@ Done:
 Next:
 - Gate C for M1: Ronel reviews the M1 issue list (M1-01 to M1-10).
 - Ronel: 6 more independent interviews and same-repo confirmation by end of M1.
+
+## 2026-10-11 (interviews)
+
+Done:
+- PR #25 merged (SQLite store). Interviews complete: 10 teams, 41 members; 9 teams mix vendors; v1 covers 30 of 41 members; Antigravity used by 15.
+
+Open:
+- Gate B condition 2: ask all teams whether two agents worked on the same repository in their last project.
+- U-26: Antigravity adapter timing (Ronel).
+
+Next:
+- M1-09 gitx (#18).
