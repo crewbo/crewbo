@@ -11,7 +11,7 @@ A lead dispatches a task that runs a coding agent on a teammate's machine. That 
 ## Decision
 
 - Each device generates an Ed25519 key pair. The public key is registered with the server against the member's GitHub identity. The private seed stays in the OS keychain (`github.com/zalando/go-keyring`), with a fail-fast fallback to a 0600 file when no secret service exists.
-- The lead's daemon signs a canonical encoding of the task (id, room, author device key id, target member, text, owned paths, base commit, created time, expiry).
+- The lead's daemon serializes the task body once (id, room, author device key id, target member, text, owned paths, base commit, created time, expiry) and signs those exact bytes. Verifiers check the signature over the received bytes before decoding.
 - The teammate's daemon verifies the signature against the lead's registered key and the room's current lead before showing anything. Unknown, revoked or non-lead keys are rejected.
 - The task text is shown verbatim, in full, before approval. Nothing runs without an explicit approve action by the teammate.
 - Approved tasks run in a fresh worktree, launched through the teammate's own agent CLI and login, with an explicit non-bypass permission mode. Never `bypassPermissions` or `danger-full-access`.
