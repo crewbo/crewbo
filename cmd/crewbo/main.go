@@ -3,9 +3,12 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/signal"
 
 	"github.com/crewbo/crewbo/internal/cli"
+	"github.com/crewbo/crewbo/internal/platform"
 )
 
 // Set at link time by GoReleaser: -X main.version=... -X main.commit=...
@@ -15,5 +18,8 @@ var (
 )
 
 func main() {
-	os.Exit(cli.Run(os.Args[1:], os.Stdout, os.Stderr, cli.BuildInfo{Version: version, Commit: commit}))
+	ctx, stop := signal.NotifyContext(context.Background(), platform.ShutdownSignals()...)
+	code := cli.Run(ctx, os.Args[1:], os.Stdout, os.Stderr, cli.BuildInfo{Version: version, Commit: commit})
+	stop()
+	os.Exit(code)
 }
