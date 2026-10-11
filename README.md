@@ -2,7 +2,7 @@
 
 Crewbo lets every teammate run their own AI coding agent on a shared codebase at the same time, across machines and operating systems, with each agent aware of what the others are doing.
 
-Status: early development (milestone M2), no release yet. See [docs/product/PRD.md](docs/product/PRD.md).
+Status: early development (M2 complete, M3 next), no release yet. See [docs/product/PRD.md](docs/product/PRD.md).
 
 ## Try it locally
 
