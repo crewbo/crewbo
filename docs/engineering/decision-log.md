@@ -52,3 +52,8 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | claims | Set.Add rejects claims whose lease is not active at the given time | An already-expired claim would be accepted and silently ignored; found by a lease test | #13
 2026-10-11 | platform | Path rules split per OS (paths_linux.go, paths_darwin.go, paths_windows.go) with injected Env; each OS's tests run on that OS in CI | Matches the platform rule in CLAUDE.md; no global state | #11
 2026-10-11 | platform | macOS keeps config and data in the same Application Support folder; Linux runtime fallback honours $TMPDIR before /tmp | Apple convention; respects a user's chosen temp dir | #11
+2026-10-11 | deps | google.golang.org/protobuf v1.36.12 (BSD-3-Clause) for generated types and protojson | Required by ADR 0007; maintained by the Go team | #12
+2026-10-11 | proto | protoc-gen-go runs via `go run` in buf.gen.yaml, so generator and runtime share the go.mod version | No separately installed plugin to drift | #12
+2026-10-11 | proto | Wire JSON uses default lowerCamelCase names; receivers decode with DiscardUnknown | Standard protojson; unknown-field tolerance is the compatibility rule in protocol.md | #12
+2026-10-11 | proto | Times are int64 Unix milliseconds, not google.protobuf.Timestamp | Plain JSON, matches the protocol draft | #12
+2026-10-11 | ci | buf breaking runs only when main already has .proto files; compares against a locally fetched main | First proto PR has nothing to compare; avoids authenticating buf to the private repo over HTTPS | #12

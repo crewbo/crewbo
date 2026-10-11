@@ -1,11 +1,12 @@
 # Daemon to server protocol
 
-Draft for Gate A. The `.proto` files become the source of truth in milestone M1; the sketches here are illustrative and will change in review.
+Draft for Gate A. Since M1-03 (#12) the source of truth is `proto/crewbo/v1/*.proto`; the sketch below is the original design and may lag behind it. Tasks, intents, presence and conflict messages are added in later milestones as new fields and oneof members.
 
 ## Transport
 
 - One WebSocket per daemon per room set, at `wss://<server>/v1/ws`. TLS required except on `localhost` and when the operator passes an explicit `--insecure-lan` flag (for hackathon LANs; logged as a warning).
-- Each text frame carries one `Envelope` in Protobuf JSON encoding.
+- Each text frame carries one `Envelope` in Protobuf JSON encoding, with the default lowerCamelCase JSON field names. Receivers decode with `protojson.UnmarshalOptions{DiscardUnknown: true}`; strict decoding would reject frames from newer senders (`internal/protocol/protocol_test.go`).
+- Times on the wire are `int64` Unix milliseconds (`*_unix_ms`), not `google.protobuf.Timestamp`, to keep the JSON plain.
 - Authentication: the Crewbo session token in the first frame (`Hello`), not in the URL.
 - Keepalive: WebSocket ping every 20 s; a connection with no pong for 60 s is closed. (Values to be tuned; decision log.)
 
