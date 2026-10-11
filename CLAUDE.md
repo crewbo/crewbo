@@ -15,9 +15,9 @@ Source precedence: Ronel's explicit instructions > PRD > accepted ADRs > `docs/r
 
 ## Current phase
 
-- Phase A (planning) done on branch `docs/initial-architecture`; waiting for **Gate A** approval.
-- Next: M0, Phase 0 spikes, in the private repo `crewbo/spikes` (Oct 12 to 17, gate Oct 17).
-- No implementation code in this repo before Gate A approval.
+- Gate A approved 2026-10-11 (PR #1).
+- Current: M0, Phase 0 spikes in the private repo `crewbo/spikes`. Linux done; Windows, macOS and interviews pending. Findings: `docs/research/phase0-findings.md`.
+- Next gate: **Gate B** (go / no-go), target Oct 17. No product code before it.
 
 ## Commands
 
@@ -115,5 +115,7 @@ docs/                product, research, architecture, adr, engineering, runbooks
 - Codex hook trust: non-managed hooks are skipped until trusted in `/hooks`, and trust is pinned to the hook's hash. Keep the hook entry byte-for-byte stable. Emitting `permissionDecision: "ask"`, `continue`, `stopReason` or `suppressOutput` fails the hook open. ([Codex hooks](https://learn.chatgpt.com/docs/hooks))
 - `ANTHROPIC_API_KEY` in the environment silently switches `claude -p` to API billing. The daemon strips it from dispatched runs unless the member opts in. ([authentication precedence](https://code.claude.com/docs/en/authentication#authentication-precedence): "In non-interactive mode (`-p`), the key is always used when present.")
 - Never launch `claude -p` with `--bare`: it skips hooks and MCP. Always pass `--permission-mode` explicitly; the installed CLI (2.1.294) offers `acceptEdits`, `auto`, `bypassPermissions`, `manual`, `dontAsk`, `plan`.
+- `zalando/go-keyring` can block for over 60 s when D-Bus cannot activate a secret service; wrap every call in a timeout (Phase 0 S7).
+- Codex `apply_patch` headers carry absolute paths in 0.161.0; Claude sends absolute `file_path` (backslashes on Windows). Normalise both to repo-relative before comparing claims.
 - GitHub recommends at most 6 pushes per minute per repository, so checkpoint refs are pushed at agent stop, not on a timer. (research: `docs/research/hook-and-dispatch-internals.md`)
 - The `crewbo` org is on GitHub Free: branch protection is not enforced on the private repo, and macOS Actions minutes cost about 10 times Linux minutes. See `docs/engineering/repo-settings.md`.
