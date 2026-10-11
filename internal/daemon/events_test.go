@@ -24,7 +24,7 @@ func TestHookEventsRenewLeases(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := testPaths(t)
-	start(t, Config{Paths: p, Claims: set, Now: clk.Now})
+	start(t, Config{Paths: p, Claims: map[string]*claims.Set{"": set}, Now: clk.Now})
 	c, err := dial(t, p)
 	if err != nil {
 		t.Fatal(err)

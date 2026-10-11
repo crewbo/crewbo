@@ -17,9 +17,23 @@ type Hello struct {
 
 // Methods of the local API.
 const (
-	MethodDecide = "decide"
-	MethodEvent  = "event"
-	MethodStatus = "status"
+	MethodDecide       = "decide"
+	MethodEvent        = "event"
+	MethodStatus       = "status"
+	MethodClaimAdd     = "claim_add"
+	MethodClaimList    = "claim_list"
+	MethodClaimRelease = "claim_release"
+)
+
+// TerminalSession holds claims made with `crewbo claim add`. It is not an
+// agent session, so its claims block every agent, including the user's own.
+const TerminalSession = "terminal"
+
+// Claim leases for claims made from the command line, which no hook event
+// renews (agent claims last claims.DefaultLease and renew on every event).
+const (
+	DefaultCLILease = 30 * time.Minute
+	MaxCLILease     = 8 * time.Hour
 )
 
 // Request is one local API call.
@@ -35,6 +49,14 @@ type Request struct {
 	Event   string `json:"event,omitempty"` // event: normalised hook event name
 
 	Paths []string `json:"paths,omitempty"` // decide: repository-relative paths
+
+	// claim_add: canonical patterns for Repo, held by Session (and Member).
+	Patterns     []string `json:"patterns,omitempty"`
+	Member       string   `json:"member,omitempty"`
+	Task         string   `json:"task,omitempty"`
+	LeaseSeconds int64    `json:"lease_seconds,omitempty"` // DefaultCLILease when 0
+	// claim_release: claim ids.
+	IDs []string `json:"ids,omitempty"`
 }
 
 // Response answers the Request with the same ID.
@@ -49,6 +71,11 @@ type Response struct {
 
 	// status
 	Status *Status `json:"status,omitempty"`
+
+	// claim_add (granted claims) and claim_list (active claims, by id)
+	Claims []claims.Claim `json:"claims,omitempty"`
+	// claim_release
+	Released int `json:"released,omitempty"`
 }
 
 // Status describes the running daemon.
