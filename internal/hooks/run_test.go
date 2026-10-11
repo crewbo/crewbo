@@ -272,3 +272,37 @@ func TestDenyReasonForTerminalClaim(t *testing.T) {
 		t.Errorf("denyReason = %q", got)
 	}
 }
+
+func TestPostShellViolationReachesAgent(t *testing.T) {
+	e := setup(t, true) // alice (member priya) holds src/auth.go
+	if err := os.MkdirAll(filepath.Join(e.repo, "src"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(e.repo, "src", "auth.go")
+	if err := os.WriteFile(file, []byte("package auth\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d := Deps{Paths: e.paths, ParseShell: func(string, Shell) ([]string, bool) { return nil, false }}
+	run := func(kind Kind, ev Event) Result {
+		t.Helper()
+		var out bytes.Buffer
+		Run(context.Background(), fakeAdapter{}, kind, strings.NewReader(payload(t, ev)), &out, d)
+		var r Result
+		if out.Len() > 0 {
+			if err := json.Unmarshal(out.Bytes(), &r); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return r
+	}
+	if r := run(PreShell, Event{Session: "bob", Cwd: e.repo, Command: "npm run format", ToolUseID: "t9"}); r != (Result{}) {
+		t.Fatalf("pre_shell = %+v, want silent allow", r)
+	}
+	if err := os.WriteFile(file, []byte("package auth // formatted\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r := run(PostEdit, Event{Session: "bob", Cwd: e.repo, ToolUseID: "t9"})
+	if !strings.Contains(r.Context, "Your last command changed src/auth.go, which is claimed by priya") || r.Deny {
+		t.Errorf("post_edit = %+v", r)
+	}
+}

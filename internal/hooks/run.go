@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/crewbo/crewbo/internal/claims"
@@ -104,10 +105,15 @@ func decide(ctx context.Context, a Adapter, kind Kind, in io.Reader, d Deps) Res
 	}
 	defer func() { _ = c.Close() }()
 
-	req := daemon.Request{Session: ev.Session, Agent: ev.Agent, Repo: root}
-	if (ev.Kind == PreEdit || ev.Kind == PreShell) && (len(paths) > 0 || opaque) {
+	req := daemon.Request{Session: ev.Session, Agent: ev.Agent, Repo: root, ToolUse: ev.ToolUseID}
+	switch {
+	case ev.Kind == PreShell:
+		// Always decide for shell commands, even with no parsed targets, so
+		// the daemon snapshots claimed files for the post_edit check.
 		req.Method, req.Paths, req.Command, req.Opaque = daemon.MethodDecide, paths, ev.Command, opaque
-	} else {
+	case ev.Kind == PreEdit && len(paths) > 0:
+		req.Method, req.Paths = daemon.MethodDecide, paths
+	default:
 		req.Method, req.Event = daemon.MethodEvent, string(ev.Kind)
 	}
 	resp, err := c.Call(ctx, req)
@@ -117,7 +123,24 @@ func decide(ctx context.Context, a Adapter, kind Kind, in io.Reader, d Deps) Res
 	if req.Method == daemon.MethodDecide && !resp.Allow {
 		return Result{Deny: true, Reason: denyReason(resp)}
 	}
+	if len(resp.Violations) > 0 {
+		return Result{Context: violationNotice(resp.Violations)}
+	}
 	return Result{}
+}
+
+// violationNotice tells the agent which claimed files its last command
+// changed. Crewbo records it and does not revert (ADR 0004).
+func violationNotice(vs []daemon.Violation) string {
+	var b strings.Builder
+	for _, v := range vs {
+		holder := "another agent session"
+		if m := v.Claim.Holder.MemberID; m != "" {
+			holder = m
+		}
+		fmt.Fprintf(&b, "Your last command changed %s, which is claimed by %s (Crewbo). Crewbo recorded this. Undo the change to that file, or ask them before editing it again.\n", v.Path, holder)
+	}
+	return strings.TrimSpace(b.String())
 }
 
 // denyReason names the file and the holder. It only suggests actions that
