@@ -95,3 +95,15 @@ Format: `BDR-NNN · title · date · status`.
 
 **Decision:** 2 px borders, radii 12 / 20 / 999, 8 px grid, no shadows, no gradients.
 **Why:** A small, strict vocabulary keeps every surface consistent and calm.
+
+## BDR-016 · Tertiary text grey on dark: gray.450 · 2026-10-11 · Accepted
+
+**Decision:** Add `color.gray.450` = `#858585` for tertiary text on dark surfaces: the crew panel header, offline crew rows, explorer labels and captions. `gray.500` (`#737373`) stays for the offline Bo body on light, mockup syntax comments and the book spine, and is no longer used for text on dark.
+**Rejected:** Keeping `#737373` (3.78:1 on `#171717`, 4.04:1 on `#0F0F0F`, below WCAG AA 4.5:1 for 12 to 13 px text). Using `gray.400` (`#A3A3A3`, passes at 7.11:1, but is the status-line grey, so offline rows would no longer look dimmer).
+**Why:** Accessibility beats everything (principles, hierarchy rule 1). `#858585` passes on every dark surface (4.86:1 on `#171717`, 4.99:1 on `#141414`, 5.19:1 on `#0F0F0F`, 5.37:1 on `#0A0A0A`) and stays visibly darker than `#A3A3A3`.
+
+## BDR-017 · Show only verified model names · 2026-10-11 · Accepted
+
+**Decision:** The crew panel shows a model only when Crewbo has read it. Codex: the `model` field in hook events. Claude Code sessions launched by the daemon: the `model` in the first `system/init` event of `--output-format stream-json`, shown as the raw ID (for example `claude-opus-5-5`). Claude Code sessions started by a teammate: `Claude Code` only, because hooks carry no model.
+**Rejected:** Mapping model IDs to marketing names (a lookup table goes stale and would guess); inferring the model from user settings.
+**Why:** P5, honest and specific. Phase 0 (`docs/research/phase0-findings.md`) captured no `model` in any Claude Code hook payload, while the `init` event of a daemon-launched run reported `claude-opus-5-5`.

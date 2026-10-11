@@ -56,10 +56,11 @@ This is how Crewbo appears inside the IDE. Reference: `reference/screenshots/bo-
 
 Right-hand side panel, 320 px wide in the mockup (respect the host's panel width in practice), padding 20, rows separated by 14 px.
 
-- Header: `CREW · <room-name>` in 12 px mono `#737373`.
+- Header: `CREW · <room-name>` in 12 px mono `#858585` (`gray.450`).
 - Row: fill `#171717`, radius 14, padding 10, gap 14. Contents left to right:
   1. **Scene Bo at 64 px** (or face Bo for event states, see §4).
-  2. Text stack (gap 4): name 15/600 white with `(you)` for the local user; status 13 px `#A3A3A3` (`Writing auth.go`, `Running tests`, `Idle`, `Offline since 9:40 pm`); agent and model 12 px mono in teammate `tint` (`Claude Code · Opus 4.6`). Offline rows use `#737373` and say `last used <model>`.
+  2. Text stack (gap 4): name 15/600 white with `(you)` for the local user; status 13 px `#A3A3A3` (`Writing auth.go`, `Running tests`, `Idle`, `Offline since 9:40 pm`); agent and model 12 px mono in teammate `tint` (`Claude Code · Opus 4.6`). Offline rows use `#858585` (`gray.450`) and say `last used <model>`.
+  3. **Model source (BDR-017).** Show a model only when Crewbo has read it: for Codex, the `model` field in hook events; for Claude Code sessions the daemon launched (`claude -p --output-format stream-json`), the `model` in the first `system/init` event, shown as the raw ID (for example `claude-opus-5-5`). For Claude Code sessions a teammate started themselves, hooks carry no model, so show `Claude Code` only. Never map IDs to marketing names. The model names in the mockups are illustrative.
 - Order: you first, then by most recent activity. **Specified.**
 
 ### 3.6 Handoff toast
