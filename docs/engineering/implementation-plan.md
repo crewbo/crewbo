@@ -5,7 +5,7 @@ Timeline shifted 1 day earlier than the PRD at Ronel's request (decision log 202
 | Milestone | Dates (2026) | Gate |
 | --- | --- | --- |
 | Phase A: planning package | Oct 11 | Gate A |
-| M0: Phase 0 spikes | Oct 12 to Oct 17 | Gate B (go / no-go Oct 17) |
+| M0: Phase 0 spikes | Oct 11 (finished early) | Gate B closed Oct 11: conditional go |
 | M1: protocol and daemon skeleton | Oct 18 to Oct 24 | Gate C |
 | M2: Claude Code and Codex hook adapters | Oct 25 to Oct 31 | Gate C |
 | M3: sync server and auth | Nov 1 to Nov 7 | Gate C |
@@ -39,12 +39,13 @@ Deliverables: `crewbo/spikes` README per spike; `docs/research/phase0-findings.m
 | M1-01 | `cmd/crewbo` with subcommand router and `crewbo version` | `crewbo version` prints version and commit; unknown subcommand exits 2 with usage | Unit test of router; CI builds on 3 OSes | none |
 | M1-02 | `internal/platform` paths (data, runtime, config) per OS | Correct dirs per OS; created with 0700 | Table tests with injected env; run on 3 OSes in CI | M1-01 |
 | M1-03 | `proto/crewbo/v1` envelope, hello, claims, events; `buf generate` | `buf lint` clean; generated code committed in its own commit; drift check in CI | CI drift job | M1-01 |
-| M1-04 | `internal/claims`: claim set, lease expiry, path normalisation, conservative glob overlap, `Decide` | Pure, no I/O; 85%+ coverage | Table tests; property tests for overlap symmetry | none |
+| M1-04 | `internal/claims`: claim set, lease expiry, path normalisation, conservative glob overlap, `Decide` | Pure, no I/O; 85%+ coverage. Normalisation covers every path form seen in Phase 0 fixtures: absolute POSIX, absolute Windows with backslashes, and relative `apply_patch` paths; case-fold match on Windows and macOS | Table tests; property tests for overlap symmetry | none |
 | M1-05 | `test/sim`: seeded deterministic simulator for claims and leases | Reproducible from a seed; invariants checked (no overlapping active claims, leases expire) | `go test ./test/sim -run Sim -seed N` | M1-04 |
-| M1-06 | `internal/platform` IPC listener and dialer (Unix socket; Windows per U-16) | Same-user only; round trip under 10 ms locally | Integration test on 3 OSes | M1-02 |
+| M1-06 | `internal/platform` IPC listener and dialer (Unix socket; Windows per U-16, library choice logged in the decision log) | Same-user only; round trip under 10 ms locally (hook spawn alone is p50 13.7 ms on Windows, so IPC must stay small) | Integration test on 3 OSes | M1-02 |
 | M1-07 | `internal/daemon` lifecycle: owner goroutine, local API (Decide, Status), graceful shutdown | `crewbo daemon` starts, answers `crewbo status`, stops on signal | Integration test spawning the daemon | M1-04, M1-06 |
 | M1-08 | `internal/store` SQLite (pure Go) with migrations for the daemon queue | Migrations idempotent; WAL mode | Unit tests with temp dirs | M1-01 |
-| M1-09 | `internal/gitx`: version check (>= 2.38), worktree add and remove, merge-tree | Refuses old git; worktrees created with long-path flag on Windows | Integration tests with real git in temp repos | M1-01 |
+| M1-09 | `internal/gitx`: version check (>= 2.38), worktree add and remove, merge-tree | Refuses old git; worktrees created with long-path flag on Windows; merge-tree exit 0 clean, 1 conflict with paths, other = error (as in Phase 0 S6) | Integration tests with real git in temp repos | M1-01 |
+| M1-10 | CI: per-package coverage report and 85% threshold for `claims` (later `shellparse`, `hooks`, `dispatch`) | Job fails below threshold for listed packages that exist | CI run on a PR | M1-04 |
 
 ## M2: Claude Code and Codex hook adapters
 
