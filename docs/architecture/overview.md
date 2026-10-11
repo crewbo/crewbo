@@ -4,6 +4,8 @@ Status: draft for Gate A, 2026-10-11. Source of truth for product scope: [PRD](.
 
 ## Level 1: system context
 
+Presentation copy: [Lucid](https://lucid.app/lucidchart/edbff025-4e98-4417-99fa-6327ce8b1f06/view). Mermaid below is the source of truth.
+
 Crewbo sits between each teammate's coding agent and the team. It never hosts code: code moves only through the team's git remote. The sync server sees metadata only.
 
 ```mermaid
@@ -40,6 +42,8 @@ flowchart LR
 | GitHub | OAuth device flow identity; the git remote that carries all code. |
 
 ## Level 2: containers
+
+Presentation copy: [Lucid](https://lucid.app/lucidchart/f964aecb-7153-4893-b402-cf9300435660/view). Mermaid below is the source of truth.
 
 ```mermaid
 flowchart TB

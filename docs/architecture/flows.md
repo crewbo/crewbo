@@ -4,6 +4,8 @@ One sequence diagram per PRD flow, including failure branches. Message names ref
 
 ## Flow 1: join a room
 
+Presentation copy: [Lucid](https://lucid.app/lucidchart/3ffc1161-3058-43be-887c-666e09b4460a/view). Mermaid below is the source of truth.
+
 ```mermaid
 sequenceDiagram
   autonumber
@@ -51,6 +53,8 @@ sequenceDiagram
 
 ## Flow 2: lead dispatches a signed task
 
+Presentation copy: [Lucid](https://lucid.app/lucidchart/cafe99c3-9fe7-4f91-a20a-9f335b3af3ec/view). Mermaid below is the source of truth.
+
 ```mermaid
 sequenceDiagram
   autonumber
@@ -81,6 +85,8 @@ sequenceDiagram
 ```
 
 ## Flow 3: teammate approves; agent claims and runs in a fresh worktree
+
+Presentation copy: [Lucid](https://lucid.app/lucidchart/877460d5-202f-4d59-a91c-8de3023a5ebe/view). Mermaid below is the source of truth.
 
 ```mermaid
 sequenceDiagram
@@ -125,6 +131,8 @@ sequenceDiagram
 
 ## Flow 4: edit to a claimed file is blocked and the owner notified
 
+Presentation copy: [Lucid](https://lucid.app/lucidchart/fcb2aaf3-4205-4d8b-b76d-6bb68f91aa14/view). Mermaid below is the source of truth.
+
 ```mermaid
 sequenceDiagram
   autonumber
@@ -167,6 +175,8 @@ sequenceDiagram
 Shell edits follow the same path through `pre_shell`. After a shell command runs, `post_edit` compares hashes of claimed files; a change to a file claimed by someone else produces `ClaimViolation` (alert and record, no revert).
 
 ## Flow 5: cross-machine merge-tree warning before merge
+
+Presentation copy: [Lucid](https://lucid.app/lucidchart/0c8b27cd-799d-469e-8c99-8d6c9dba55f9/view). Mermaid below is the source of truth.
 
 ```mermaid
 sequenceDiagram
