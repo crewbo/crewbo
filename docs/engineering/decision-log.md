@@ -92,3 +92,4 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | deps | mvdan.cc/sh/v3 v3.14.1 (BSD-3-Clause, active) for POSIX shell parsing | Named in research; S3 proved it | #38
 2026-10-11 | shellparse | Literal-mention heuristic runs in the daemon (claims.Set.MentionedBy), only for commands the parser marks opaque, only for non-glob claims | Only the daemon knows claimed names; S3 showed 0 false positives when limited to opaque commands | #38
 2026-10-11 | shellparse | Computed arguments make a command opaque only when a writing command would use them as a target | `echo $f >> log` must not be opaque | #38
+2026-10-11 | shellparse | PowerShell is analysed by an in-repo tokenizer with a cmdlet, alias and parameter table, not a parser library | No maintained PowerShell parser exists for Go; the write surface agents use is small | #39

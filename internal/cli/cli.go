@@ -172,13 +172,12 @@ func hookLog(p platform.Paths, perr error) *slog.Logger {
 	return slog.New(slog.DiscardHandler)
 }
 
-// parseShell finds shell write targets. PowerShell gets its own parser in
-// M2-05; until then its commands are treated as opaque, so the daemon's
-// literal-mention check still applies.
+// parseShell finds shell write targets with the parser for the command's
+// shell.
 func parseShell(command string, sh hooks.Shell) ([]string, bool) {
-	if sh == hooks.PowerShell {
-		return nil, true
-	}
 	r := shellparse.POSIX(command)
+	if sh == hooks.PowerShell {
+		r = shellparse.PowerShell(command)
+	}
 	return r.Targets, r.Opaque
 }
