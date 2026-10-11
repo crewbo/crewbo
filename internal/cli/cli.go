@@ -42,6 +42,7 @@ Commands:
   daemon    Run the Crewbo daemon in the foreground
   status    Show whether the daemon is running
   claim     Claim files in this repository so agents leave them alone
+  hooks     Install or remove Crewbo's hooks in Claude Code and Codex
   hook      Handle an agent hook call (run by Claude Code and Codex)
   version   Print the version and commit
   help      Show this help
@@ -67,6 +68,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runHook(ctx, args[1:], stdin, stdout)
 	case "claim":
 		return runClaim(ctx, args[1:], stdout, stderr)
+	case "hooks":
+		return runHooksCmd(ctx, args[1:], stdout, stderr)
 	default:
 		return write(stderr, ExitUsage, "crewbo: unknown command %q\n\n%s", args[0], usage)
 	}

@@ -94,3 +94,5 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | shellparse | Computed arguments make a command opaque only when a writing command would use them as a target | `echo $f >> log` must not be opaque | #38
 2026-10-11 | shellparse | PowerShell is analysed by an in-repo tokenizer with a cmdlet, alias and parameter table, not a parser library | No maintained PowerShell parser exists for Go; the write surface agents use is small | #39
 2026-10-11 | hooks | Post-shell hash check runs for every allowed shell command, paired by tool_use_id; literal claims only, 200 files and 10 MiB per file max | Unknown programs (go generate, black) are not opaque yet can write; glob expansion per command would walk the repo | #40
+2026-10-11 | install | hooks install edits JSON via generic maps (keys re-sorted, formatting normalised) and keeps a .crewbo.bak backup | No dependency for format-preserving JSON; the backup lets users diff | #41
+2026-10-11 | install | Codex install refuses binary paths with spaces or '&'; Claude Code (exec form) allows them | Phase 0: Codex skipped an unquoted spaced path silently (U-22) | #41
