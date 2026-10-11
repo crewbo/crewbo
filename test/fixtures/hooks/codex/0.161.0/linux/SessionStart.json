@@ -1,0 +1,9 @@
+{
+  "session_id": "session-04",
+  "transcript_path": null,
+  "cwd": "/home/user/work/capture/cx",
+  "hook_event_name": "SessionStart",
+  "model": "gpt-6-luna",
+  "permission_mode": "bypassPermissions",
+  "source": "startup"
+}

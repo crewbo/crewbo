@@ -1,0 +1,14 @@
+{
+  "session_id": "session-05",
+  "turn_id": "turn-02",
+  "transcript_path": null,
+  "cwd": "/home/user/work/s2/repo",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6-luna",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo shell >> blocked.txt"
+  },
+  "tool_use_id": "tool_use-10"
+}

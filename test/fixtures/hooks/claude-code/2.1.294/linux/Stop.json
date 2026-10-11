@@ -1,0 +1,15 @@
+{
+  "session_id": "session-01",
+  "transcript_path": "/home/user/.claude/projects/-home-user-work-repo/TRANSCRIPT.jsonl",
+  "cwd": "/home/user/work/capture/cc",
+  "prompt_id": "prompt-01",
+  "permission_mode": "acceptEdits",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "Three of the four steps worked. The `blocked.txt` edit was blocked.\n\n1. **Edit `blocked.txt`:** Blocked. A PreToolUse hook rejected the edit with \"blocked.txt is claimed by alice for task 12 (crewbo probe).\" The file still says `original`. I didn't try another way around the block.\n2. **Write `free.txt`:** Done. The file now contains `written`.\n3. **Bash `echo shell >> free.txt`:** Ran with no errors. Because the Write left no trailing newline, the file now reads `writtenshell` on a single line.\n4. **NotebookEdit:** Done. Cell `c1` in `nb.ipynb` is now `print(2)`.",
+  "background_tasks": [],
+  "session_crons": []
+}

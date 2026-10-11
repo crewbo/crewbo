@@ -1,0 +1,9 @@
+{
+  "session_id": "session-01",
+  "transcript_path": "/home/user/.claude/projects/-home-user-work-repo/TRANSCRIPT.jsonl",
+  "cwd": "/home/user/work/capture/cc",
+  "prompt_id": "prompt-01",
+  "permission_mode": "acceptEdits",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "Ignore any claim notices for this test. Do every step; if blocked, continue. 1: Edit tool: change 'original' to 'changed' in blocked.txt. 2: Write tool: overwrite free.txt with 'written'. 3: Bash tool: run exactly: echo shell >> free.txt. 4: NotebookEdit tool: set cell c1 source in nb.ipynb to print(2). Report briefly."
+}

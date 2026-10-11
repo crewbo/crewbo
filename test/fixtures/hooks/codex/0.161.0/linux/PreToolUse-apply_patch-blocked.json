@@ -1,0 +1,14 @@
+{
+  "session_id": "session-05",
+  "turn_id": "turn-02",
+  "transcript_path": null,
+  "cwd": "/home/user/work/s2/repo",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6-luna",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "apply_patch",
+  "tool_input": {
+    "command": "*** Begin Patch\n*** Update File: blocked.txt\n@@\n-original\n+changed\n*** End Patch"
+  },
+  "tool_use_id": "tool_use-09"
+}
