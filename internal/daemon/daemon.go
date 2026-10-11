@@ -45,6 +45,8 @@ type Daemon struct {
 	cfg     Config
 	started time.Time
 	calls   chan call
+	// sessions is owned by the owner goroutine, like the claim set.
+	sessions map[string]*Session
 }
 
 type call struct {
@@ -63,7 +65,7 @@ func New(cfg Config) *Daemon {
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	return &Daemon{cfg: cfg, calls: make(chan call)}
+	return &Daemon{cfg: cfg, calls: make(chan call), sessions: map[string]*Session{}}
 }
 
 // Run serves until ctx is cancelled, then closes the socket, waits for open
@@ -127,10 +129,17 @@ func (d *Daemon) own(ctx context.Context) {
 func (d *Daemon) handle(req Request) Response {
 	now := d.cfg.Now()
 	switch req.Method {
+	case MethodEvent:
+		if req.Session == "" || req.Event == "" {
+			return Response{ID: req.ID, Error: "event: session and event are required"}
+		}
+		d.touch(req, req.Event, now)
+		return Response{ID: req.ID}
 	case MethodDecide:
 		if req.Session == "" {
 			return Response{ID: req.ID, Error: "decide: session is required"}
 		}
+		d.touch(req, "pre_edit", now)
 		dec := d.cfg.Claims.Decide(req.Session, req.Paths, now)
 		resp := Response{ID: req.ID, Allow: dec.Allow, Path: dec.Path}
 		if !dec.Allow {
@@ -141,11 +150,30 @@ func (d *Daemon) handle(req Request) Response {
 	case MethodStatus:
 		return Response{ID: req.ID, Status: &Status{
 			Version: d.cfg.Version, PID: os.Getpid(), Started: d.started,
-			ActiveClaims: len(d.cfg.Claims.Active(now)),
+			ActiveClaims: len(d.cfg.Claims.Active(now)), Sessions: len(d.sessions),
 		}}
 	default:
 		return Response{ID: req.ID, Error: fmt.Sprintf("unknown method %q", req.Method)}
 	}
+}
+
+// touch registers or updates the session and renews its leases: any hook
+// event proves the agent is alive (ADR 0003).
+func (d *Daemon) touch(req Request, event string, now time.Time) {
+	s, ok := d.sessions[req.Session]
+	if !ok {
+		s = &Session{ID: req.Session}
+		d.sessions[req.Session] = s
+		d.cfg.Log.Info("agent session registered", "session", req.Session, "agent", req.Agent)
+	}
+	if req.Agent != "" {
+		s.Agent = req.Agent
+	}
+	if req.Repo != "" {
+		s.Repo = req.Repo
+	}
+	s.LastSeen, s.LastEvent = now, event
+	d.cfg.Claims.Renew(req.Session, now, claims.DefaultLease)
 }
 
 // serve authenticates one connection and answers its requests in order.
