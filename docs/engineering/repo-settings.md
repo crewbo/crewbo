@@ -46,3 +46,37 @@ Settings, Actions, General:
 
 - Allow actions from GitHub and verified creators, plus the pinned third-party actions used in workflows.
 - Workflow permissions: read repository contents by default.
+
+## Apply with the GitHub CLI
+
+Claude's permission rules do not allow it to change repository settings, so run these yourself (in Claude Code, prefix each with `!`). Each was written against the GitHub REST API; check the output for errors.
+
+```sh
+R=crewbo/crewbo
+
+# Squash merge only, PR title and body as the commit message, delete head branches
+gh api -X PATCH repos/$R \
+  -F allow_squash_merge=true -F allow_merge_commit=false -F allow_rebase_merge=false \
+  -F delete_branch_on_merge=true \
+  -f squash_merge_commit_title=PR_TITLE -f squash_merge_commit_message=PR_BODY
+
+# Dependabot alerts and security updates
+gh api -X PUT repos/$R/vulnerability-alerts
+gh api -X PUT repos/$R/automated-security-fixes
+
+# Read-only default token for workflows
+gh api -X PUT repos/$R/actions/permissions/workflow \
+  -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false
+
+# Private vulnerability reporting (expected to fail while the repo is private)
+gh api -X PUT repos/$R/private-vulnerability-reporting
+```
+
+Branch protection is not available for private repositories on the Free plan, so it is not listed. Apply it when the repository goes public.
+
+## CI minutes policy (2026-10-11)
+
+- Docs-only changes (`docs/**`, `*.md`) do not trigger CI.
+- macOS runs on pull requests, a weekly run (Monday 03:00 UTC) and manual runs; pushes to `main` run Linux and Windows only.
+- Real-machine checks: Ronel on Windows (dual boot) and Omarchy; a friend with a Mac runs the macOS checklists in Phase 0 and before releases.
+- Caveat: once branch protection with required checks is enabled, `paths-ignore` means docs-only PRs never report the required checks and cannot merge. At that point, replace `paths-ignore` with an in-job skip.
