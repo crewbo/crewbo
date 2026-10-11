@@ -53,6 +53,8 @@ flowchart TB
 | `internal/platform` | IPC transport, service install, data dirs, process spawning. | `Listener`, `Dialer`, `Paths` |
 | `internal/store` | SQLite schema and migrations for daemon and server. | |
 
+Local API (#16): newline-delimited JSON over the daemon socket. The first line of every connection carries a random token that the daemon writes to `daemon.token` (owner-only) in the runtime directory at each start; connections without it within 2 s are dropped. Methods so far: `decide` and `status` (`internal/daemon/api.go`).
+
 Concurrency rule: one owner goroutine holds daemon state. API handlers send requests over a channel and wait for a reply with a context deadline. This keeps the claim set free of locks and easy to simulate (`test/sim`).
 
 ### Hook process
