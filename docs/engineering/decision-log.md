@@ -89,3 +89,6 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | daemon | Claims are kept per repository (map keyed by RepoKey: symlinks resolved, slashes, case folded) | A claim must not block the same path in other repositories; hook and terminal must agree on the key | #44
 2026-10-11 | cli | Terminal claims use session "terminal", lease 30 min by default (`--for`, at most 8 h), and block every agent including the user's own | No hook event renews them; teammates and rooms refine ownership in M3 | #44
 2026-10-11 | daemon | claim_add is all or nothing; a conflict rolls back the request's claims and returns the blocking claim | Partial claims surprise users | #44
+2026-10-11 | deps | mvdan.cc/sh/v3 v3.14.1 (BSD-3-Clause, active) for POSIX shell parsing | Named in research; S3 proved it | #38
+2026-10-11 | shellparse | Literal-mention heuristic runs in the daemon (claims.Set.MentionedBy), only for commands the parser marks opaque, only for non-glob claims | Only the daemon knows claimed names; S3 showed 0 false positives when limited to opaque commands | #38
+2026-10-11 | shellparse | Computed arguments make a command opaque only when a writing command would use them as a target | `echo $f >> log` must not be opaque | #38
