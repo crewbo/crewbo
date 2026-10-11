@@ -57,6 +57,15 @@ func TestHooksInstallUninstall(t *testing.T) {
 	if b, _ := os.ReadFile(claude); strings.Contains(string(b), "crewbo") || !strings.Contains(string(b), `"theme"`) {
 		t.Errorf("after uninstall:\n%s", b)
 	}
+	if bak, _ := os.ReadFile(claude + ".crewbo.bak"); string(bak) != `{"theme":"dark"}` {
+		t.Errorf("uninstall replaced the backup: %q", bak)
+	}
+	codex := filepath.Join(dir, "codex", "hooks.json")
+	for _, p := range []string{codex, codex + ".crewbo.bak"} {
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("%s left behind; Crewbo created hooks.json", p)
+		}
+	}
 	for _, args := range [][]string{{}, {"frob"}, {"install", "--agent", "cursor"}} {
 		if code, _, _ := run(args...); code != ExitUsage {
 			t.Errorf("hooks %v: exit %d, want usage", args, code)

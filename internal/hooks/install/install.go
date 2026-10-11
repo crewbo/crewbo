@@ -13,6 +13,8 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/crewbo/crewbo/internal/platform"
@@ -100,50 +102,67 @@ func Install(agent string, cfg []byte, bin string) (out []byte, changed bool, er
 		specs = codexSpecs
 	}
 	for _, s := range specs {
-		g := map[string]any{"hooks": []any{handler(agent, bin, s.kind)}}
+		g := newObject()
 		if s.matcher != "" {
-			g["matcher"] = s.matcher
+			g.set("matcher", s.matcher)
 		}
-		list, _ := hooks[s.event].([]any)
-		hooks[s.event] = append(list, g)
+		g.set("hooks", []any{handler(agent, bin, s.kind)})
+		list, _ := hooks.get(s.event).([]any)
+		hooks.set(s.event, append(list, g))
 	}
-	root["hooks"] = hooks
+	root.set("hooks", hooks)
 	return render(cfg, root)
 }
 
-// Uninstall returns cfg without Crewbo's hooks for agent.
+// Uninstall returns cfg without Crewbo's hooks for agent. out is nil when
+// nothing else is left in the config, so the caller can remove the file
+// (Codex hooks.json is usually created by the install).
 func Uninstall(agent string, cfg []byte) (out []byte, changed bool, err error) {
 	root, hooks, err := parse(cfg)
 	if err != nil {
 		return nil, false, err
 	}
-	remove(agent, hooks)
-	if len(hooks) == 0 {
-		delete(root, "hooks")
-	} else {
-		root["hooks"] = hooks
+	if remove(agent, hooks) == 0 {
+		return cfg, false, nil
+	}
+	if len(hooks.keys) == 0 {
+		root.del("hooks")
+	}
+	if len(root.keys) == 0 {
+		return nil, true, nil
 	}
 	return render(cfg, root)
 }
 
+// installed reports whether cfg holds any Crewbo hook for agent.
+func installed(agent string, cfg []byte) bool {
+	_, hooks, err := parse(cfg)
+	return err == nil && remove(agent, hooks) > 0
+}
+
 // handler builds one entry. Claude Code gets exec form (no shell; a real
 // .exe on Windows); Codex only has a command string.
-func handler(agent, bin, kind string) map[string]any {
+func handler(agent, bin, kind string) *object {
+	h := newObject()
+	h.set("type", "command")
 	if agent == ClaudeCode {
-		return map[string]any{"type": "command", "command": bin, "args": []any{"hook", ClaudeCode, kind}}
+		h.set("command", bin)
+		h.set("args", []any{"hook", ClaudeCode, kind})
+	} else {
+		h.set("command", bin+" hook "+Codex+" "+kind)
 	}
-	return map[string]any{"type": "command", "command": bin + " hook " + Codex + " " + kind}
+	return h
 }
 
 // ours reports whether a handler is a Crewbo hook for agent.
 func ours(agent string, h any) bool {
-	m, ok := h.(map[string]any)
+	m, ok := h.(*object)
 	if !ok {
 		return false
 	}
-	cmd, _ := m["command"].(string)
+	cmd, _ := m.get("command").(string)
 	if agent == ClaudeCode {
-		args, _ := m["args"].([]any)
+		args, _ := m.get("args").([]any)
 		return isCrewbo(cmd) && len(args) >= 2 && args[0] == "hook" && args[1] == ClaudeCode
 	}
 	fields := strings.Fields(cmd)
@@ -155,24 +174,28 @@ func isCrewbo(cmd string) bool {
 	return base == "crewbo" || base == "crewbo.exe"
 }
 
-// remove drops Crewbo handlers for agent, then empty groups and events.
-func remove(agent string, hooks map[string]any) {
-	for event, v := range hooks {
-		groups, ok := v.([]any)
+// remove drops Crewbo handlers for agent, then empty groups and events,
+// and returns how many handlers it dropped.
+func remove(agent string, hooks *object) int {
+	n := 0
+	for _, event := range slices.Clone(hooks.keys) {
+		groups, ok := hooks.get(event).([]any)
 		if !ok {
 			continue
 		}
 		var kept []any
 		for _, g := range groups {
-			gm, ok := g.(map[string]any)
+			gm, ok := g.(*object)
 			if !ok {
 				kept = append(kept, g)
 				continue
 			}
-			hs, _ := gm["hooks"].([]any)
+			hs, _ := gm.get("hooks").([]any)
 			var keep []any
 			for _, h := range hs {
-				if !ours(agent, h) {
+				if ours(agent, h) {
+					n++
+				} else {
 					keep = append(keep, h)
 				}
 			}
@@ -180,48 +203,57 @@ func remove(agent string, hooks map[string]any) {
 				continue // the group only held Crewbo hooks
 			}
 			if len(keep) != len(hs) {
-				gm["hooks"] = keep
+				gm.set("hooks", keep)
 			}
 			kept = append(kept, gm)
 		}
 		if len(kept) == 0 {
-			delete(hooks, event)
+			hooks.del(event)
 		} else {
-			hooks[event] = kept
+			hooks.set(event, kept)
 		}
 	}
+	return n
 }
 
-func parse(cfg []byte) (map[string]any, map[string]any, error) {
-	root := map[string]any{}
+func parse(cfg []byte) (root, hooks *object, err error) {
+	root = newObject()
 	if len(bytes.TrimSpace(cfg)) > 0 {
-		if err := json.Unmarshal(cfg, &root); err != nil {
+		v, err := decodeOrdered(cfg)
+		if err != nil {
 			return nil, nil, fmt.Errorf("install: config is not valid JSON, leaving it unchanged: %w", err)
 		}
+		if root, _ = v.(*object); root == nil {
+			return nil, nil, errors.New("install: config is not a JSON object, leaving it unchanged")
+		}
 	}
-	hooks, ok := root["hooks"].(map[string]any)
-	if root["hooks"] != nil && !ok {
+	hooks, ok := root.get("hooks").(*object)
+	if root.get("hooks") != nil && !ok {
 		return nil, nil, errors.New(`install: "hooks" is not an object, leaving the config unchanged`)
 	}
 	if hooks == nil {
-		hooks = map[string]any{}
+		hooks = newObject()
 	}
 	return root, hooks, nil
 }
 
-func render(orig []byte, root map[string]any) ([]byte, bool, error) {
-	out, err := json.MarshalIndent(root, "", "  ")
-	if err != nil {
+// render writes root in the config's own key order with two-space indent,
+// reporting no change when it means the same as orig.
+func render(orig []byte, root *object) ([]byte, bool, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(root); err != nil {
 		return nil, false, err
 	}
-	out = append(out, '\n')
-	var before any
-	if json.Unmarshal(orig, &before) == nil {
-		var after any
-		_ = json.Unmarshal(out, &after)
-		if fmt.Sprint(before) == fmt.Sprint(after) {
-			return orig, false, nil
-		}
+	out := buf.Bytes()
+	if len(orig) > 0 && !bytes.HasSuffix(orig, []byte("\n")) {
+		out = bytes.TrimSuffix(out, []byte("\n"))
+	}
+	var before, after any
+	if json.Unmarshal(orig, &before) == nil && json.Unmarshal(out, &after) == nil && reflect.DeepEqual(before, after) {
+		return orig, false, nil
 	}
 	return out, true, nil
 }

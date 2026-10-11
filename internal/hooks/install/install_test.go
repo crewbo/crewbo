@@ -31,11 +31,15 @@ func decode(t *testing.T, b []byte) map[string]any {
 
 func countOurs(t *testing.T, agent string, b []byte) int {
 	t.Helper()
-	hooks, _ := decode(t, b)["hooks"].(map[string]any)
+	v, err := decodeOrdered(b)
+	if err != nil {
+		t.Fatalf("invalid JSON %s: %v", b, err)
+	}
+	hooks, _ := v.(*object).get("hooks").(*object)
 	n := 0
-	for _, v := range hooks {
-		for _, g := range v.([]any) {
-			for _, h := range g.(map[string]any)["hooks"].([]any) {
+	for _, k := range hooks.keys {
+		for _, g := range hooks.get(k).([]any) {
+			for _, h := range g.(*object).get("hooks").([]any) {
 				if ours(agent, h) {
 					n++
 				}
@@ -79,6 +83,64 @@ func TestClaudeInstallKeepsUserConfig(t *testing.T) {
 	}
 }
 
+// The Windows M2 check found keys re-sorted and & written as & after
+// an install and uninstall round trip.
+func TestRoundTripIsByteIdentical(t *testing.T) {
+	for name, cfg := range map[string]string{
+		"with user hooks": `{
+  "statusLine": {
+    "type": "command",
+    "command": "cd ~ && cs <status>"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify && echo done",
+            "timeout": 1.50
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "B": "1",
+    "A": "2"
+  }
+}
+`,
+		"no hooks, no trailing newline": `{
+  "zeta": true,
+  "alpha": [
+    "a&b",
+    null
+  ]
+}`,
+	} {
+		for _, agent := range []string{ClaudeCode, Codex} {
+			in, _, err := Install(agent, []byte(cfg), "/opt/crewbo/crewbo")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(string(in), cfg[:12]) || strings.Contains(string(in), `\u00`) {
+				t.Errorf("%s, %s: install reordered or escaped the config:\n%s", name, agent, in)
+			}
+			out, _, err := Uninstall(agent, in)
+			if err != nil || string(out) != cfg {
+				t.Errorf("%s, %s: round trip differs (%v):\n%s", name, agent, err, out)
+			}
+		}
+	}
+	if _, _, err := Install(ClaudeCode, []byte(`[]`), "/b/crewbo"); err == nil {
+		t.Error("Install accepted a JSON array")
+	}
+	if _, _, err := Install(ClaudeCode, []byte(`{} {}`), "/b/crewbo"); err == nil {
+		t.Error("Install accepted trailing data")
+	}
+}
+
 func TestCodexInstall(t *testing.T) {
 	out, changed, err := Install(Codex, nil, "/home/u/.local/bin/crewbo")
 	if err != nil || !changed {
@@ -96,9 +158,11 @@ func TestCodexInstall(t *testing.T) {
 	if countOurs(t, Codex, only) != 0 || countOurs(t, ClaudeCode, only) != len(claudeSpecs) {
 		t.Errorf("uninstalling codex touched claude entries:\n%s", only)
 	}
-	empty, _, _ := Uninstall(ClaudeCode, only)
-	if _, ok := decode(t, empty)["hooks"]; ok {
-		t.Errorf("empty hooks object left behind: %s", empty)
+	if empty, changed, _ := Uninstall(ClaudeCode, only); empty != nil || !changed {
+		t.Errorf("uninstall leaving nothing = %q %v, want nil (remove the file)", empty, changed)
+	}
+	if out, changed, _ := Uninstall(Codex, []byte(`{"theme":"dark"}`)); changed || string(out) != `{"theme":"dark"}` {
+		t.Errorf("uninstall with nothing installed = %q %v", out, changed)
 	}
 }
 
@@ -135,29 +199,48 @@ func TestBadConfigsAreLeftAlone(t *testing.T) {
 func TestApplyBacksUpAndWrites(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "sub", "settings.json")
-	// Missing file: created, no backup.
-	changed, err := Apply(path, func(b []byte) ([]byte, bool, error) { return Install(ClaudeCode, b, "/b/crewbo") })
-	if err != nil || !changed {
+	install := func(bin string) func([]byte) ([]byte, bool, error) {
+		return func(b []byte) ([]byte, bool, error) { return Install(ClaudeCode, b, bin) }
+	}
+	uninstall := func(b []byte) ([]byte, bool, error) { return Uninstall(ClaudeCode, b) }
+
+	// Missing file: created, no backup; uninstall removes it again.
+	if changed, err := Apply(path, ClaudeCode, install("/b/crewbo")); err != nil || !changed {
 		t.Fatalf("Apply new = %v %v", changed, err)
 	}
 	if _, err := os.Stat(path + ".crewbo.bak"); !errors.Is(err, os.ErrNotExist) {
 		t.Error("backup written for a file that did not exist")
 	}
-	first, _ := os.ReadFile(path)
-	// Unchanged: nothing written.
-	changed, err = Apply(path, func(b []byte) ([]byte, bool, error) { return Install(ClaudeCode, b, "/b/crewbo") })
-	if err != nil || changed {
+	if changed, err := Apply(path, ClaudeCode, install("/b/crewbo")); err != nil || changed {
 		t.Errorf("Apply unchanged = %v %v", changed, err)
 	}
-	// Changed: backup holds the previous content.
-	if _, err := Apply(path, func(b []byte) ([]byte, bool, error) { return Uninstall(ClaudeCode, b) }); err != nil {
+	if changed, err := Apply(path, ClaudeCode, uninstall); err != nil || !changed {
+		t.Fatalf("Apply uninstall = %v %v", changed, err)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Error("config Crewbo created is left behind after uninstall")
+	}
+	if changed, err := Apply(path, ClaudeCode, uninstall); err != nil || changed {
+		t.Errorf("uninstall with no file = %v %v", changed, err)
+	}
+
+	// Existing file: the backup keeps the original through reinstall and uninstall.
+	if err := os.WriteFile(path, []byte(userClaude), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if bak, _ := os.ReadFile(path + ".crewbo.bak"); string(bak) != string(first) {
-		t.Error("backup does not hold the previous config")
+	for _, step := range []func([]byte) ([]byte, bool, error){install("/b/crewbo"), install("/c/crewbo"), uninstall} {
+		if _, err := Apply(path, ClaudeCode, step); err != nil {
+			t.Fatal(err)
+		}
+		if bak, _ := os.ReadFile(path + ".crewbo.bak"); string(bak) != userClaude {
+			t.Fatalf("backup no longer holds the original:\n%s", bak)
+		}
+	}
+	if b, _ := os.ReadFile(path); !jsonEqual(decode(t, b), decode(t, []byte(userClaude))) {
+		t.Errorf("uninstall did not restore the config:\n%s", b)
 	}
 	// A transform error leaves the file alone.
-	if _, err := Apply(path, func([]byte) ([]byte, bool, error) { return nil, false, errors.New("boom") }); err == nil {
+	if _, err := Apply(path, ClaudeCode, func([]byte) ([]byte, bool, error) { return nil, false, errors.New("boom") }); err == nil {
 		t.Error("transform error not returned")
 	}
 }
