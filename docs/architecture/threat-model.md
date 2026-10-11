@@ -79,6 +79,10 @@ flowchart LR
 | Denial of service | Flood of connections or events | Per-device rate limits, frame size limits, room size cap 10 |
 | Elevation | Member performs lead actions | Server checks role on every request; daemons also check the lead role before accepting tasks |
 
+## Hook binary replacement
+
+Codex trust covers the hook entry, not the executable (Phase 0, U-02), and Claude Code runs whatever binary the configured path points at. Anyone who can overwrite `crewbo` at its install path runs code as a trusted hook in every agent session. This is inside trust boundary 1 (same OS user), so it adds no new attacker, but the install directory must be writable only by the user, and package-manager installs must keep the binary outside world-writable paths.
+
 ## Key compromise
 
 - Device key stolen: attacker can sign tasks as that device. If it is the lead's device, teammates still see the text and must approve. Response: `crewbo device revoke`, which writes a revocation event; daemons reject that key from then on. Runbook: `docs/runbooks/key-rotation.md` (to be written in M3).

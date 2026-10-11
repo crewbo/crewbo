@@ -1,8 +1,8 @@
 # Phase 0 findings
 
-Status: interim, 2026-10-11. Linux (Omarchy) results are complete; Windows, macOS and team interviews are pending. Gate B is decided after those arrive.
+Status: interim, 2026-10-11. Linux (Omarchy) and Windows results are complete; macOS and team interviews are pending. Gate B is decided after those arrive.
 
-Reproduce everything from `crewbo/spikes` (commit 68e385b). Founder machine: Omarchy (Arch Linux, x86_64, i5-13420H), Claude Code 2.1.294, codex-cli 0.161.0, git 2.55.0, Go 1.27.2.
+Reproduce everything from `crewbo/spikes` (Linux: commit 68e385b; Windows: 40b2686, report in `results/windows/report.md`). Founder machine (Linux): Omarchy (Arch Linux, x86_64, i5-13420H), Claude Code 2.1.294, codex-cli 0.161.0, git 2.55.0, Go 1.27.2.
 
 ## Summary
 
@@ -75,12 +75,29 @@ Two clones of a bare remote, each with a task branch pushed to `refs/crewbo/<mem
 - Fresh session bus with no secret service (`dbus-run-session`): the call **blocked for over 60 s** while D-Bus tried to activate the service. go-keyring does not fail fast in this case.
 - Plan effect: wrap every keyring call in a hard timeout (proposed 3 s) and fall back to the 0600 file on timeout. Recorded in the decision log; ADR 0006 stands because its decision already says "fail fast".
 
+## Windows results
+
+Run by a Claude Code agent on Ronel's dual-boot laptop following `agent-prompts/windows.md`: Windows 11 Home build 26200, i5-13420H, Claude Code 2.1.296, Codex 0.154.0 (0.162.1 for U-02), git 2.51.0, Go 1.27.0. Full report: `crewbo/spikes` `results/windows/report.md`. Fixtures: `test/fixtures/hooks/*/*/windows/`.
+
+| Item | Result | Effect on plan |
+| --- | --- | --- |
+| S1 Claude Code | Pass. `Edit` and the shell edit denied; Claude used its `PowerShell` tool, not `Bash` | `Bash\|PowerShell` matcher confirmed necessary |
+| S2 Codex | Denies pass for `apply_patch` and `Bash`. The allowed `apply_patch` then failed inside the Codex Windows sandbox (`orchestrator_helper_incomplete`) | New unknown U-20: `--sandbox workspace-write` dispatch on Windows |
+| `apply_patch` paths | Relative (`*** Update File: blocked.txt`) in 0.154.0 on Windows; absolute in 0.161.0 on Linux | Adapter accepts both (already decided) |
+| Codex `SessionStart` | Never fired under `codex exec` 0.154.0 | New unknown U-21; U-03 has no Windows data |
+| Hook path with a space | Unquoted `C:/dev/spikes test/bin/probe.exe`: **no hook ran and Codex reported no error** (fails open silently) | Installer refuses paths with spaces; quoted-path behaviour is U-22; `crewbo doctor` must detect hooks that never fire |
+| U-02 Codex trust after binary swap | Not detected: `/hooks` stayed `Trusted`, stored `trusted_hash` unchanged, new binary ran (0.162.1) | Resolved: upgrades need no re-trust. Threat model note: trust does not pin the executable |
+| S7 keyring | wincred, 7.3 ms, no prompt | None |
+| Spawn latency (U-15) | p50 13.71 ms, p95 23.23 ms spawn to exit (100 runs); in-process p50 1.84 ms | Within budget; about 6x Linux |
+| UTF-8 BOM on stdin | The test harness (PowerShell 5.1) prepended a BOM; the probe parsed nothing and allowed | Hook strips a leading BOM; undecodable input is logged and surfaced, never a silent allow |
+
 ## Gate B status
 
 PRD gate: go if hooks block reliably on at least 2 of 3 OSes and at least 3 of 10 teams mix vendors.
 
-- Linux: both agents block reliably. 1 of 3 OSes confirmed.
-- Windows (Ronel) and macOS (friend): pending, checklists in the spikes README.
+- Linux: both agents block reliably.
+- Windows: both agents block reliably (Claude Code 2.1.296, Codex 0.154.0). Hook criterion (2 of 3 OSes) met.
+- macOS (friend): pending.
 - Interviews: pending.
 
-Interim recommendation: **go on Linux evidence**. Start M1 work that does not depend on per-OS hook behaviour (claims, simulator, protocol, gitx) only after Gate B, as planned. Nothing found so far requires a superseding ADR.
+Interim recommendation: **go on the hook criterion** (Linux and Windows); the vendor-mix criterion depends on the interviews. Start M1 work that does not depend on per-OS hook behaviour (claims, simulator, protocol, gitx) only after Gate B, as planned. Nothing found so far requires a superseding ADR.

@@ -33,3 +33,18 @@ Blockers:
 
 Next:
 - Collect Windows and macOS results, add their fixtures, finish phase0-findings, then Gate B.
+
+## 2026-10-11 (evening)
+
+Done:
+- PRs #4, #5, #6 merged (Phase 0 findings on main, brand system, brand review fixes).
+- Windows Phase 0 run (spikes PR #1, 40b2686): both agents block on Windows, so the hook criterion of Gate B is met. Fixtures, findings, unknowns U-20 to U-22, threat model and failure modes updated.
+
+In progress:
+- macOS run (friend gavriel953, collaborator on crewbo/spikes) and interviews (Ronel).
+
+Blockers:
+- None on Claude's side.
+
+Next:
+- macOS results, then Gate B. Optional Windows reruns for U-20, U-21, U-22 on current Codex.

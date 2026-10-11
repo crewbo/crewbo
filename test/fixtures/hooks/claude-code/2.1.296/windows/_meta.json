@@ -1,0 +1,8 @@
+{
+  "agent": "claude-code",
+  "agent_version": "2.1.296",
+  "os": "Windows 11 Home build 26200 x86_64",
+  "captured": "2026-10-11",
+  "method": "crewbo/spikes probe via run-claude.ps1 / run-codex.ps1; scrubbed: user profile path, session/turn/tool_use/prompt ids, transcript path",
+  "spikes_commit": "40b2686"
+}
