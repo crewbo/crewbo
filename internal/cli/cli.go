@@ -16,6 +16,9 @@ import (
 	"github.com/crewbo/crewbo/internal/hooks"
 	"github.com/crewbo/crewbo/internal/hooks/claudecode"
 	"github.com/crewbo/crewbo/internal/hooks/codex"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/crewbo/crewbo/internal/mcpserver"
 	"github.com/crewbo/crewbo/internal/platform"
 	"github.com/crewbo/crewbo/internal/shellparse"
 )
@@ -43,6 +46,7 @@ Commands:
   status    Show whether the daemon is running
   claim     Claim files in this repository so agents leave them alone
   hooks     Install or remove Crewbo's hooks in Claude Code and Codex
+  mcp       Serve Crewbo's read-only MCP tools over stdio
   hook      Handle an agent hook call (run by Claude Code and Codex)
   version   Print the version and commit
   help      Show this help
@@ -70,6 +74,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runClaim(ctx, args[1:], stdout, stderr)
 	case "hooks":
 		return runHooksCmd(ctx, args[1:], stdout, stderr)
+	case "mcp":
+		return runMCP(ctx, stderr, info)
 	default:
 		return write(stderr, ExitUsage, "crewbo: unknown command %q\n\n%s", args[0], usage)
 	}
@@ -187,4 +193,22 @@ func parseShell(command string, sh hooks.Shell) ([]string, bool) {
 		r = shellparse.PowerShell(command)
 	}
 	return r.Targets, r.Opaque
+}
+
+// runMCP serves the MCP tools on stdin and stdout until the agent closes
+// the connection.
+func runMCP(ctx context.Context, stderr io.Writer, info BuildInfo) int {
+	p, err := paths()
+	if err != nil {
+		return write(stderr, ExitError, "crewbo: %v\n", err)
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return write(stderr, ExitError, "crewbo: %v\n", err)
+	}
+	s := mcpserver.New(mcpserver.Config{Paths: p, Cwd: cwd, Version: info.Version})
+	if err := s.Run(ctx, &mcp.StdioTransport{}); err != nil && !errors.Is(err, context.Canceled) {
+		return write(stderr, ExitError, "crewbo mcp: %v\n", err)
+	}
+	return ExitOK
 }

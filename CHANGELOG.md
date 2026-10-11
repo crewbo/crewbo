@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `crewbo claim add` treated flags placed after the paths (`claim add src/a.go --task 12`) as extra claims.
+
 ### Added
 
 - `crewbo version` prints the version and commit; `crewbo help` prints usage.
@@ -14,5 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `crewbo status` reports whether the daemon is running, with its version, process id, uptime, active claims and agent sessions.
 - `crewbo hook claude-code|codex <event>` enforces claims inside Claude Code and Codex: an edit to a file claimed by someone else is denied with the holder's name.
 - `crewbo hooks install` and `crewbo hooks uninstall` add or remove Crewbo's hooks in Claude Code (`~/.claude/settings.json`, exec form) and Codex (`~/.codex/hooks.json`), keeping other hooks and writing a backup.
+- `crewbo mcp` serves read-only MCP tools, `crewbo_claims` and `crewbo_who_holds`, so agents can see claims before planning edits.
 - After a shell command, Crewbo checks whether it changed a file someone else claimed (for example through a script) and tells the agent; `crewbo status` counts these violations.
 - `crewbo claim add [--for 30m] [--task ID] <path or glob>...`, `crewbo claim list` and `crewbo claim release <id>...` claim files in the current repository from a terminal.
