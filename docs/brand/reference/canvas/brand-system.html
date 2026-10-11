@@ -1,0 +1,120 @@
+<!doctype html>
+<!-- Reference copy of the approved design canvas board 'Crewbo brand system'. Visual reference only: implement from docs/brand/*.md and reference/component. Demo timings here are sped up and event states loop; product timings are in 07-bo-motion.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crewbo brand system</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0A0A0A}a:hover{color:#525252}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 1960px; box-sizing: border-box; padding: 72px; background: #FFFFFF; font-family: 'Instrument Sans', sans-serif; color: #0A0A0A; display: flex; flex-direction: column; gap: 56px">
+
+<div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0A0A0A; padding-bottom: 24px">
+<div style="display: flex; align-items: center; gap: 16px">
+<svg viewBox="0 0 100 100" width="48" height="48" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="#0A0A0A"></circle><rect x="50" y="30" width="8" height="18" rx="1.5" fill="#FFFFFF"></rect><rect x="66" y="30" width="8" height="18" rx="1.5" fill="#FFFFFF"></rect></svg>
+<h1 style="margin: 0; font-size: 44px; font-weight: 600; letter-spacing: -1.2px">Crewbo brand system</h1>
+</div>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #525252">v0.1 · October 2026</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 20px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #525252">01 · LOGO</span>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+<div style="height: 260px; background: #F5F5F5; border-radius: 20px; display: flex; align-items: center; justify-content: center; gap: 14px">
+<svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="#0A0A0A"></circle><rect x="50" y="30" width="8" height="18" rx="1.5" fill="#F5F5F5"></rect><rect x="66" y="30" width="8" height="18" rx="1.5" fill="#F5F5F5"></rect></svg>
+<span style="font-size: 52px; font-weight: 600; letter-spacing: -1.6px">crewbo</span>
+</div>
+<div style="height: 260px; background: #0A0A0A; border-radius: 20px; display: flex; align-items: center; justify-content: center; gap: 14px; color: #FFFFFF">
+<svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="#FFFFFF"></circle><rect x="50" y="30" width="8" height="18" rx="1.5" fill="#0A0A0A"></rect><rect x="66" y="30" width="8" height="18" rx="1.5" fill="#0A0A0A"></rect></svg>
+<span style="font-size: 52px; font-weight: 600; letter-spacing: -1.6px">crewbo</span>
+</div>
+<div style="height: 260px; background: #F5F5F5; border-radius: 20px; display: flex; align-items: center; justify-content: center; gap: 40px">
+<div style="width: 140px; height: 140px; background: #0A0A0A; border-radius: 32px; display: flex; align-items: center; justify-content: center">
+<svg viewBox="0 0 100 100" width="96" height="96" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="#FFFFFF"></circle><rect x="50" y="30" width="8" height="18" rx="1.5" fill="#0A0A0A"></rect><rect x="66" y="30" width="8" height="18" rx="1.5" fill="#0A0A0A"></rect></svg>
+</div>
+<div style="width: 140px; height: 140px; background: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center">
+<svg viewBox="0 0 100 100" width="84" height="84" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="#0A0A0A"></circle><rect x="50" y="30" width="8" height="18" rx="1.5" fill="#FFFFFF"></rect><rect x="66" y="30" width="8" height="18" rx="1.5" fill="#FFFFFF"></rect></svg>
+</div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; font-size: 15px; color: #525252">
+<span>Primary lockup on light. Wordmark always lower case.</span>
+<span>Reversed lockup on dark. Pure black and white only.</span>
+<span>App icon and GitHub avatar. Minimum mark size 16 px; lockup 80 px wide. Clear space on every side equals one eye width.</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 20px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #525252">02 · COLOUR</span>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px">
+<div style="height: 140px; background: #0A0A0A; border-radius: 14px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; color: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 13px"><span style="font-family: 'Instrument Sans', sans-serif; font-weight: 600; font-size: 16px">Ink</span><span>#0A0A0A</span></div>
+<div style="height: 140px; background: #262626; border-radius: 14px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; color: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 13px"><span style="font-family: 'Instrument Sans', sans-serif; font-weight: 600; font-size: 16px">Gray 800</span><span>#262626</span></div>
+<div style="height: 140px; background: #525252; border-radius: 14px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; color: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 13px"><span style="font-family: 'Instrument Sans', sans-serif; font-weight: 600; font-size: 16px">Gray 600</span><span>#525252</span></div>
+<div style="height: 140px; background: #A3A3A3; border-radius: 14px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; color: #0A0A0A; font-family: 'JetBrains Mono', monospace; font-size: 13px"><span style="font-family: 'Instrument Sans', sans-serif; font-weight: 600; font-size: 16px">Gray 400</span><span>#A3A3A3</span></div>
+<div style="height: 140px; background: #E5E5E5; border-radius: 14px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; color: #0A0A0A; font-family: 'JetBrains Mono', monospace; font-size: 13px"><span style="font-family: 'Instrument Sans', sans-serif; font-weight: 600; font-size: 16px">Gray 200</span><span>#E5E5E5</span></div>
+<div style="height: 140px; background: #F5F5F5; border-radius: 14px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; color: #0A0A0A; font-family: 'JetBrains Mono', monospace; font-size: 13px"><span style="font-family: 'Instrument Sans', sans-serif; font-weight: 600; font-size: 16px">Gray 100</span><span>#F5F5F5</span></div>
+<div style="height: 140px; background: #FFFFFF; border: 2px solid #E5E5E5; border-radius: 14px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; color: #0A0A0A; font-family: 'JetBrains Mono', monospace; font-size: 13px"><span style="font-family: 'Instrument Sans', sans-serif; font-weight: 600; font-size: 16px">Paper</span><span>#FFFFFF</span></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<div style="height: 96px; border: 2px solid #E5E5E5; border-radius: 14px; padding: 16px; box-sizing: border-box; display: flex; align-items: center; gap: 14px"><div style="width: 40px; height: 40px; border-radius: 10px; background: #15803D"></div><div style="display: flex; flex-direction: column"><span style="font-weight: 600">Claimed</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #525252">#15803D</span></div></div>
+<div style="height: 96px; border: 2px solid #E5E5E5; border-radius: 14px; padding: 16px; box-sizing: border-box; display: flex; align-items: center; gap: 14px"><div style="width: 40px; height: 40px; border-radius: 10px; background: #1D4ED8"></div><div style="display: flex; flex-direction: column"><span style="font-weight: 600">Synced / info</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #525252">#1D4ED8</span></div></div>
+<div style="height: 96px; border: 2px solid #E5E5E5; border-radius: 14px; padding: 16px; box-sizing: border-box; display: flex; align-items: center; gap: 14px"><div style="width: 40px; height: 40px; border-radius: 10px; background: #F59E0B"></div><div style="display: flex; flex-direction: column"><span style="font-weight: 600">Handoff / warning</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #525252">#F59E0B</span></div></div>
+<div style="height: 96px; border: 2px solid #E5E5E5; border-radius: 14px; padding: 16px; box-sizing: border-box; display: flex; align-items: center; gap: 14px"><div style="width: 40px; height: 40px; border-radius: 10px; background: #DC2626"></div><div style="display: flex; flex-direction: column"><span style="font-weight: 600">Conflict / blocked</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #525252">#DC2626</span></div></div>
+</div>
+<span style="font-size: 15px; color: #525252">The brand is black and white. Signal colours appear only in the product, to show state, and always with a word or icon beside them.</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 20px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #525252">03 · TYPE</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+<div style="background: #F5F5F5; border-radius: 20px; padding: 32px; display: flex; flex-direction: column; gap: 16px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #525252">Instrument Sans · display and body</span>
+<span style="font-size: 64px; font-weight: 600; letter-spacing: -2px; line-height: 1">Every agent, one crew.</span>
+<span style="font-size: 18px; line-height: 1.55; color: #262626">Body text sits at 18 px with 1.55 line height. Headlines use weight 600 with tight tracking; body uses 400.</span>
+</div>
+<div style="background: #0A0A0A; border-radius: 20px; padding: 32px; display: flex; flex-direction: column; gap: 12px; color: #E5E5E5; font-family: 'JetBrains Mono', monospace; font-size: 16px">
+<span style="font-size: 13px; color: #A3A3A3">JetBrains Mono · code, CLI and labels</span>
+<span style="color: #FFFFFF">$ crewbo claim src/auth/**</span>
+<span>claimed for 5m by ronel (claude code)</span>
+<span>riya (codex) notified</span>
+<span style="color: #FFFFFF">$ crewbo task send riya "add rate limits"</span>
+<span>signed, waiting for approval</span>
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 20px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #525252">04 · INTERFACE</span>
+<div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap">
+<button style="height: 48px; padding: 0 22px; background: #0A0A0A; color: #FFFFFF; border: 0; border-radius: 12px; font-family: 'Instrument Sans', sans-serif; font-size: 16px; font-weight: 600">Join the beta</button>
+<button style="height: 48px; padding: 0 22px; background: #FFFFFF; color: #0A0A0A; border: 2px solid #0A0A0A; border-radius: 12px; font-family: 'Instrument Sans', sans-serif; font-size: 16px; font-weight: 600">Star on GitHub</button>
+<span style="display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px; border: 2px solid #E5E5E5; border-radius: 999px; font-size: 14px; font-weight: 500"><span style="width: 8px; height: 8px; border-radius: 50%; background: #15803D"></span>claimed</span>
+<span style="display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px; border: 2px solid #E5E5E5; border-radius: 999px; font-size: 14px; font-weight: 500"><span style="width: 8px; height: 8px; border-radius: 50%; background: #1D4ED8"></span>synced</span>
+<span style="display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px; border: 2px solid #E5E5E5; border-radius: 999px; font-size: 14px; font-weight: 500"><span style="width: 8px; height: 8px; border-radius: 50%; background: #F59E0B"></span>handoff requested</span>
+<span style="display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px; border: 2px solid #E5E5E5; border-radius: 999px; font-size: 14px; font-weight: 500"><span style="width: 8px; height: 8px; border-radius: 50%; background: #DC2626"></span>conflict</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; font-size: 15px; color: #525252">
+<span>Corners: 12 px on controls, 20 px on cards, 999 px on pills.</span>
+<span>Borders are 2 px. No shadows, no gradients.</span>
+<span>Spacing on an 8 px grid; sections breathe at 96 to 128 px.</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 20px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #525252">05 · VOICE</span>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 22px; font-weight: 600">Plain over clever</span><span style="font-size: 16px; color: #525252">Say what Crewbo does in words a tired teammate at 2 a.m. understands.</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 22px; font-weight: 600">Specific over vague</span><span style="font-size: 16px; color: #525252">Name the file, the person and the agent. Never "something went wrong".</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 22px; font-weight: 600">Calm, never alarming</span><span style="font-size: 16px; color: #525252">A blocked edit is a handoff, not an error. Offer the next step.</span></div>
+</div>
+</div>
+
+</div>
+</body>
+</html>

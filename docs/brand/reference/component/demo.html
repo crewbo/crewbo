@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bo component demo</title>
+<!-- Serve this folder over http (e.g. `npx serve docs/brand`) so the ES module and fonts load. -->
+<link rel="stylesheet" href="../../tokens/tokens.css">
+<link rel="stylesheet" href="./bo.css">
+<style>
+  @font-face { font-family: 'Instrument Sans'; font-weight: 400; src: url(../../assets/fonts/instrument-sans-latin-400-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Instrument Sans'; font-weight: 600; src: url(../../assets/fonts/instrument-sans-latin-600-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Instrument Sans'; font-weight: 700; src: url(../../assets/fonts/instrument-sans-latin-700-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url(../../assets/fonts/jetbrains-mono-latin-400-normal.woff2) format('woff2'); }
+  body { margin: 0; padding: 48px; background: var(--cb-color-paper); color: var(--cb-color-ink); font-family: var(--cb-font-family-sans); }
+  h1 { font-size: 44px; font-weight: 600; letter-spacing: -1.2px; margin: 0 0 8px; }
+  .eyebrow { font-family: var(--cb-font-family-mono); font-size: 13px; color: var(--cb-color-gray-600); text-transform: uppercase; margin: 48px 0 16px; display: block; }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 13px; color: var(--cb-color-gray-600); }
+  .dark { background: var(--cb-color-surface-dark-panel); border-radius: 20px; padding: 24px; }
+  .dark .cell { color: var(--cb-color-gray-400); }
+  .crew { width: 320px; display: flex; flex-direction: column; gap: 14px; }
+  .crew-row { display: flex; align-items: center; gap: 14px; padding: 10px; border-radius: 14px; background: var(--cb-color-surface-dark-row); }
+  .crew-row b { color: #fff; font-size: 15px; font-weight: 600; display: block; }
+  .crew-row span { font-size: 13px; color: var(--cb-color-gray-400); display: block; }
+  .crew-row code { font-family: var(--cb-font-family-mono); font-size: 12px; }
+  .editor { position: relative; background: var(--cb-color-surface-dark-editor); color: #D4D4D4; border-radius: 16px; padding: 24px 24px 24px 0; font-family: var(--cb-font-family-mono); font-size: 15px; line-height: 30px; width: 640px; }
+  .line { display: flex; height: 30px; white-space: pre; }
+  .ln { width: 64px; text-align: right; padding-right: 20px; box-sizing: border-box; color: #525252; flex: none; }
+  .hl { position: absolute; left: 0; right: 0; height: 30px; background: rgba(29,78,216,0.16); transition: top 120ms ease-out; }
+</style>
+</head>
+<body>
+<h1>Bo component</h1>
+<p style="color:#525252;max-width:720px">Rendered live from <code>bo.js</code> + <code>bo.css</code>. If your implementation does not look identical to this page, it is wrong.</p>
+
+<span class="eyebrow">Mark</span>
+<div class="row" id="marks"></div>
+
+<span class="eyebrow">Face states (product timing)</span>
+<div class="row" id="states"></div>
+
+<span class="eyebrow">Teammate colours · idle</span>
+<div class="row" id="team"></div>
+
+<span class="eyebrow">Small sizes · badge 16 px, caret 18 px, dot below 16 px</span>
+<div class="row dark" id="small"></div>
+
+<span class="eyebrow">Crew panel scenes</span>
+<div class="row dark" id="scenes"></div>
+
+<span class="eyebrow">Crew panel (panelView precedence)</span>
+<div class="dark"><div class="crew" id="crew"></div></div>
+
+<span class="eyebrow">Caret ride (word by word, line by line)</span>
+<div class="editor" id="editor"></div>
+
+<script type="module">
+import { markSVG, boSVG, badgeSVG, caretSVG, dotSVG, sceneSVG, TEAM_COLORS, panelView } from './bo.js';
+const $ = (id) => document.getElementById(id);
+const cell = (svg, label) => `<div class="cell">${svg}<span>${label}</span></div>`;
+
+$('marks').innerHTML = [128, 64, 32, 16].map((s) => cell(markSVG({ size: s }), `${s}px`)).join('') +
+  `<div class="cell" style="background:#0A0A0A;padding:12px;border-radius:12px">${markSVG({ size: 64, body: '#fff', eyes: '#0A0A0A' })}<span style="color:#A3A3A3">reversed</span></div>`;
+
+$('states').innerHTML = ['idle', 'working', 'nearby', 'handoff-right', 'handoff-left', 'conflict', 'merged', 'offline']
+  .map((s) => cell(boSVG({ state: s, size: 96 }), s)).join('');
+
+$('team').innerHTML = TEAM_COLORS.map((c, i) => {
+  const svg = boSVG({ state: 'idle', color: c.base, size: 72 }).replace('<g class="bo-idle">', `<g class="bo-idle" style="animation-delay:-${(i * 0.7).toFixed(1)}s">`);
+  return cell(svg, `${c.name} ${c.base}`);
+}).join('');
+
+$('small').innerHTML =
+  cell(`<span style="display:flex">${TEAM_COLORS.slice(0, 2).map((c, i) => `<span style="display:flex;margin-left:${i ? -5 : 0}px">${badgeSVG({ color: c.base })}</span>`).join('')}</span>`, 'stacked badges') +
+  TEAM_COLORS.map((c) => cell(badgeSVG({ color: c.base }), c.name)).join('') +
+  cell(caretSVG({ color: TEAM_COLORS[0].base }), 'caret') +
+  cell(dotSVG({ color: TEAM_COLORS[3].base }), 'dot');
+
+$('scenes').innerHTML = [['writing', '#1D4ED8'], ['testing', '#0F766E'], ['reading', '#C2410C'], ['offline', '#0A0A0A']]
+  .map(([s, c]) => cell(sceneSVG({ scene: s, color: c, size: 150 }), s)).join('');
+
+const crew = [
+  { name: 'ronel (you)', color: TEAM_COLORS[0], agent: 'Claude Code · Opus 4.6', s: { online: true, activity: 'editing' }, line: 'Writing auth.go' },
+  { name: 'riya', color: TEAM_COLORS[1], agent: 'Codex · GPT-5.4', s: { online: true, activity: 'testing' }, line: 'Running tests' },
+  { name: 'arjun', color: TEAM_COLORS[3], agent: 'Claude Code · Opus 4.6', s: { online: true, activity: 'none' }, line: 'Idle' },
+  { name: 'dev', color: TEAM_COLORS[2], agent: 'Codex · GPT-5.4', s: { online: true, conflict: true, activity: 'editing' }, line: 'Conflict in token.go' },
+  { name: 'meera', color: TEAM_COLORS[4], agent: 'Codex · last used GPT-5.4', s: { online: false }, line: 'Offline since 9:40 pm' },
+];
+$('crew').innerHTML = crew.map((m) => {
+  const v = panelView(m.s);
+  const svg = v.kind === 'scene'
+    ? sceneSVG({ scene: v.scene, color: m.color.base, size: 64 })
+    : boSVG({ state: v.state, color: m.color.base, size: 64 });
+  const tint = m.s.online ? m.color.tint : '#737373';
+  return `<div class="crew-row">${svg}<div><b>${m.name}</b><span>${m.line}</span><code style="color:${tint}">${m.agent}</code></div></div>`;
+}).join('');
+
+// Caret ride: reference algorithm. Bo jumps one WORD per step (instant), hops to
+// the next line with a 120 ms ease-out, and sits 2 px right of the caret,
+// vertically centred on the line. In the product, drive it from real edit
+// events (see 07-bo-motion.md §6), not from a timer.
+const code = ['func (s *Session) Valid() bool {', '    if s == nil {', '        return false', '    }', '    return time.Now().Before(s.Expires)', '}'];
+const ed = $('editor');
+const LINE = 30, PAD = 24, GUTTER = 64;
+ed.innerHTML = `<div class="hl" id="hl"></div>` + code.map((l, i) => `<div class="line"><span class="ln">${11 + i}</span><span id="t${i}"></span></div>`).join('') +
+  `<div class="bo-caret-rider" id="rider">${caretSVG({ color: TEAM_COLORS[0].base })}</div>`;
+const rider = $('rider'), hl = $('hl');
+const ch = (() => { const s = document.createElement('span'); s.textContent = 'x'.repeat(100); s.style.cssText = 'position:absolute;visibility:hidden;font:15px "JetBrains Mono",monospace'; document.body.appendChild(s); const w = s.getBoundingClientRect().width / 100; s.remove(); return w; })();
+const place = (lineIdx, col, newline) => {
+  rider.classList.toggle('is-newline', newline);
+  rider.style.transform = `translate(${GUTTER + col * ch + 2}px, ${PAD + lineIdx * LINE + (LINE - 18) / 2}px)`;
+  rider.style.left = '0'; rider.style.top = '0';
+  hl.style.top = `${PAD + lineIdx * LINE}px`;
+};
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+async function run() {
+  for (let i = 0; i < code.length; i++) $(`t${i}`).textContent = '';
+  if (reduce) { code.forEach((l, i) => ($(`t${i}`).textContent = l)); place(code.length - 1, code.at(-1).length, false); return; }
+  for (let i = 0; i < code.length; i++) {
+    place(i, 0, i > 0);
+    await new Promise((r) => setTimeout(r, 160));
+    const words = code[i].match(/\s*\S+/g) || [];
+    let text = '';
+    for (const w of words) {
+      text += w; $(`t${i}`).textContent = text; place(i, text.length, false);
+      await new Promise((r) => setTimeout(r, 140));
+    }
+    await new Promise((r) => setTimeout(r, 260));
+  }
+  await new Promise((r) => setTimeout(r, 1800));
+  run();
+}
+run();
+</script>
+</body>
+</html>
