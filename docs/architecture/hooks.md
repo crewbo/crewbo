@@ -112,6 +112,7 @@ User-level `~/.codex/hooks.json` or `[hooks]` in `~/.codex/config.toml` [CX]. Fi
 - `--dangerously-bypass-hook-trust` exists on `codex exec` (confirmed in `codex exec --help`, 0.161.0). Crewbo does not use it in v1.
 - How Codex spawns the command per OS is not on the docs page. Phase 0 observed `/usr/bin/bash -c <command>` on Linux and `/bin/zsh -c <command>` on macOS (unchanged with `SHELL=/bin/bash`), so Codex uses the account's login shell with `-c`, not `$SHELL` and not a login shell flag (U-19 resolved). zsh still reads `~/.zshenv` (U-25). Windows remains open (U-03, U-21).
 - `permission_mode` arrives as `bypassPermissions` for `codex exec --sandbox workspace-write`; it does not describe the sandbox.
+- On Windows, Codex names its shell tool `Bash` but runs PowerShell (Phase 0), so the adapter treats Codex shell commands as PowerShell on Windows (`platform.AgentShellIsPowerShell`, #37).
 
 ## Headless launch flags (confirmed in local `--help`)
 
