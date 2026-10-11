@@ -1,0 +1,173 @@
+/*
+ * Crewbo · Bo motion stylesheet (reference implementation)
+ * Spec: docs/brand/07-bo-motion.md. Geometry: docs/brand/06-bo-character.md.
+ *
+ * Every Bo SVG carries class "bo". Everything below is scoped to .bo so it
+ * cannot leak into the host UI (VS Code webview, web dashboard, landing page).
+ *
+ * Product timings are the defaults here. The canvas reference pages loop
+ * event states for demo purposes; the product does not (see motion doc §4).
+ */
+
+/* 1. Transform defaults ------------------------------------------------- */
+.bo { overflow: visible; }
+.bo g,
+.bo rect,
+.bo path,
+.bo circle,
+.bo polygon,
+.bo text { transform-box: fill-box; transform-origin: center; }
+
+/* 2. Face states (eyes = carets) ---------------------------------------- */
+/* Static gaze offsets. 9 units = one eye width plus one unit of gap. */
+.bo .bo-look-r { transform: translateX(9px); }
+.bo .bo-look-l { transform: translateX(-9px); }
+
+/* Blink: 0.34 s close/open inside a 4.2 s cycle. */
+.bo .bo-blink { animation: bo-blink 4.2s infinite; }
+@keyframes bo-blink {
+  0%, 44%, 52%, 100% { transform: scaleY(1); }
+  48%                { transform: scaleY(0.08); }
+}
+
+/* Idle: an occasional glance right, then left, then home. Product period 10 s. */
+.bo .bo-idle { animation: bo-idle var(--bo-idle-period, 10s) ease-in-out infinite; }
+@keyframes bo-idle {
+  0%, 30%   { transform: translateX(0); }
+  36%, 56%  { transform: translateX(9px); }
+  62%, 78%  { transform: translateX(-9px); }
+  84%, 100% { transform: translateX(0); }
+}
+
+/* Working: eyes drop 8 units and scan left to right like reading a line. */
+.bo .bo-read { animation: bo-read 2.4s ease-in-out infinite; }
+@keyframes bo-read {
+  0%, 100% { transform: translate(-7px, 8px); }
+  50%      { transform: translate(7px, 8px); }
+}
+
+/* Handoff / merged: soft 3-unit bob of the whole Bo. */
+.bo .bo-bob { animation: bo-bob 1.6s ease-in-out infinite; }
+.bo .bo-bob-twice { animation: bo-bob 1.6s ease-in-out 2; }
+@keyframes bo-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+/* Conflict (product): eyes widen and HOLD; body shakes ONCE. */
+.bo .bo-wide { animation: bo-wide-in 300ms ease-out forwards; }
+@keyframes bo-wide-in {
+  from { transform: scaleY(1); }
+  to   { transform: scaleY(1.4); }
+}
+.bo .bo-shake-once { animation: bo-shake-once 540ms ease-in-out 1; }
+@keyframes bo-shake-once {
+  0%, 100% { transform: translateX(0); }
+  22%      { transform: translateX(-3px); }
+  44%      { transform: translateX(3px); }
+  67%      { transform: translateX(-3px); }
+  89%      { transform: translateX(2px); }
+}
+
+/* Offline: slow breath and drifting z's. */
+.bo .bo-breathe { animation: bo-breathe 3.6s ease-in-out infinite; }
+@keyframes bo-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.03); }
+}
+.bo .bo-z1 { animation: bo-z 2.4s ease-out infinite; }
+.bo .bo-z2 { animation: bo-z 2.4s ease-out 1.2s infinite; }
+@keyframes bo-z {
+  0%   { transform: translate(0, 6px); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translate(6px, -12px); opacity: 0; }
+}
+
+/* 3. Scene: writing code (keyboard) ------------------------------------- */
+.bo .bo-key { animation: bo-key 1.4s steps(1, end) infinite; }
+.bo .bo-k1 { animation-delay: 0s; }
+.bo .bo-k2 { animation-delay: -0.35s; }
+.bo .bo-k3 { animation-delay: -0.8s; }
+.bo .bo-k4 { animation-delay: -0.2s; }
+.bo .bo-k5 { animation-delay: -1s; }
+.bo .bo-k6 { animation-delay: -0.6s; }
+@keyframes bo-key {
+  0%       { fill: #404040; }
+  8%       { fill: #E5E5E5; }
+  16%, 100% { fill: #404040; }
+}
+
+/* 4. Scene: running tests (flask) --------------------------------------- */
+/* Pivot is the flask neck in viewBox units (82, 34). */
+.bo .bo-swirl { transform-box: view-box; transform-origin: 82px 34px; animation: bo-swirl 4s ease-in-out infinite; }
+@keyframes bo-swirl {
+  0%, 100% { transform: rotate(0deg); }
+  15%      { transform: rotate(-12deg); }
+  30%      { transform: rotate(9deg); }
+  45%      { transform: rotate(-7deg); }
+  60%      { transform: rotate(0deg); }
+}
+.bo .bo-slosh { transform-box: fill-box; transform-origin: 50% 100%; animation: bo-slosh 4s ease-in-out infinite; }
+@keyframes bo-slosh {
+  0%       { transform: skewY(0deg); fill: #2DD4BF; }
+  15%      { transform: skewY(10deg); }
+  30%      { transform: skewY(-8deg); }
+  45%      { transform: skewY(6deg); }
+  60%      { transform: skewY(0deg); fill: #2DD4BF; }
+  72%, 92% { transform: skewY(0deg); fill: #4ADE80; }
+  100%     { fill: #2DD4BF; }
+}
+.bo .bo-p1 { opacity: 0; animation: bo-puff 4s ease-out infinite; }
+.bo .bo-p2 { opacity: 0; animation: bo-puff 4s ease-out 0.25s infinite; }
+@keyframes bo-puff {
+  0%, 66% { transform: translate(0, 4px) scale(0.6); opacity: 0; }
+  72%     { opacity: 0.9; }
+  92%     { transform: translate(2px, -10px) scale(1.4); opacity: 0; }
+  100%    { opacity: 0; }
+}
+.bo .bo-fb1 { animation: bo-fb 2s ease-in infinite; }
+.bo .bo-fb2 { animation: bo-fb 2s ease-in 0.7s infinite; }
+.bo .bo-fb3 { animation: bo-fb 2s ease-in 1.4s infinite; }
+@keyframes bo-fb {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translate(0.5px, -17px); opacity: 0; }
+}
+
+/* 5. Scene: idle (reading a book) --------------------------------------- */
+.bo .bo-look-down { animation: bo-book 5s ease-in-out infinite; }
+@keyframes bo-book {
+  0%, 40%  { transform: translateX(-4px); }
+  50%, 90% { transform: translateX(4px); }
+  100%     { transform: translateX(-4px); }
+}
+/* Page hinges on its left edge, which is the spine at x = 50. */
+.bo .bo-page { transform-origin: 0% 50%; animation: bo-page 6s ease-in-out infinite; }
+@keyframes bo-page {
+  0%, 70%   { transform: scaleX(1); }
+  80%       { transform: scaleX(0.02); }
+  90%, 100% { transform: scaleX(-1); }
+}
+.bo .bo-leaf { animation: bo-leaf 6s ease-in-out infinite; }
+@keyframes bo-leaf {
+  0%, 72%   { fill: #F5F5F5; }
+  80%       { fill: #C7C7C7; }
+  88%, 100% { fill: #F5F5F5; }
+}
+
+/* 6. Caret ride (editor) ------------------------------------------------- */
+/* Driven by JS in the product: see 07-bo-motion.md §6. This class only
+   smooths the hop between lines. Word steps are instant (no easing). */
+.bo-caret-rider { position: absolute; pointer-events: none; will-change: transform; }
+.bo-caret-rider.is-newline { transition: transform 120ms ease-out; }
+
+/* 7. State crossfade ----------------------------------------------------- */
+.bo-swap-enter { opacity: 0; }
+.bo-swap-enter-active { opacity: 1; transition: opacity 200ms ease-out; }
+
+/* 8. Reduced motion: every animation off, Bo shows its key pose. -------- */
+@media (prefers-reduced-motion: reduce) {
+  .bo *, .bo-caret-rider { animation: none !important; transition: none !important; }
+  .bo .bo-wide { transform: scaleY(1.4); }
+  .bo .bo-read { transform: translate(0, 8px); }
+}
