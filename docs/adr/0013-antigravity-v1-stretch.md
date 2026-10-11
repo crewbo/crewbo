@@ -1,6 +1,6 @@
 # 0013. Antigravity adapter as a v1 stretch goal
 
-- Status: Proposed
+- Status: Accepted (Ronel, 2026-10-11)
 - Date: 2026-10-11
 - Decision owner: Ronel Abraham Mathew
 
@@ -21,4 +21,4 @@ The PRD limits v1 to Claude Code and Codex and plans Antigravity for v2. Ten int
 
 ## Decision
 
-Not decided. Owner: Ronel.
+Accepted by Ronel on 2026-10-11. The PRD v1 non-goals, roadmap and adapter section are updated accordingly.
