@@ -1,6 +1,6 @@
 # Antigravity hook check (U-26)
 
-Docs-only timebox, 2026-10-11, about 30 of 90 minutes used. Nothing here was run against a live Antigravity install; every item is from the official docs and is UNVERIFIED until a live spike. Sources:
+Docs-only timebox, 2026-10-11, about 30 of 90 minutes used, followed the same day by a live spike (S9) on Omarchy with Antigravity CLI `agy` 1.3.3. Live results are in the section below and override the docs where they differ. Sources:
 
 - [AG-H] https://antigravity.google/docs/hooks (fetched as `hooks.md`)
 - [AG-HL] https://antigravity.google/docs/cli/headless
@@ -54,6 +54,23 @@ Claude Code and Codex treat "no output" as "no decision" and fall through to the
 
 Comparable to the Codex adapter: an `internal/hooks/antigravity` decoder and encoder (camelCase input, five tool names, `decision` and `injectSteps` output), install and uninstall of one named entry in `~/.gemini/config/hooks.json`, MCP registration, and a headless launcher. About three PRs of the M2 size, plus a live spike first.
 
-## Before any commitment
+## Live spike S9 results (agy 1.3.3, Omarchy, 2026-10-11)
+
+Run with `crewbo/spikes` `s9-antigravity/run.sh`: hooks in the throwaway repo's `.agents/hooks.json`, `agy -p ... --output-format stream-json`. `~/.gemini` was not modified. Fixtures: `test/fixtures/hooks/antigravity/1.3.3/linux/`.
+
+| Question | Result |
+| --- | --- |
+| Do workspace hooks load without a trust step? | Yes: `.agents/hooks.json` hooks ran on the first run, no prompt |
+| Deny on `replace_file_content` and `run_command` | Works; the model sees `tool call denied by pre-tool hook: <reason>` |
+| Deny under `--dangerously-skip-permissions` | Still blocks (both tools) |
+| U-27: no output for an unblocked call | **Passes through**: the edit was applied (under skip-permissions) |
+| U-27: `{}` for an unblocked call | **Blocks**: `tool call denied by pre-tool hook:` with an empty reason. The adapter must print nothing, never `{}` |
+| U-27: `{"decision":"ask"}` | Defers to the permission mode (applied under skip-permissions) |
+| Context via `PreInvocation` `ephemeralMessage` | Reaches the model; it quoted the claim notice. Fires before every model call (5 times in a short run) |
+| Payload fields | As documented, plus undocumented `toolAction` and `toolSummary` in `toolCall.args`; `TargetFile` is absolute |
+| Headless file writes without hooks | **Denied by default** (`a tool required the "write_file" permission that headless mode cannot prompt for`), contradicting [AG-HL]'s "auto-allowed". Dispatch needs a scoped `permissions.allow` rule, never `--dangerously-skip-permissions` (new U-28) |
+| Hook overhead | Probe in-process 0.4 to 2.7 ms |
+
+## Before any commitment (original list; items 1 to 5 done in S9)
 
 A live spike like Phase 0 S1 and S2, on Omarchy first: install `agy`, log in, run the probe from `crewbo/spikes` as a global hook, and record (1) a deny on `write_to_file` and `run_command`, (2) what `{}` and a missing `decision` do (U-27), (3) whether `ephemeralMessage` reaches the model, (4) whether hooks need any trust step, (5) captured payloads for fixtures.
