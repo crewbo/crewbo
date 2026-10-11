@@ -1,0 +1,51 @@
+# https://taskfile.dev
+# On Arch Linux the binary is installed as `go-task`.
+version: "3"
+
+tasks:
+  build:
+    desc: Build the crewbo binary into ./bin
+    cmds:
+      - go build -o bin/crewbo{{exeExt}} ./cmd/crewbo
+
+  test:
+    desc: Unit and integration tests with the race detector
+    cmds:
+      - go test -race ./...
+
+  test:e2e:
+    desc: Multi-daemon end-to-end tests
+    cmds:
+      - go test -race -tags e2e ./test/e2e/...
+
+  cover:
+    desc: Tests with a coverage report
+    cmds:
+      - go test -race -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out
+
+  lint:
+    desc: golangci-lint and buf lint
+    cmds:
+      - golangci-lint run
+      - buf lint
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - golangci-lint fmt
+
+  generate:
+    desc: Regenerate Protobuf code
+    cmds:
+      - buf generate
+
+  daemon:
+    desc: Run the daemon in the foreground
+    cmds:
+      - go run ./cmd/crewbo daemon {{.CLI_ARGS}}
+
+  serve:
+    desc: Run the sync server locally
+    cmds:
+      - go run ./cmd/crewbo serve {{.CLI_ARGS}}

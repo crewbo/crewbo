@@ -1,0 +1,29 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - contextcheck
+    - errcheck
+    - errorlint
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - revive
+    - staticcheck
+    - unused
+  exclusions:
+    paths:
+      - internal/protocol
+
+formatters:
+  enable:
+    - gofumpt
+  exclusions:
+    paths:
+      - internal/protocol
