@@ -1,0 +1,8 @@
+{
+  "agent": "codex",
+  "agent_version": "0.162.1",
+  "os": "macOS 27.0 (26A428) arm64, Apple M5",
+  "captured": "2026-10-11",
+  "method": "crewbo/spikes run-codex.sh probe on a teammate's Mac; scrubbed: user home path, session/turn/tool_use ids",
+  "spikes_pr": 2
+}

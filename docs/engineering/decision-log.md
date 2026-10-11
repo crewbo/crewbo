@@ -40,3 +40,5 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | hooks | Hook strips a leading UTF-8 BOM from stdin; undecodable input is logged and warned, never a silent allow | BOM made the probe allow everything (Windows harness) | phase0-findings.md
 2026-10-11 | doctor | Detect "hooks configured but never firing" from the absence of any hook event, not only session_start | Codex SessionStart did not fire under exec on Windows; spaced path failed silently | failure-modes.md F9
 2026-10-11 | hooks | No re-trust prompt handling needed on upgrade for Codex | Trust hash covers the hook entry, not the binary (U-02) | phase0-findings.md
+2026-10-11 | testing | macOS checks by the teammate are Codex-only or plain Terminal; Claude Code on macOS waits for a Mac user with a Claude Code plan | Teammate has a Codex plan only | U-23
+2026-10-11 | doctor | `crewbo doctor` checks the login shell's startup files for stdout output | Codex runs hooks with the login shell (`zsh -c` reads ~/.zshenv) | U-25

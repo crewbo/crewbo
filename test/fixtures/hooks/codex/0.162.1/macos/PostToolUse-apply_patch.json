@@ -1,0 +1,15 @@
+{
+  "session_id": "session-01",
+  "turn_id": "turn-01",
+  "transcript_path": null,
+  "cwd": "/Users/user/work/s2/repo",
+  "hook_event_name": "PostToolUse",
+  "model": "gpt-6-luna",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "apply_patch",
+  "tool_input": {
+    "command": "*** Begin Patch\n*** Update File: free.txt\n@@\n-original\n+changed\n*** End Patch"
+  },
+  "tool_response": "Exit code: 0\nWall time: 0 seconds\nOutput:\nSuccess. Updated the following files:\nM free.txt\n",
+  "tool_use_id": "tool_use-01"
+}

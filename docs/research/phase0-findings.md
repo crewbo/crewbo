@@ -1,8 +1,8 @@
 # Phase 0 findings
 
-Status: interim, 2026-10-11. Linux (Omarchy) and Windows results are complete; macOS and team interviews are pending. Gate B is decided after those arrive.
+Status: interim, 2026-10-11. Linux (Omarchy), Windows and macOS (Codex only) results are in; team interviews are pending. Gate B is decided after those arrive.
 
-Reproduce everything from `crewbo/spikes` (Linux: commit 68e385b; Windows: 40b2686, report in `results/windows/report.md`). Founder machine (Linux): Omarchy (Arch Linux, x86_64, i5-13420H), Claude Code 2.1.294, codex-cli 0.161.0, git 2.55.0, Go 1.27.2.
+Reproduce everything from `crewbo/spikes` (Linux: commit 68e385b; Windows: 40b2686, report in `results/windows/report.md`; macOS: 2f6f70d, report in `results/macos/report.md`). Founder machine (Linux): Omarchy (Arch Linux, x86_64, i5-13420H), Claude Code 2.1.294, codex-cli 0.161.0, git 2.55.0, Go 1.27.2.
 
 ## Summary
 
@@ -91,13 +91,27 @@ Run by a Claude Code agent on Ronel's dual-boot laptop following `agent-prompts/
 | Spawn latency (U-15) | p50 13.71 ms, p95 23.23 ms spawn to exit (100 runs); in-process p50 1.84 ms | Within budget; about 6x Linux |
 | UTF-8 BOM on stdin | The test harness (PowerShell 5.1) prepended a BOM; the probe parsed nothing and allowed | Hook strips a leading BOM; undecodable input is logged and surfaced, never a silent allow |
 
+## macOS results
+
+Run by a Codex agent on a teammate's Mac following `agent-prompts/macos.md`: macOS 27.0 (26A428), Apple M5, `/bin/zsh`, Codex 0.162.1, git 2.54.0 (Apple Git-157), Go 1.27.2. Full report: `crewbo/spikes` `results/macos/report.md`. Fixtures: `test/fixtures/hooks/codex/0.162.1/macos/`.
+
+| Item | Result | Effect on plan |
+| --- | --- | --- |
+| S2 Codex | Pass: `apply_patch` and `Bash` (`echo shell >> blocked.txt`) denied, allowed edit landed | Codex blocks on all three OSes |
+| `apply_patch` paths | Relative, as on Windows 0.154.0 (absolute on Linux 0.161.0) | Not a version or OS rule; the adapter accepts both |
+| Codex hook shell (U-19) | `/bin/zsh -c <command>` with `SHELL=/bin/zsh` and again with `SHELL=/bin/bash` | Codex ignores `$SHELL`; with Linux (`bash -c`) it appears to use the account's login shell with `-c`. zsh reads `~/.zshenv` for every shell ([zsh manual, Startup/Shutdown Files](https://zsh.sourceforge.io/Doc/Release/Files.html)), so output printed there would corrupt hook JSON. `crewbo doctor` should check |
+| S6 merge-tree | Pass (two clones, one machine) | None |
+| S1 Claude Code | Not run: the teammate has no Claude Code plan (their install pointed at a proxy that returned 401) | Claude Code on macOS untested (U-23) |
+| S7 keyring | Not run: `go run` failed TLS verification of `proxy.golang.org` (`certificate signed by unknown authority`; `curl` exit 60). HTTPS was intercepted, possibly by the Codex sandbox or the network | New unknown U-24: daemon to sync server TLS on intercepting networks |
+| Latency | Not measured (driver needed a Claude Code payload) | Rerun with a Codex payload |
+
 ## Gate B status
 
 PRD gate: go if hooks block reliably on at least 2 of 3 OSes and at least 3 of 10 teams mix vendors.
 
 - Linux: both agents block reliably.
 - Windows: both agents block reliably (Claude Code 2.1.296, Codex 0.154.0). Hook criterion (2 of 3 OSes) met.
-- macOS (friend): pending.
+- macOS: Codex blocks reliably (0.162.1). Claude Code on macOS untested: no available Mac has a Claude Code plan (U-23).
 - Interviews: pending.
 
 Interim recommendation: **go on the hook criterion** (Linux and Windows); the vendor-mix criterion depends on the interviews. Start M1 work that does not depend on per-OS hook behaviour (claims, simulator, protocol, gitx) only after Gate B, as planned. Nothing found so far requires a superseding ADR.

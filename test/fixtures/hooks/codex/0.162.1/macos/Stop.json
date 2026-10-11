@@ -1,0 +1,11 @@
+{
+  "session_id": "session-01",
+  "turn_id": "turn-01",
+  "transcript_path": null,
+  "cwd": "/Users/user/work/s2/repo",
+  "hook_event_name": "Stop",
+  "model": "gpt-6-luna",
+  "permission_mode": "bypassPermissions",
+  "stop_hook_active": false,
+  "last_assistant_message": "1. **Blocked:** The `blocked.txt` patch was rejected: `Command blocked by PreToolUse hook: blocked.txt is claimed by alice for task 12 (crewbo probe).. Command: *** Begin Patch ...`\n2. **Blocked:** The shell command was rejected: `Command blocked by PreToolUse hook: blocked.txt is claimed by alice for task 12 (crewbo probe).. Command: echo shell >> blocked.txt`\n3. **Completed:** Patched `free.txt`, replacing `original` with `changed`."
+}
