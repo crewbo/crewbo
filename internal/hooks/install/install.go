@@ -111,19 +111,32 @@ func Install(agent string, cfg []byte, bin string) (out []byte, changed bool, er
 	return render(cfg, root)
 }
 
-// Uninstall returns cfg without Crewbo's hooks for agent.
+// Uninstall returns cfg without Crewbo's hooks for agent. out is nil when
+// nothing else is left in the config, so the caller can remove the file
+// (Codex hooks.json is usually created by the install).
 func Uninstall(agent string, cfg []byte) (out []byte, changed bool, err error) {
 	root, hooks, err := parse(cfg)
 	if err != nil {
 		return nil, false, err
 	}
-	remove(agent, hooks)
+	if remove(agent, hooks) == 0 {
+		return cfg, false, nil
+	}
 	if len(hooks) == 0 {
 		delete(root, "hooks")
 	} else {
 		root["hooks"] = hooks
 	}
+	if len(root) == 0 {
+		return nil, true, nil
+	}
 	return render(cfg, root)
+}
+
+// installed reports whether cfg holds any Crewbo hook for agent.
+func installed(agent string, cfg []byte) bool {
+	_, hooks, err := parse(cfg)
+	return err == nil && remove(agent, hooks) > 0
 }
 
 // handler builds one entry. Claude Code gets exec form (no shell; a real
@@ -155,8 +168,10 @@ func isCrewbo(cmd string) bool {
 	return base == "crewbo" || base == "crewbo.exe"
 }
 
-// remove drops Crewbo handlers for agent, then empty groups and events.
-func remove(agent string, hooks map[string]any) {
+// remove drops Crewbo handlers for agent, then empty groups and events,
+// and returns how many handlers it dropped.
+func remove(agent string, hooks map[string]any) int {
+	n := 0
 	for event, v := range hooks {
 		groups, ok := v.([]any)
 		if !ok {
@@ -172,7 +187,9 @@ func remove(agent string, hooks map[string]any) {
 			hs, _ := gm["hooks"].([]any)
 			var keep []any
 			for _, h := range hs {
-				if !ours(agent, h) {
+				if ours(agent, h) {
+					n++
+				} else {
 					keep = append(keep, h)
 				}
 			}
@@ -190,6 +207,7 @@ func remove(agent string, hooks map[string]any) {
 			hooks[event] = kept
 		}
 	}
+	return n
 }
 
 func parse(cfg []byte) (map[string]any, map[string]any, error) {

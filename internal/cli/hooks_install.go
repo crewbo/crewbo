@@ -87,12 +87,13 @@ func runHooksCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 				code = write(stderr, ExitError, "%s: %v\n", agentName(a), err)
 				continue
 			}
+			if changed && out == nil {
+				out = []byte("(nothing else left: the file would be removed)")
+			}
 			_ = write(stdout, ExitOK, "%s: %s (would change: %v)\n%s\n", agentName(a), path, changed, out)
 			continue
 		}
-		_, statErr := os.Stat(path)
-		existed := statErr == nil
-		changed, err := install.Apply(path, transform)
+		changed, err := install.Apply(path, a, transform)
 		if err != nil {
 			code = write(stderr, ExitError, "%s: %v\n", agentName(a), err)
 			continue
@@ -100,8 +101,8 @@ func runHooksCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		verb := map[bool]string{true: args[0] + "ed", false: "already " + args[0] + "ed, unchanged"}[changed]
 		verb = strings.Replace(verb, "uninstalled", "removed", 1)
 		_ = write(stdout, ExitOK, "%s: hooks %s in %s\n", agentName(a), verb, path)
-		if changed && existed {
-			_ = write(stdout, ExitOK, "  backup: %s.crewbo.bak\n", path)
+		if _, err := os.Stat(path + ".crewbo.bak"); changed && err == nil {
+			_ = write(stdout, ExitOK, "  backup of your config before Crewbo: %s.crewbo.bak\n", path)
 		}
 		if a == install.Codex && args[0] == "install" && changed {
 			_ = write(stdout, ExitOK, "  Codex runs hooks only after you trust them: open Codex, type /hooks and trust the crewbo hooks.\n")
