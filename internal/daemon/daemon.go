@@ -48,9 +48,11 @@ type Daemon struct {
 	cfg     Config
 	started time.Time
 	calls   chan call
-	// sessions and claims are owned by the owner goroutine.
-	sessions map[string]*Session
-	claims   map[string]*claims.Set // keyed by RepoKey
+	// Everything below is owned by the owner goroutine.
+	sessions   map[string]*Session
+	claims     map[string]*claims.Set // keyed by RepoKey
+	snapshots  map[string]*snapshot   // session + tool use -> pre-shell hashes
+	violations []Violation
 }
 
 type call struct {
@@ -66,7 +68,7 @@ func New(cfg Config) *Daemon {
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	d := &Daemon{cfg: cfg, calls: make(chan call), sessions: map[string]*Session{}, claims: map[string]*claims.Set{}}
+	d := &Daemon{cfg: cfg, calls: make(chan call), sessions: map[string]*Session{}, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
 	for repo, set := range cfg.Claims {
 		d.claims[RepoKey(repo)] = set
 	}
@@ -139,6 +141,9 @@ func (d *Daemon) handle(req Request) Response {
 			return Response{ID: req.ID, Error: "event: session and event are required"}
 		}
 		d.touch(req, req.Event, now)
+		if req.Event == "post_edit" {
+			return Response{ID: req.ID, Violations: d.checkSnapshot(req, now)}
+		}
 		return Response{ID: req.ID}
 	case MethodDecide:
 		if req.Session == "" {
@@ -151,6 +156,9 @@ func (d *Daemon) handle(req Request) Response {
 			if c, ok := set.MentionedBy(req.Session, req.Command, now); ok {
 				dec = claims.Decision{Allow: false, Path: c.Pattern, BlockedBy: c}
 			}
+		}
+		if dec.Allow && req.Command != "" {
+			d.takeSnapshot(req, now)
 		}
 		resp := Response{ID: req.ID, Allow: dec.Allow, Path: dec.Path}
 		if !dec.Allow {
@@ -177,7 +185,7 @@ func (d *Daemon) handle(req Request) Response {
 	case MethodStatus:
 		return Response{ID: req.ID, Status: &Status{
 			Version: d.cfg.Version, PID: os.Getpid(), Started: d.started,
-			ActiveClaims: d.activeClaims(now), Sessions: len(d.sessions),
+			ActiveClaims: d.activeClaims(now), Sessions: len(d.sessions), Violations: len(d.violations),
 		}}
 	default:
 		return Response{ID: req.ID, Error: fmt.Sprintf("unknown method %q", req.Method)}

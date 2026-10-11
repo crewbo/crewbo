@@ -122,8 +122,12 @@ func runStatus(ctx context.Context, stdout, stderr io.Writer) int {
 		return write(stderr, ExitError, "crewbo: daemon did not answer: %v\n", err)
 	}
 	st := resp.Status
-	return write(stdout, ExitOK, "crewbo daemon running: version %s, pid %d, up %s, %d active claims, %d agent sessions\n",
-		st.Version, st.PID, time.Since(st.Started).Round(time.Second), st.ActiveClaims, st.Sessions)
+	violations := ""
+	if st.Violations > 0 {
+		violations = fmt.Sprintf(", %d claim violations recorded (see the daemon log)", st.Violations)
+	}
+	return write(stdout, ExitOK, "crewbo daemon running: version %s, pid %d, up %s, %d active claims, %d agent sessions%s\n",
+		st.Version, st.PID, time.Since(st.Started).Round(time.Second), st.ActiveClaims, st.Sessions, violations)
 }
 
 // adapterFor returns the hook adapter for an agent name.

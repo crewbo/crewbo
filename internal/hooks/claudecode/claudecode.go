@@ -28,6 +28,7 @@ type input struct {
 	Cwd       string `json:"cwd"`
 	Model     string `json:"model"`
 	ToolName  string `json:"tool_name"`
+	ToolUseID string `json:"tool_use_id"`
 	ToolInput struct {
 		FilePath     string `json:"file_path"`     // Edit, Write
 		NotebookPath string `json:"notebook_path"` // NotebookEdit
@@ -45,7 +46,7 @@ func (Adapter) Decode(kind hooks.Kind, payload []byte) (hooks.Event, error) {
 	if in.SessionID == "" {
 		return hooks.Event{}, fmt.Errorf("claudecode: payload has no session_id")
 	}
-	ev := hooks.Event{Kind: kind, Agent: Name, Session: in.SessionID, Cwd: in.Cwd, Model: in.Model}
+	ev := hooks.Event{Kind: kind, Agent: Name, Session: in.SessionID, Cwd: in.Cwd, Model: in.Model, ToolUseID: in.ToolUseID}
 	switch in.ToolName {
 	case "Bash", "PowerShell":
 		ev.Command = in.ToolInput.Command

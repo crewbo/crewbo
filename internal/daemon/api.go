@@ -53,6 +53,9 @@ type Request struct {
 	// could not be parsed (then a literal mention of a claimed file denies).
 	Command string `json:"command,omitempty"`
 	Opaque  bool   `json:"opaque,omitempty"`
+	// ToolUse pairs a shell decide with the post_edit event after it, for
+	// the hash check of other sessions' claimed files.
+	ToolUse string `json:"tool_use,omitempty"`
 
 	// claim_add: canonical patterns for Repo, held by Session (and Member).
 	Patterns     []string `json:"patterns,omitempty"`
@@ -80,6 +83,20 @@ type Response struct {
 	Claims []claims.Claim `json:"claims,omitempty"`
 	// claim_release
 	Released int `json:"released,omitempty"`
+
+	// event post_edit: claimed files the session's last shell command
+	// changed although another session holds them.
+	Violations []Violation `json:"violations,omitempty"`
+}
+
+// Violation is a claimed file changed by a session that does not hold it,
+// detected after the fact (alert and record, no revert; ADR 0004).
+type Violation struct {
+	Path       string       `json:"path"`
+	Claim      claims.Claim `json:"claim"`
+	Session    string       `json:"session"`
+	Command    string       `json:"command"`
+	DetectedAt time.Time    `json:"detected_at"`
 }
 
 // Status describes the running daemon.
@@ -89,6 +106,7 @@ type Status struct {
 	Started      time.Time `json:"started"`
 	ActiveClaims int       `json:"active_claims"`
 	Sessions     int       `json:"sessions"`
+	Violations   int       `json:"violations"`
 }
 
 // Session is an agent session the daemon has heard from.
