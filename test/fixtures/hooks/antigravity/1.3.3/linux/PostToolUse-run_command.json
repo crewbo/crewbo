@@ -1,0 +1,21 @@
+{
+  "artifactDirectoryPath": "/home/user/.gemini/antigravity-cli/brain/conversation-02",
+  "conversationId": "conversation-02",
+  "error": "",
+  "modelName": "gemini-3.8-flash-high",
+  "stepIdx": 6,
+  "toolCall": {
+    "args": {
+      "CommandLine": "git status; git log -n 5",
+      "Cwd": "/home/user/work/ctx/repo",
+      "WaitMsBeforeAsync": 5000,
+      "toolAction": "Checking git status",
+      "toolSummary": "Git status and log"
+    },
+    "name": "run_command"
+  },
+  "transcriptPath": "/home/user/.gemini/antigravity-cli/brain/conversation-02/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/home/user/work/ctx/repo"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "artifactDirectoryPath": "/home/user/.gemini/antigravity-cli/brain/conversation-01",
+  "conversationId": "conversation-01",
+  "error": "",
+  "modelName": "gemini-3.8-flash-high",
+  "stepIdx": 2,
+  "toolCall": {
+    "args": {
+      "AbsolutePath": "/home/user/work/skip-omit/repo/blocked.txt",
+      "toolAction": "Viewing blocked.txt",
+      "toolSummary": "View blocked.txt"
+    },
+    "name": "view_file"
+  },
+  "transcriptPath": "/home/user/.gemini/antigravity-cli/brain/conversation-01/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/home/user/work/skip-omit/repo"
+  ]
+}

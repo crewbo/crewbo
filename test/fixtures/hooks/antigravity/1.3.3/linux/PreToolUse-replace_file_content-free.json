@@ -1,0 +1,25 @@
+{
+  "artifactDirectoryPath": "/home/user/.gemini/antigravity-cli/brain/conversation-01",
+  "conversationId": "conversation-01",
+  "modelName": "gemini-3.8-flash-high",
+  "stepIdx": 7,
+  "toolCall": {
+    "args": {
+      "AllowMultiple": false,
+      "Description": "Change word original to changed",
+      "EndLine": 1,
+      "Instruction": "Change original to changed",
+      "ReplacementContent": "changed",
+      "StartLine": 1,
+      "TargetContent": "original",
+      "TargetFile": "/home/user/work/skip-omit/repo/free.txt",
+      "toolAction": "Changing original to changed",
+      "toolSummary": "Edit free.txt"
+    },
+    "name": "replace_file_content"
+  },
+  "transcriptPath": "/home/user/.gemini/antigravity-cli/brain/conversation-01/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/home/user/work/skip-omit/repo"
+  ]
+}
