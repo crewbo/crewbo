@@ -1,6 +1,6 @@
 # Phase 0 findings
 
-Status: Gate B closed 2026-10-11 with a **conditional go** (Ronel). Linux, Windows and macOS (Codex only) results and 4 of 10 team interviews are in; conditions below.
+Status: Gate B closed 2026-10-11. Conditional go, then **go** the same day once Ronel confirmed both conditions (10 interviews; same-repository use).
 
 Reproduce everything from `crewbo/spikes` (Linux: commit 68e385b; Windows: 40b2686, report in `results/windows/report.md`; macOS: 2f6f70d, report in `results/macos/report.md`). Founder machine (Linux): Omarchy (Arch Linux, x86_64, i5-13420H), Claude Code 2.1.294, codex-cli 0.161.0, git 2.55.0, Go 1.27.2.
 
@@ -154,7 +154,7 @@ Teams 5 to 10 were added after the Gate B decision, completing condition 1 (10 i
 
 Observations:
 - The vendor-mix criterion (at least 3 of 10) is met by a wide margin on agents used.
-- Condition 2 is still open: the interviews record which agents members use, not whether two agents worked on the same repository in the same project.
+- Condition 2 met: Ronel confirmed that in every team the listed agents were used in the same project.
 - Antigravity is used by as many members as Codex and appears in 7 of 10 teams. An Antigravity adapter would raise member coverage from 73% to 95% (39 of 41). It is planned for v2; moving it earlier is a PRD scope question for Ronel (U-26).
 - A member whose agent has no adapter is not blocked by claims and does not renew leases, so partial coverage weakens enforcement for the whole team.
 
