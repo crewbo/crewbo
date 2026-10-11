@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `crewbo claim add` treated flags placed after the paths (`claim add src/a.go --task 12`) as extra claims.
+- `crewbo hooks uninstall` replaced the `.crewbo.bak` backup with the hooked config, so the original was lost. The backup is now written only from a config without Crewbo hooks.
+- `crewbo hooks install` and `uninstall` re-sorted the keys of `settings.json` and wrote `&`, `<` and `>` as `\u0026`, `\u003c` and `\u003e`. Key order and characters are now kept, and an install and uninstall give back the same file.
+- `crewbo hooks uninstall` left a Codex `hooks.json` containing only `{}` (or created one when nothing was installed). A config left empty is now removed.
 
 ### Added
 
