@@ -22,6 +22,13 @@ To make Claude Code and Codex respect claims, install Crewbo's hooks (your own h
 ./bin/crewbo hooks uninstall        # removes only Crewbo's entries
 ```
 
+Optionally, let agents look up claims before they plan work, through Crewbo's read-only MCP tools (`crewbo_claims`, `crewbo_who_holds`):
+
+```sh
+claude mcp add --scope user --transport stdio crewbo /absolute/path/to/crewbo mcp
+codex mcp add crewbo -- /absolute/path/to/crewbo mcp
+```
+
 ## License
 
 Apache-2.0 for now. The sync server licence is undecided; see the PRD.

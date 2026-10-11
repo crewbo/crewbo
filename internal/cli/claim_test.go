@@ -3,8 +3,10 @@ package cli
 import (
 	"bytes"
 	"context"
+	"flag"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -77,8 +79,9 @@ func TestClaimCommands(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 
-	code, out, errOut := run("add", "--for", "45m", "src/auth.go")
-	if code != ExitOK || !strings.Contains(out, "src/auth.go") || !strings.Contains(out, "(terminal)") {
+	// Flags after the path must not become claims (found live in #42).
+	code, out, errOut := run("add", "src/auth.go", "--for", "45m", "--task", "12")
+	if code != ExitOK || !strings.Contains(out, "src/auth.go") || !strings.Contains(out, "(terminal)") || strings.Contains(out, "--task") || strings.Count(out, "\n") != 2 {
 		t.Fatalf("add: %d %q %q", code, out, errOut)
 	}
 	code, _, errOut = run("add", "lib.go", "web/app.ts")
@@ -125,5 +128,26 @@ func TestParseShellPicksDialect(t *testing.T) {
 	}
 	if got, _ := parseShell("echo x > b.txt", hooks.POSIX); len(got) != 1 || got[0] != "b.txt" {
 		t.Errorf("POSIX: %q", got)
+	}
+}
+
+func TestParseInterspersed(t *testing.T) {
+	tests := []struct {
+		args       []string
+		positional []string
+		task, dur  string
+	}{
+		{[]string{"src/a.go", "--task", "12"}, []string{"src/a.go"}, "12", "30m0s"},
+		{[]string{"--for", "1h", "a.go", "b.go", "--task=7"}, []string{"a.go", "b.go"}, "7", "1h0m0s"},
+		{[]string{"a.go", "--", "--task", "x"}, []string{"a.go", "--task", "x"}, "", "30m0s"},
+	}
+	for _, tt := range tests {
+		fs := flag.NewFlagSet("t", flag.ContinueOnError)
+		task := fs.String("task", "", "")
+		dur := fs.Duration("for", 30*time.Minute, "")
+		got, err := parseInterspersed(fs, tt.args)
+		if err != nil || !reflect.DeepEqual(got, tt.positional) || *task != tt.task || dur.String() != tt.dur {
+			t.Errorf("%q: %q task=%q for=%s err=%v; want %q task=%q for=%s", tt.args, got, *task, dur, err, tt.positional, tt.task, tt.dur)
+		}
 	}
 }

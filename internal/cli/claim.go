@@ -86,14 +86,15 @@ func claimAdd(ctx context.Context, c *daemon.Client, args []string, root, cwd st
 	fs.SetOutput(stderr)
 	lease := fs.Duration("for", daemon.DefaultCLILease, "how long to hold the claim (at most 8h)")
 	task := fs.String("task", "", "task id the claim belongs to")
-	if err := fs.Parse(args); err != nil {
+	paths, err := parseInterspersed(fs, args)
+	if err != nil {
 		return ExitUsage
 	}
-	if fs.NArg() == 0 || *lease <= 0 {
+	if len(paths) == 0 || *lease <= 0 {
 		return write(stderr, ExitUsage, "%s", claimUsage)
 	}
 	var patterns []string
-	for _, a := range fs.Args() {
+	for _, a := range paths {
 		pat, err := toPattern(root, cwd, a)
 		if err != nil {
 			return write(stderr, ExitError, "crewbo: %s: %v\n", a, err)
@@ -159,4 +160,26 @@ func username() string {
 		return u.Username[strings.LastIndex(u.Username, `\`)+1:]
 	}
 	return "you"
+}
+
+// parseInterspersed parses flags placed before, between or after the
+// positional arguments (`claim add src/a.go --task 12`). The standard flag
+// package stops at the first positional argument, which turned trailing
+// flags into claims. Everything after "--" is positional.
+func parseInterspersed(fs *flag.FlagSet, args []string) ([]string, error) {
+	var positional []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return nil, err
+		}
+		rest := fs.Args()
+		if len(rest) == 0 {
+			return positional, nil
+		}
+		if len(args) > 0 && len(rest) < len(args) && args[len(args)-len(rest)-1] == "--" {
+			return append(positional, rest...), nil
+		}
+		positional = append(positional, rest[0])
+		args = rest[1:]
+	}
 }
