@@ -57,3 +57,4 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | proto | Wire JSON uses default lowerCamelCase names; receivers decode with DiscardUnknown | Standard protojson; unknown-field tolerance is the compatibility rule in protocol.md | #12
 2026-10-11 | proto | Times are int64 Unix milliseconds, not google.protobuf.Timestamp | Plain JSON, matches the protocol draft | #12
 2026-10-11 | ci | buf breaking runs only when main already has .proto files; compares against a locally fetched main | First proto PR has nothing to compare; avoids authenticating buf to the private repo over HTTPS | #12
+2026-10-11 | ci | buf CLI pinned to 1.73.0 in CI (buf-action `version`) | Action defaulted to latest; local Arch package is 1.72.0, both pass | #12
