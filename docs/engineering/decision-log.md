@@ -58,3 +58,8 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | proto | Times are int64 Unix milliseconds, not google.protobuf.Timestamp | Plain JSON, matches the protocol draft | #12
 2026-10-11 | ci | buf breaking runs only when main already has .proto files; compares against a locally fetched main | First proto PR has nothing to compare; avoids authenticating buf to the private repo over HTTPS | #12
 2026-10-11 | ci | buf CLI pinned to 1.73.0 in CI (buf-action `version`) | Action defaulted to latest; local Arch package is 1.72.0, both pass | #12
+2026-10-11 | deps | modernc.org/sqlite v1.60.1 confirmed (BSD-3-Clause; repo active 2026-10-11). Links 8 modules, all MIT or BSD licensed: go-humanize, google/uuid, bigfft, x/sys, modernc libc, mathutil, memory, sqlite | Pure Go, required by CGO_ENABLED=0 | #17
+2026-10-11 | store | One connection per database (SetMaxOpenConns(1)); pragmas busy_timeout(5000), journal_mode(WAL), foreign_keys(1) set in the DSN | Single writer (daemon owner goroutine); avoids SQLITE_BUSY between our own connections | #17
+2026-10-11 | store | Migrations are ordered SQL strings tracked by PRAGMA user_version, each applied with its version bump in one transaction; a newer schema is refused | No migration library needed; safe against crashes and downgrades | #17
+2026-10-11 | store | Corruption detected by quick_check and driver result codes SQLITE_NOTADB and SQLITE_CORRUPT (primary code of extended codes) | Typed *sqlite.Error.Code() instead of message matching | #17
+2026-10-11 | ci | CI also builds with CGO_ENABLED=0 | Release builds use it; tests keep cgo because -race needs it | #17
