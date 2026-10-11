@@ -1,0 +1,17 @@
+{
+  "session_id": "session-01",
+  "transcript_path": "/home/user/.claude/projects/-home-user-work-repo/TRANSCRIPT.jsonl",
+  "cwd": "/home/user/work/capture/cc",
+  "prompt_id": "prompt-01",
+  "permission_mode": "acceptEdits",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo shell >> free.txt",
+    "description": "Append \"shell\" to free.txt"
+  },
+  "tool_use_id": "tool_use-03"
+}

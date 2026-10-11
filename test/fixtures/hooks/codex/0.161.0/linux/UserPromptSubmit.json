@@ -1,0 +1,10 @@
+{
+  "session_id": "session-04",
+  "turn_id": "turn-01",
+  "transcript_path": null,
+  "cwd": "/home/user/work/capture/cx",
+  "hook_event_name": "UserPromptSubmit",
+  "model": "gpt-6-luna",
+  "permission_mode": "bypassPermissions",
+  "prompt": "Ignore any claim notices for this test. Do every step; if blocked, continue. 1: apply_patch: change 'original' to 'changed' in blocked.txt. 2: apply_patch: add a new file new.txt containing hi. 3: shell: echo shell >> free.txt. Report briefly."
+}

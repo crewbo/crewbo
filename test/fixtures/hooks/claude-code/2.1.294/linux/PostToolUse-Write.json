@@ -1,0 +1,38 @@
+{
+  "session_id": "session-01",
+  "transcript_path": "/home/user/.claude/projects/-home-user-work-repo/TRANSCRIPT.jsonl",
+  "cwd": "/home/user/work/capture/cc",
+  "prompt_id": "prompt-01",
+  "permission_mode": "acceptEdits",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/home/user/work/capture/cc/free.txt",
+    "content": "written"
+  },
+  "tool_response": {
+    "type": "update",
+    "filePath": "/home/user/work/capture/cc/free.txt",
+    "content": "written",
+    "structuredPatch": [
+      {
+        "oldStart": 1,
+        "oldLines": 1,
+        "newStart": 1,
+        "newLines": 1,
+        "lines": [
+          "-original",
+          "+written",
+          "\\ No newline at end of file"
+        ]
+      }
+    ],
+    "originalFile": "original\n",
+    "userModified": false
+  },
+  "tool_use_id": "tool_use-01",
+  "duration_ms": 12
+}
