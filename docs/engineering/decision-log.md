@@ -43,3 +43,7 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | testing | macOS checks by the teammate are Codex-only or plain Terminal; Claude Code on macOS waits for a Mac user with a Claude Code plan | Teammate has a Codex plan only | U-23
 2026-10-11 | doctor | `crewbo doctor` checks the login shell's startup files for stdout output | Codex runs hooks with the login shell (`zsh -c` reads ~/.zshenv) | U-25
 2026-10-11 | gate | Gate B: conditional go. Conditions: 6 more independent interviews and same-repo confirmation by end of M1; re-check before M2 | Hooks block on 2 of 3 OSes for both agents' coverage; 3 of 4 interviewed teams mix vendors, small sample | phase0-findings.md
+2026-10-11 | schedule | M1 starts Oct 11 instead of Oct 18; later milestone dates unchanged and act as buffer | Phase 0 finished six days early; Ronel | implementation-plan.md
+2026-10-11 | process | M1 tracked as GitHub milestone "M1" with issues #10 to #19 and label `task` | Gate C approval; Ronel | GitHub
+2026-10-11 | cli | Subcommand routing with the standard library, no CLI framework | Few commands in v1; no dependency needed | #10
+2026-10-11 | ci | golangci-lint pinned to v2.14.0 (was v2.13.2) | v2.13.2 cannot read export data from Go 1.27.2 (typecheck errors); v2.14.0 checked locally | #10

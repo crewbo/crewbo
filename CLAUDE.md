@@ -37,7 +37,7 @@ Task runner is [Task](https://taskfile.dev) (`Taskfile.yml`). On Arch Linux the 
 | Run sync server locally | `task serve` |
 | Extension dev | Not set up yet (M5) |
 
-None of these work until Go code exists (M1). Toolchain: Go 1.27.2 (go.mod toolchain directive), buf, golangci-lint v2, gofumpt, goreleaser, Task.
+`task build` and `task test` work since M1-01; `task lint` needs `.proto` files for its buf step (M1-03). Toolchain: Go 1.27.2 (go.mod toolchain directive), buf, golangci-lint v2, gofumpt, goreleaser, Task.
 
 ## Repo map
 
@@ -120,6 +120,7 @@ docs/                product, research, architecture, adr, engineering, runbooks
 - A Codex hook command whose unquoted path contains a space never runs and Codex shows no error (Windows, Phase 0). Never install the hook binary under a path with spaces.
 - Strip a leading UTF-8 BOM from hook stdin; a BOM made the Phase 0 probe parse nothing and allow.
 - Codex runs hook commands with the account's login shell and `-c` (`bash -c` on Linux, `/bin/zsh -c` on macOS), ignoring `$SHELL`. zsh reads `~/.zshenv` even then, so anything it prints corrupts hook JSON.
+- golangci-lint v2.13.2 (the Arch package as of 2026-10-11) fails with `export data version 5 is greater than maximum supported version 4` against the Go 1.27.2 toolchain. Use v2.14.0 or later (CI pins it), or run `GOTOOLCHAIN=local golangci-lint run`.
 - GitHub recommends at most 6 pushes per minute per repository, so checkpoint refs are pushed at agent stop, not on a timer. (research: `docs/research/hook-and-dispatch-internals.md`)
 - The `crewbo` org is on GitHub Free: branch protection is not enforced on the private repo, and macOS Actions minutes cost about 10 times Linux minutes. See `docs/engineering/repo-settings.md`.
 
