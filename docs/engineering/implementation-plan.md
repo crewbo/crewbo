@@ -94,6 +94,16 @@ Deliverables: `crewbo/spikes` README per spike; `docs/research/phase0-findings.m
 | M5-05 | Extension v0: claims, intents, warnings, approve task | Works in VS Code; lists live state | Manual test plan; unit tests for the client | M3-05 |
 | M5-06 | Dashboard v0 served by the daemon | Localhost only, token, Origin check | Integration tests | M1-07 |
 
+## M5b: Antigravity adapter (stretch, ADR 0013)
+
+Only if M1 to M5 are on time. Contract: `docs/research/antigravity-hooks.md`; fixtures from spike S9.
+
+| ID | Issue | Acceptance criteria | Test plan | Deps |
+| --- | --- | --- | --- | --- |
+| M5b-01 | `hooks/antigravity` decode and encode | Decodes all S9 fixtures (`TargetFile`, `CommandLine`, `Cwd`, camelCase common fields); deny prints `{"decision":"deny","reason":...}`; unblocked calls print nothing (never `{}`, never `allow`); `PreInvocation` returns `injectSteps` with an `ephemeralMessage` | Golden fixture tests | M2-01 |
+| M5b-02 | Install and uninstall one named `crewbo` entry in `~/.gemini/config/hooks.json`; MCP entry in `~/.gemini/config/mcp_config.json` | Idempotent; other named hooks untouched; refuses a binary path with spaces | Unit tests on sample configs | M5b-01, M2-07 |
+| M5b-03 | Crew panel and doctor support for Antigravity sessions (`conversationId`, `modelName`) | Antigravity sessions appear with their model; doctor detects hooks that never fire | Unit tests; manual run with agy | M5b-02, M5-05 |
+
 ## M6: dogfood
 
 Install on 2 to 5 machines across 3 OSes, run a real hackathon, collect issues, measure the PRD success criteria.

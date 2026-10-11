@@ -67,3 +67,4 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | gate | Gate B conditions met; conditional go becomes go | 10 interviews; Ronel confirmed same-repository use for all teams | phase0-findings.md
 2026-10-11 | adapters | Antigravity adapter judged feasible from docs; no scope change until a live spike answers U-27 and Ronel decides U-26 | Docs-only timebox | antigravity-hooks.md
 2026-10-11 | adapters | Antigravity adapter prints nothing for unblocked calls, never `{}` and never `allow` | S9: `{}` blocks the call; `allow` would bypass user permissions | antigravity-hooks.md
+2026-10-11 | product | ADR 0013 accepted: Antigravity adapter is a v1 stretch goal (M5b); PRD v1 non-goals and roadmap updated; Antigravity dispatch stays in v2 | Ronel | ADR 0013

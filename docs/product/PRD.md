@@ -1,6 +1,6 @@
 # Crewbo PRD
 
-Status: planning complete, v1 not started. As of 2026-10-10. Owner: Ronel Abraham Mathew (@RM1338).
+Status: v1 in progress (M1). Gate B passed 2026-10-11. As of 2026-10-11 (Antigravity added as a v1 stretch goal, ADR 0013). Owner: Ronel Abraham Mathew (@RM1338).
 
 Canonical living copy: the Crewbo PRD doc on claude.ai. This file is the repo snapshot. If they disagree, ask the owner.
 
@@ -56,7 +56,8 @@ v1 is a walking skeleton: the thinnest version that runs end to end through daem
 - Desktop app (VS Code-family extension plus web dashboard only)
 - Symbol or API-level claims (file and glob only)
 - Billing, SSO, audit export
-- More than 2 agent vendors (Claude Code and Codex only)
+- More than 3 agent vendors (Claude Code and Codex required; Antigravity as a stretch goal, ADR 0013)
+- Headless dispatch to Antigravity (v2; blocking, context and MCP only in v1)
 - Rooms over 10 people
 - ACP integration
 
@@ -72,8 +73,8 @@ Each version starts only when the gate before it is passed. Gate numbers are tar
 
 | Version | Goals | Non-goals (deferred to) | Exit gate |
 | --- | --- | --- | --- |
-| v1 Skeleton (Oct to Dec 2026) | Claude Code + Codex adapters; leased file and glob claims; lead dispatch with approval; cross-machine merge-tree warnings; VS Code-family extension and web dashboard; self-hosted sync server | Other agents (v2); semantic claims (v2); billing (v3); SSO (v4); desktop app (v2 if demanded) | 5 real teams, at least 3 mixing vendors |
-| v2 Public beta (Dec 2026 to Feb 2027) | Adapters for Cursor, Gemini CLI, Antigravity and Copilot CLI; semantic claims (symbol, API, schema, migration); optional auto-revert of shell edits; signed installers (winget, Homebrew, AUR, Open VSX); free hosted relay; docs and open-source launch | Billing and paid tiers (v3); rooms over 25 (v3); ACP host mode (v3); mobile app (not planned) | 50 weekly active rooms; 30% of rooms mix vendors |
+| v1 Skeleton (Oct to Dec 2026) | Claude Code + Codex adapters; Antigravity adapter as a stretch goal after M5 (ADR 0013); leased file and glob claims; lead dispatch with approval; cross-machine merge-tree warnings; VS Code-family extension and web dashboard; self-hosted sync server | Other agents and Antigravity dispatch (v2); semantic claims (v2); billing (v3); SSO (v4); desktop app (v2 if demanded) | 5 real teams, at least 3 mixing vendors |
+| v2 Public beta (Dec 2026 to Feb 2027) | Adapters for Cursor, Gemini CLI and Copilot CLI (and Antigravity if the v1 stretch slipped); Antigravity headless dispatch; semantic claims (symbol, API, schema, migration); optional auto-revert of shell edits; signed installers (winget, Homebrew, AUR, Open VSX); free hosted relay; docs and open-source launch | Billing and paid tiers (v3); rooms over 25 (v3); ACP host mode (v3); mobile app (not planned) | 50 weekly active rooms; 30% of rooms mix vendors |
 | v3 Teams (Mar to Jun 2027) | Paid hosted Team tier with PPP pricing for India; lead policies; agent activity analytics and conflict reports; roles and permissions; rooms up to 50; Postgres and horizontally scaled server; Slack, Linear and GitHub Issues integrations; optional ACP host mode | SSO, SCIM, audit export (v4); on-prem licence (v4) | 10 paying teams |
 | v4 Enterprise (Jul to Dec 2027) | SAML SSO and SCIM; audit log export; licensed on-prem and air-gapped deployment; data residency; claim schema published as an open spec; interop with GitHub Agent HQ and Conductor workspaces | Anything on the permanent list | First enterprise contract or pilot |
 
@@ -127,7 +128,7 @@ Every laptop runs the same `crewbo` binary. Hooks, daemon, MCP server and the sy
 
 ## Agent adapter specs
 
-One compiled command, `crewbo hook <event>`, serves both agents. Every agent is normalised into five events: `session_start`, `prompt`, `pre_edit`, `post_edit`, `stop`. All details below come from research on 2026-10-10 and MUST be re-verified against official docs and the installed CLI before implementation.
+One compiled command, `crewbo hook <event>`, serves every agent (Claude Code and Codex; Antigravity per ADR 0013, contract in `docs/research/antigravity-hooks.md`). Every agent is normalised into five events: `session_start`, `prompt`, `pre_edit`, `post_edit`, `stop`. All details below come from research on 2026-10-10 and MUST be re-verified against official docs and the installed CLI before implementation.
 
 | Concern | Claude Code | Codex CLI |
 | --- | --- | --- |

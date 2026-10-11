@@ -77,7 +77,7 @@ docs/                product, research, architecture, adr, engineering, runbooks
 11. Hooks are the compiled `crewbo` binary, never shell scripts.
 12. Never send file contents to the sync server. Only paths, globs, task text, branch names, vendor and presence leave a machine. No telemetry.
 13. Cross-platform by default: every feature designed for Windows, macOS and Linux. OS calls only in `internal/platform`.
-14. v1 supports only Claude Code and Codex. Do not add features outside the current milestone's issues.
+14. v1 supports Claude Code and Codex, plus Antigravity as a stretch goal after M5 (ADR 0013, M5b). Do not add features outside the current milestone's issues.
 
 ## Coding conventions
 
