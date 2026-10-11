@@ -1,0 +1,7 @@
+{
+  "session_id": "session-01",
+  "transcript_path": "/home/user/.claude/projects/-home-user-work-repo/TRANSCRIPT.jsonl",
+  "cwd": "/home/user/work/capture/cc",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+}
