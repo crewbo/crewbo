@@ -1,0 +1,26 @@
+name: Task
+description: One unit of work small enough for one pull request
+labels: [task]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test plan
+    validations:
+      required: true
+  - type: input
+    id: deps
+    attributes:
+      label: Depends on
