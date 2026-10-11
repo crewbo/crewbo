@@ -31,11 +31,15 @@ func decode(t *testing.T, b []byte) map[string]any {
 
 func countOurs(t *testing.T, agent string, b []byte) int {
 	t.Helper()
-	hooks, _ := decode(t, b)["hooks"].(map[string]any)
+	v, err := decodeOrdered(b)
+	if err != nil {
+		t.Fatalf("invalid JSON %s: %v", b, err)
+	}
+	hooks, _ := v.(*object).get("hooks").(*object)
 	n := 0
-	for _, v := range hooks {
-		for _, g := range v.([]any) {
-			for _, h := range g.(map[string]any)["hooks"].([]any) {
+	for _, k := range hooks.keys {
+		for _, g := range hooks.get(k).([]any) {
+			for _, h := range g.(*object).get("hooks").([]any) {
 				if ours(agent, h) {
 					n++
 				}
@@ -76,6 +80,64 @@ func TestClaudeInstallKeepsUserConfig(t *testing.T) {
 	}
 	if got, want := decode(t, back), decode(t, []byte(userClaude)); !jsonEqual(got, want) {
 		t.Errorf("uninstall did not restore the user config:\n%s", back)
+	}
+}
+
+// The Windows M2 check found keys re-sorted and & written as & after
+// an install and uninstall round trip.
+func TestRoundTripIsByteIdentical(t *testing.T) {
+	for name, cfg := range map[string]string{
+		"with user hooks": `{
+  "statusLine": {
+    "type": "command",
+    "command": "cd ~ && cs <status>"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify && echo done",
+            "timeout": 1.50
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "B": "1",
+    "A": "2"
+  }
+}
+`,
+		"no hooks, no trailing newline": `{
+  "zeta": true,
+  "alpha": [
+    "a&b",
+    null
+  ]
+}`,
+	} {
+		for _, agent := range []string{ClaudeCode, Codex} {
+			in, _, err := Install(agent, []byte(cfg), "/opt/crewbo/crewbo")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(string(in), cfg[:12]) || strings.Contains(string(in), `\u00`) {
+				t.Errorf("%s, %s: install reordered or escaped the config:\n%s", name, agent, in)
+			}
+			out, _, err := Uninstall(agent, in)
+			if err != nil || string(out) != cfg {
+				t.Errorf("%s, %s: round trip differs (%v):\n%s", name, agent, err, out)
+			}
+		}
+	}
+	if _, _, err := Install(ClaudeCode, []byte(`[]`), "/b/crewbo"); err == nil {
+		t.Error("Install accepted a JSON array")
+	}
+	if _, _, err := Install(ClaudeCode, []byte(`{} {}`), "/b/crewbo"); err == nil {
+		t.Error("Install accepted trailing data")
 	}
 }
 
