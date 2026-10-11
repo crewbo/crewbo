@@ -1,0 +1,14 @@
+{
+  "session_id": "session-04",
+  "turn_id": "turn-01",
+  "transcript_path": null,
+  "cwd": "/home/user/work/capture/cx",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6-luna",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo shell >> free.txt"
+  },
+  "tool_use_id": "tool_use-08"
+}

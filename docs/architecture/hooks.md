@@ -1,6 +1,6 @@
 # Hook event model and agent mapping
 
-Verified on 2026-10-11 against official docs and the CLIs installed on the founder's Omarchy machine (Claude Code 2.1.294, codex-cli 0.161.0). Anything not confirmed is marked UNVERIFIED and tracked in [unknowns.md](../engineering/unknowns.md). Phase 0 replaces doc-derived examples with captured payloads in `test/fixtures/hooks/`.
+Verified on 2026-10-11 against official docs and the CLIs installed on the founder's Omarchy machine (Claude Code 2.1.294, codex-cli 0.161.0), then confirmed on Linux by Phase 0 captures in `test/fixtures/hooks/` (see [phase0-findings.md](../research/phase0-findings.md)). Anything not confirmed is marked UNVERIFIED and tracked in [unknowns.md](../engineering/unknowns.md).
 
 Sources:
 
@@ -39,10 +39,10 @@ All responses are JSON on stdout only. The hook never prints anything else to st
 | --- | --- | --- |
 | Common | `session_id`, `transcript_path`, `cwd`, `permission_mode`, `hook_event_name` [CC] | `session_id`, `transcript_path`, `cwd`, `hook_event_name`, `model`, `permission_mode` [CX] |
 | Tool | `tool_name`, `tool_input`, `tool_use_id` [CC] | `turn_id`, `tool_name`, `tool_use_id`, `tool_input` [CX] |
-| Edit target | `tool_input.file_path` for `Write` and `Edit`, always absolute, backslash separators on Windows [CC]. `NotebookEdit` field name UNVERIFIED (research says `notebook_path`). | Paths parsed from `tool_input.command` patch headers `*** Add File:`, `*** Update File:`, `*** Delete File:`, `*** Move to:` (header format from openai/codex source per research; UNVERIFIED until Phase 0 capture) |
+| Edit target | `tool_input.file_path` for `Write` and `Edit`, always absolute, backslash separators on Windows [CC]. `NotebookEdit` uses `tool_input.notebook_path`, absolute (captured in Phase 0). | Paths parsed from `tool_input.command` patch headers `*** Add File:`, `*** Update File:`, `*** Delete File:`, `*** Move to:`. Captured in Phase 0 with absolute paths in 0.161.0; accept relative paths too |
 | Shell command | `tool_input.command` for `Bash` and `PowerShell` [CC] | `tool_input.command` for `Bash` [CX] |
-| Prompt | `prompt` (pasted content may appear between `<pasted_content>` markers) [CC] | `prompt` UNVERIFIED field name |
-| Stop | `stop_hook_active`, `last_assistant_message`, `background_tasks`, `session_crons` [CC] | UNVERIFIED |
+| Prompt | `prompt` (pasted content may appear between `<pasted_content>` markers), plus `prompt_id` (captured) [CC] | `prompt` (captured) |
+| Stop | `stop_hook_active`, `last_assistant_message`, `background_tasks`, `session_crons` [CC]; also `prompt_id`, `effort` (captured) | `stop_hook_active`, `last_assistant_message` (captured) |
 | Post-shell changed files | `tool_response.bashEditDiff.changedFiles` (v2.1.269+, best effort, public beta, "not to enforce a policy") [CC] | Not documented |
 
 `bashEditDiff` is a useful hint for `post_edit` but the docs say not to rely on it for policy, so the hash comparison stays the primary check.
@@ -94,9 +94,9 @@ User-level `~/.claude/settings.json`, exec form (`args` present means no shell) 
 
 - Hook entries merge across settings levels and hot-reload; an identical handler in several files runs once [CC].
 - On Windows, exec form requires a real `.exe` [CC]; `crewbo.exe` satisfies this.
-- No minimum Claude Code version for `args` is documented (U-04). The installer reads `claude --version` and records it.
+- Exec form (`args`) exists since Claude Code 2.1.139 ([CHANGELOG](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md)). The installer refuses older versions.
 - Timeouts: default 600 s, 30 s for `UserPromptSubmit`. A timed-out or failed hook lets the call through unless `onFailure: "block"` (v2.1.295+) [CC]. Crewbo does not set `onFailure` in v1 (fail open, ADR 0004).
-- A `PreToolUse` deny is honoured in every permission mode (research claim; to be confirmed with `bypassPermissions` in Phase 0).
+- A `PreToolUse` deny is honoured under `bypassPermissions` (confirmed on Linux in Phase 0).
 
 ### Codex
 
@@ -104,7 +104,8 @@ User-level `~/.codex/hooks.json` or `[hooks]` in `~/.codex/config.toml` [CX]. Fi
 
 - Non-managed hooks run only after the user trusts them in `/hooks`; trust is recorded against "the hook's current hash" and changed hooks are skipped until re-trusted [CX]. Whether the hash covers the binary is U-02. The entry is kept byte-for-byte stable across upgrades.
 - `--dangerously-bypass-hook-trust` exists on `codex exec` (confirmed in `codex exec --help`, 0.161.0). Crewbo does not use it in v1.
-- How Codex spawns the command per OS is not on the docs page. Research (from openai/codex source) says `$SHELL -lc` on Unix and `cmd.exe /C` on Windows; UNVERIFIED (U-03).
+- How Codex spawns the command per OS is not on the docs page. Phase 0 on Linux observed `/usr/bin/bash -c <command>`, with no login flag, contradicting the research's `$SHELL -lc`. Windows (`cmd.exe /C` per research) and whether `$SHELL` or the passwd shell is used remain open (U-03, U-19).
+- `permission_mode` arrives as `bypassPermissions` for `codex exec --sandbox workspace-write`; it does not describe the sandbox.
 
 ## Headless launch flags (confirmed in local `--help`)
 

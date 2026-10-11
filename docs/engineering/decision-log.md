@@ -30,3 +30,9 @@ One line per decision, newest last. Format: `YYYY-MM-DD | area | decision | why 
 2026-10-11 | ci | Skip CI for docs-only changes; macOS only on PRs, weekly and manual runs | Save Actions minutes while private; Ronel has Windows, a friend has a Mac for manual checks | repo-settings.md
 2026-10-11 | process | Repo settings are applied by Ronel with documented gh commands | Claude Code permission rules block settings changes | repo-settings.md
 2026-10-11 | community | CoC contact will be an address on crewbo.dev once the domain is set up | Ronel | U-17
+2026-10-11 | keys | Wrap every keyring call in a 3 s timeout, then fall back to the 0600 file | go-keyring blocked 60 s+ without a secret service (S7) | phase0-findings.md
+2026-10-11 | hooks | Codex adapter accepts absolute and relative paths in apply_patch headers | 0.161.0 sends absolute paths (S2) | phase0-findings.md
+2026-10-11 | hooks | Shell checks: mvdan/sh parser plus literal-name heuristic plus post-run hash check | 71% / 85% coverage, 0 false positives (S3) | phase0-findings.md
+2026-10-11 | dispatch | Codex: hooks only in v1; App Server turn/steer deferred | Timeboxed; fallback from U-07 | phase0-findings.md
+2026-10-11 | dispatch | Use the Claude messaging socket for urgent pushes to dispatched -p sessions started with crossSessionInbound accept | Delivery confirmed on Linux (S4) | phase0-findings.md
+2026-10-11 | test | Golden hook fixtures stored per agent/version/os, scrubbed of paths and ids | Captured in Phase 0 | test/fixtures/hooks

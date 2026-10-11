@@ -1,0 +1,8 @@
+{
+  "agent": "codex",
+  "agent_version": "0.161.0",
+  "os": "Omarchy (Arch Linux) x86_64",
+  "captured": "2026-10-11",
+  "method": "crewbo/spikes s1-s2-hooks probe (stdin captured verbatim, then scrubbed: home paths, session/turn/tool_use/prompt ids, socket path)",
+  "spikes_commit": "68e385b"
+}
