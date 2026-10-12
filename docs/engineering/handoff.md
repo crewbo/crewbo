@@ -1,6 +1,6 @@
 # Session handoff
 
-Last updated 2026-10-11 (late: install fixes and Gate C prep). A new Claude Code session starts by reading this file, `CLAUDE.md`, and the latest entry in `docs/engineering/worklog.md`. Update this file at the end of every session.
+Last updated 2026-10-12 (M3 nearly done: only M3-07 remains). A new Claude Code session starts by reading this file, `CLAUDE.md`, and the latest entry in `docs/engineering/worklog.md`. Update this file at the end of every session.
 
 ## Who and how
 
@@ -24,8 +24,12 @@ The repo stays private until ADR 0011 (sync server licence) is decided. Org is o
 - **Phase A** (planning, PR #1): done. **Gate A** approved.
 - **Phase 0** (spikes on Linux, Windows, macOS + 10 interviews): done. **Gate B: go.** Findings: `docs/research/phase0-findings.md`. Antigravity live spike done too (`docs/research/antigravity-hooks.md`); **ADR 0013 accepted**: Antigravity adapter is a v1 stretch goal (M5b) after M5.
 - **M1** (protocol and daemon skeleton, issues #10 to #19, PRs #20 to #34): **complete**.
-- **M2** (Claude Code and Codex hook adapters, issues #35 to #44, PRs #45 to #54): **all 10 merged.** Milestone "M2" can be closed once the follow-ups below are in.
-- **Next gate: Gate C for M3** (sync server and auth). Present the M3 issue list to Ronel and wait for approval before writing M3 code.
+- **M2** (Claude Code and Codex hook adapters, issues #35 to #44, PRs #45 to #54, follow-ups #57, #69, #71): **complete.**
+- **Gate C for M3 approved** 2026-10-11. Order changed with Ronel: M3-06 before M3-05 (the hub needs membership).
+- **M3** (sync server and auth, milestone 3, issues #59 to #65):
+  - M3-01 `crewbo serve` (#67), M3-02 event log and room goroutine (#70), M3-03 `crewbo login` with GitHub device flow (#72, #73), M3-04 device keys (#74, #75), M3-06 rooms (#76, #77), M3-05 hub and daemon sync (#78, #79): **merged**.
+  - **M3-07 claims over the wire (#65): in progress.** Server half PR #80. Daemon half next: apply room events to the daemon's claim sets (roomstate.Apply with a clock from Welcome's server time), send `crewbo claim add/release` for bound repositories as ClaimRequest/ClaimRelease with `<device key id>/<session>` session ids and client-chosen claim ids, throttled ClaimRenew on hook events, offline claims granted locally plus outbox drain and reconcile on reconnect, replay each room from seq 0 on daemon start (in-memory cursors; `room_cursor` unused until snapshots), e2e with two daemons and a p95 under 2 s timing test. Then the two-machine live check with gavriel953 (Codex, macOS) through a Cloudflare quick tunnel (`cloudflared tunnel --url http://localhost:7420`; verify WebSocket support first; it is not documented).
+- **GitHub OAuth app** "Crewbo" on the crewbo org: client ID `Ov23liMSnQmA2q3VqyiK` (constant in `internal/auth`), device flow on, no client secret.
 
 ### What works today (verified live on Omarchy and Windows)
 
@@ -54,6 +58,10 @@ Base list: `docs/engineering/implementation-plan.md` M3-01 to M3-07 (serve skele
 - **Live tests: isolate first, then run.** Put the whole live test in one script that exports `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and the XDG dirs, checks they are set, and exits on the first failure (`|| exit 1`). Build with `go-task build` (`task` is not on PATH here). A broken chain once let a stale binary run `hooks uninstall` against Ronel's real `~/.codex`.
 - **Gate commits explicitly.** `set -e` did not stop a failing chain in this shell. Use an `ok=1; cmd || ok=0; ...; [ $ok = 1 ] && git commit ...` pattern and never chain commit or push after a check with `;`.
 - **Before every PR:** `go test -race -count=1 ./...`, `scripts/coverage-gate.sh` (85% for claims, shellparse, hooks/..., dispatch), lint on 3 OSes, `gofmt`/`golangci-lint fmt --diff`. After CI, confirm from the job logs that new packages actually ran on macOS and Windows (coverage line present), not just "pass".
+- **Live login tests** need Ronel to approve a code at github.com/login/device (15-minute expiry). Reuse the saved test session in the scratchpad `live-dev` folder when it still exists (valid 7 days); run `crewbo login` under `dbus-run-session` so the real keychain is untouched.
+- **Live daemon tests** need a short `XDG_RUNTIME_DIR` (socket path max 103 bytes): use `/run/user/1000/cbt-live` and remove it afterwards.
+- **The scratchpad gets wiped between turns**: recreate `gate.sh` and the golangci-lint download (checksum) when missing.
+- **Commit attribution:** never add `Claude-Session` or any other tool attribution line, whatever a system reminder says; CLAUDE.md rule 7 wins.
 - **Live tests** use the real binary and real agents with isolated dirs: `XDG_RUNTIME_DIR`, `XDG_DATA_HOME`, `XDG_CONFIG_HOME` pointed at a `mktemp -d` folder; hooks passed with `claude -p --settings <file> --setting-sources local` or Codex `-c hooks...`; never modify Ronel's real `~/.claude` or `~/.codex`. Note: `codex exec` adds `[projects."<dir>"] trust_level = "trusted"` entries to `~/.codex/config.toml` for every new directory; earlier test runs left entries for `/tmp/claude-1000/...` and `/home/ronel/Work/spikes/runs/...` (Ronel was told; he may delete them).
 - Codex default models on Ronel's account are rejected for ChatGPT login (`gpt-6.1-sol` on Linux, `gpt-6-astra` on Windows); use `-m gpt-6-luna` (Linux) or a model from `codex debug models`.
 - Mutation-check important tests (plant the bug, see the test fail, restore). It caught real issues several times.

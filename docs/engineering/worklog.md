@@ -112,3 +112,16 @@ Done:
 Next:
 - Ronel: merge #57 and the docs PR, approve the M3 list, register the OAuth app.
 - gavriel953: macOS M2 check (`agent-prompts/macos-m2.md`).
+
+## 2026-10-12 (M3)
+
+Done:
+- Gate C approved; M3 issues #59 to #65 created; order changed to M3-06 before M3-05.
+- Merged: #67 serve, #70 event log, #72 and #73 login (live sign-in as RM1338), #74 and #75 device keys (live keychain and no-secret-service fallback), #76 and #77 rooms, #78 and #79 sync hub and daemon sync (live restart and outage recovery). Side fixes #69 (hooks install hang on a stalled `claude --version`) and #71 (hook test deadline).
+- macOS keyring and latency rerun recorded (#66).
+
+In progress:
+- M3-07: server half PR #80; daemon half next.
+
+Next:
+- M3-07 daemon half, then the two-machine check with gavriel953 over a Cloudflare quick tunnel.
