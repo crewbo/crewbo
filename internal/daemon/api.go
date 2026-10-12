@@ -64,6 +64,9 @@ type Request struct {
 	LeaseSeconds int64    `json:"lease_seconds,omitempty"` // DefaultCLILease when 0
 	// claim_release: claim ids.
 	IDs []string `json:"ids,omitempty"`
+	// OwnerPrefix limits claim_release to claims whose session starts with
+	// it (this device's claims in a room). Set by the daemon, not clients.
+	OwnerPrefix string `json:"-"`
 }
 
 // Response answers the Request with the same ID.
@@ -82,7 +85,11 @@ type Response struct {
 	// claim_add (granted claims) and claim_list (active claims, by id)
 	Claims []claims.Claim `json:"claims,omitempty"`
 	// claim_release
-	Released int `json:"released,omitempty"`
+	Released    int      `json:"released,omitempty"`
+	ReleasedIDs []string `json:"released_ids,omitempty"`
+	// Note tells the member what happened beyond the result, for example
+	// that a claim is queued for the sync server.
+	Note string `json:"note,omitempty"`
 
 	// event post_edit: claimed files the session's last shell command
 	// changed although another session holds them.
@@ -109,6 +116,9 @@ type Status struct {
 	Violations   int       `json:"violations"`
 	// Sync describes the connection to the sync server.
 	Sync string `json:"sync,omitempty"`
+	// Refused counts claims the sync server turned down after they were
+	// granted locally (made offline, taken by someone else meanwhile).
+	Refused int `json:"refused,omitempty"`
 }
 
 // Session is an agent session the daemon has heard from.

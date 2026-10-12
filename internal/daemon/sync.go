@@ -19,6 +19,7 @@ import (
 	"github.com/crewbo/crewbo/internal/auth"
 	"github.com/crewbo/crewbo/internal/platform"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
+	"github.com/crewbo/crewbo/internal/roomstate"
 )
 
 // Sync defaults (protocol.md, reconnect and resync).
@@ -36,17 +37,35 @@ type syncer struct {
 	paths platform.Paths
 	db    *sql.DB // store.Daemon schema
 	log   *slog.Logger
-	// apply receives each event in order; M3-07 turns events into claims.
-	apply func(b auth.Binding, ev *crewbov1.Event)
+	// apply receives each event in order with the clock that maps its
+	// server times to this machine.
+	apply func(b auth.Binding, ev *crewbov1.Event, clock roomstate.Clock)
+	// refused hears about a queued claim request the server turned down
+	// after the member stopped waiting (for example one made offline).
+	refused func(b auth.Binding, claimIDs []string, reason string)
 
 	minBackoff, maxBackoff, reloadEvery time.Duration
 
-	mu    sync.Mutex
-	state string
+	// cursors is each room's last applied seq. It lives in memory, so a
+	// new daemon replays every room from the start and rebuilds its claims.
+	// ponytail: full replay per start; persist the claims or use server
+	// snapshots when room logs grow large.
+	cursors map[string]uint64
+	kick    chan struct{} // new outbox entries to send
+
+	mu        sync.Mutex
+	state     string
+	current   config // last loaded config
+	connected bool
+	waiters   map[string]chan *crewbov1.Envelope // envelope id to reply
 }
 
-func newSyncer(p platform.Paths, db *sql.DB, log *slog.Logger, apply func(auth.Binding, *crewbov1.Event)) *syncer {
-	return &syncer{paths: p, db: db, log: log, apply: apply, minBackoff: minBackoff, maxBackoff: maxBackoff, reloadEvery: reloadEvery, state: "starting"}
+func newSyncer(p platform.Paths, db *sql.DB, log *slog.Logger, apply func(auth.Binding, *crewbov1.Event, roomstate.Clock), refused func(auth.Binding, []string, string)) *syncer {
+	return &syncer{
+		paths: p, db: db, log: log, apply: apply, refused: refused,
+		minBackoff: minBackoff, maxBackoff: maxBackoff, reloadEvery: reloadEvery, state: "starting",
+		cursors: map[string]uint64{}, kick: make(chan struct{}, 1), waiters: map[string]chan *crewbov1.Envelope{},
+	}
 }
 
 // State describes the sync connection for `crewbo status`.
@@ -104,6 +123,9 @@ func (s *syncer) Run(ctx context.Context) {
 	backoff := s.minBackoff
 	for ctx.Err() == nil {
 		cfg, err := s.load()
+		s.mu.Lock()
+		s.current = cfg
+		s.mu.Unlock()
 		switch {
 		case errors.Is(err, auth.ErrNoSession):
 			s.setState("local only: not signed in (crewbo login)")
@@ -204,16 +226,11 @@ func (s *syncer) connect(ctx context.Context, cfg config) (bool, error) {
 	defer func() { _ = c.CloseNow() }()
 	c.SetReadLimit(64 << 10)
 
-	cursors := map[string]uint64{}
 	byRoom := map[string]auth.Binding{}
 	hello := &crewbov1.Hello{ProtocolVersion: 1, SessionToken: cfg.session.SessionToken, DeviceKeyId: cfg.session.DeviceKeyID}
 	for _, b := range cfg.bindings {
-		seq, err := s.cursor(ctx, b.RoomID)
-		if err != nil {
-			return false, err
-		}
-		cursors[b.RoomID], byRoom[b.RoomID] = seq, b
-		hello.Rooms = append(hello.Rooms, &crewbov1.RoomCursor{RoomId: b.RoomID, LastSeq: seq})
+		byRoom[b.RoomID] = b
+		hello.Rooms = append(hello.Rooms, &crewbov1.RoomCursor{RoomId: b.RoomID, LastSeq: s.cursors[b.RoomID]})
 	}
 	if err := writeEnv(ctx, c, &crewbov1.Envelope{Id: "hello", Body: &crewbov1.Envelope_Hello{Hello: hello}}); err != nil {
 		return false, err
@@ -225,20 +242,40 @@ func (s *syncer) connect(ctx context.Context, cfg config) (bool, error) {
 	if e := env.GetError(); e != nil {
 		return false, refusedError{e.GetMessage()}
 	}
-	if env.GetWelcome() == nil {
+	w := env.GetWelcome()
+	if w == nil {
 		return false, errors.New("the server did not answer Hello with Welcome")
 	}
+	// Lease ends are in server time; shift them by the measured offset.
+	offset := time.Until(time.UnixMilli(w.GetServerTimeUnixMs()))
+	clock := func(ms int64) time.Time { return time.UnixMilli(ms).Add(-offset) }
 	s.setState("connected to %s as %s, %d room(s)", cfg.session.Server, cfg.session.GitHubLogin, len(cfg.bindings))
 
+	var helpers sync.WaitGroup
+	defer func() {
+		cancel()
+		s.mu.Lock()
+		s.connected = false
+		s.mu.Unlock()
+		helpers.Wait()
+	}()
 	// Restart the connection when the session or bindings change.
-	watch := make(chan struct{})
+	helpers.Add(1)
 	go func() {
-		defer close(watch)
+		defer helpers.Done()
 		if !s.sleep(ctx, 1<<62, cfg.stamp) && ctx.Err() == nil {
 			cancel()
 		}
 	}()
-	defer func() { cancel(); <-watch }()
+	// Send the outbox now and whenever something is queued.
+	s.mu.Lock()
+	s.connected = true
+	s.mu.Unlock()
+	helpers.Add(1)
+	go func() {
+		defer helpers.Done()
+		s.sendOutbox(ctx, c, cancel)
+	}()
 
 	for {
 		env, err := readEnv(ctx, c)
@@ -248,26 +285,157 @@ func (s *syncer) connect(ctx context.Context, cfg config) (bool, error) {
 			}
 			return true, err
 		}
+		if id := replyID(env); id != "" {
+			s.settle(ctx, id, env, byRoom)
+			continue
+		}
 		ev := env.GetEvent()
 		if ev == nil {
-			continue // replies to requests arrive in M3-07
+			continue
 		}
 		b, ok := byRoom[ev.GetRoomId()]
 		if !ok {
 			continue
 		}
-		next, err := advance(cursors[b.RoomID], ev.GetSeq())
+		next, err := advance(s.cursors[b.RoomID], ev.GetSeq())
 		if err != nil {
 			return true, err
 		}
-		if next == cursors[b.RoomID] {
+		if next == s.cursors[b.RoomID] {
 			continue // duplicate
 		}
-		s.apply(b, ev)
-		if err := s.saveCursor(ctx, b.RoomID, next); err != nil {
-			return true, err
+		s.apply(b, ev, clock)
+		s.cursors[b.RoomID] = next
+	}
+}
+
+func replyID(env *crewbov1.Envelope) string {
+	if a := env.GetAck(); a != nil {
+		return a.GetRequestId()
+	}
+	return env.GetError().GetRequestId()
+}
+
+// sendOutbox writes every queued request in order, then each new one as it
+// is queued, until ctx ends. A request stays queued until its reply.
+func (s *syncer) sendOutbox(ctx context.Context, c *websocket.Conn, cancel context.CancelFunc) {
+	sent := map[string]bool{}
+	for {
+		rows, err := s.db.QueryContext(ctx, `SELECT envelope_id, payload FROM outbox ORDER BY seq`)
+		if err != nil {
+			cancel()
+			return
 		}
-		cursors[b.RoomID] = next
+		var batch [][]byte
+		for rows.Next() {
+			var id string
+			var payload []byte
+			if rows.Scan(&id, &payload) == nil && !sent[id] {
+				sent[id] = true
+				batch = append(batch, payload)
+			}
+		}
+		_ = rows.Close()
+		for _, p := range batch {
+			if err := c.Write(ctx, websocket.MessageText, p); err != nil {
+				cancel()
+				return
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.kick:
+		}
+	}
+}
+
+// settle handles the reply to a queued request: it leaves the outbox, and
+// goes to whoever waits for it, or, if nobody does and the server refused
+// a claim, to the refused callback.
+func (s *syncer) settle(ctx context.Context, id string, reply *crewbov1.Envelope, byRoom map[string]auth.Binding) {
+	var payload []byte
+	_ = s.db.QueryRowContext(ctx, `SELECT payload FROM outbox WHERE envelope_id = ?`, id).Scan(&payload)
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM outbox WHERE envelope_id = ?`, id); err != nil {
+		s.log.Warn("sync: outbox", "err", err)
+	}
+	s.mu.Lock()
+	w, waiting := s.waiters[id]
+	delete(s.waiters, id)
+	s.mu.Unlock()
+	if waiting {
+		w <- reply
+		return
+	}
+	e := reply.GetError()
+	if e == nil || payload == nil {
+		return
+	}
+	req := &crewbov1.Envelope{}
+	if protojson.Unmarshal(payload, req) != nil || req.GetClaimRequest() == nil {
+		s.log.Warn("sync: the server refused a queued request", "reason", e.GetMessage())
+		return
+	}
+	if b, ok := byRoom[req.GetClaimRequest().GetRoomId()]; ok {
+		s.refused(b, req.GetClaimRequest().GetClaimIds(), e.GetMessage())
+	}
+}
+
+// binding returns the room binding for a repository on the signed-in
+// server, with the device key to qualify session ids and the member's
+// GitHub login.
+func (s *syncer) binding(repo string) (b auth.Binding, deviceKey, login string, ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := RepoKey(repo)
+	for _, b := range s.current.bindings {
+		if RepoKey(b.Repo) == key && s.current.session.DeviceKeyID != "" {
+			return b, s.current.session.DeviceKeyID, s.current.session.GitHubLogin, true
+		}
+	}
+	return auth.Binding{}, "", "", false
+}
+
+// errNotSent means the request is queued but the server has not answered
+// yet (offline, or slow); it will be sent and settled later.
+var errNotSent = errors.New("queued; the sync server has not answered yet")
+
+// submit queues env durably, sends it if connected, and waits up to wait
+// for the reply. Offline it returns errNotSent at once.
+func (s *syncer) submit(ctx context.Context, env *crewbov1.Envelope, wait time.Duration) (*crewbov1.Envelope, error) {
+	payload, err := protojson.Marshal(env)
+	if err != nil {
+		return nil, err
+	}
+	reply := make(chan *crewbov1.Envelope, 1)
+	s.mu.Lock()
+	s.waiters[env.GetId()] = reply
+	connected := s.connected
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		delete(s.waiters, env.GetId())
+		s.mu.Unlock()
+	}()
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO outbox (envelope_id, payload, created_unix_ms) VALUES (?, ?, ?)`, env.GetId(), payload, time.Now().UnixMilli()); err != nil {
+		return nil, fmt.Errorf("queue request: %w", err)
+	}
+	select {
+	case s.kick <- struct{}{}:
+	default: // a send is already pending
+	}
+	if !connected {
+		return nil, errNotSent
+	}
+	t := time.NewTimer(wait)
+	defer t.Stop()
+	select {
+	case r := <-reply:
+		return r, nil
+	case <-t.C:
+		return nil, errNotSent
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
@@ -283,20 +451,6 @@ func advance(cursor, seq uint64) (uint64, error) {
 	default:
 		return cursor, errResync
 	}
-}
-
-func (s *syncer) cursor(ctx context.Context, roomID string) (uint64, error) {
-	var seq uint64
-	err := s.db.QueryRowContext(ctx, `SELECT last_seq FROM room_cursor WHERE room_id = ?`, roomID).Scan(&seq)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, nil
-	}
-	return seq, err
-}
-
-func (s *syncer) saveCursor(ctx context.Context, roomID string, seq uint64) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO room_cursor (room_id, last_seq) VALUES (?, ?) ON CONFLICT (room_id) DO UPDATE SET last_seq = excluded.last_seq`, roomID, seq)
-	return err
 }
 
 func writeEnv(ctx context.Context, c *websocket.Conn, env *crewbov1.Envelope) error {

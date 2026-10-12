@@ -75,6 +75,9 @@ func runClaim(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		if err != nil {
 			return write(stderr, ExitError, "crewbo: %v\n", err)
 		}
+		if resp.Note != "" {
+			_ = write(stdout, ExitOK, "%s\n", resp.Note)
+		}
 		return write(stdout, ExitOK, "released %d claim(s)\n", resp.Released)
 	default:
 		return write(stderr, ExitUsage, "crewbo: unknown claim command %q\n\n%s", args[0], claimUsage)
@@ -116,7 +119,11 @@ func claimAdd(ctx context.Context, c *daemon.Client, args []string, root, cwd st
 		}
 		return write(stderr, ExitError, "crewbo: %v\n", err)
 	}
-	return printClaims(stdout, resp.Claims)
+	code := printClaims(stdout, resp.Claims)
+	if resp.Note != "" {
+		_ = write(stdout, ExitOK, "%s\n", resp.Note)
+	}
+	return code
 }
 
 // toPattern turns a command-line path or glob, relative to cwd, into a
