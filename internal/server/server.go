@@ -46,6 +46,14 @@ type Server struct {
 	log      *slog.Logger
 	sessions *Sessions
 	rooms    *Rooms
+	events   *Log
+
+	// The hub: one running Room per room with a live connection.
+	hubCtx  context.Context
+	hubStop context.CancelFunc
+	hubMu   sync.Mutex
+	live    map[string]*Room
+	hubWG   sync.WaitGroup
 	// lookupUser asks GitHub whose token it is; tests replace it.
 	lookupUser func(ctx context.Context, githubToken string) (auth.User, error)
 	// HelloWait is how long a new connection may take to send Hello.
@@ -61,7 +69,12 @@ type Server struct {
 // protocol's keepalive defaults.
 func New(log *slog.Logger, db *sql.DB) *Server {
 	github := &http.Client{Timeout: 10 * time.Second}
+	hubCtx, hubStop := context.WithCancel(context.Background())
 	return &Server{
+		events:   NewLog(db),
+		hubCtx:   hubCtx,
+		hubStop:  hubStop,
+		live:     map[string]*Room{},
 		log:      log,
 		sessions: NewSessions(db, time.Now),
 		rooms:    NewRooms(db, time.Now),
@@ -115,6 +128,7 @@ func (s *Server) Run(ctx context.Context, cfg Config, ready func(net.Addr)) erro
 	// Shutdown does not wait for hijacked WebSocket connections; their
 	// contexts derive from ctx, so they end now.
 	s.wg.Wait()
+	s.Close()
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}
@@ -169,24 +183,49 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("this server speaks protocol version %d; update crewbo", ProtocolVersion))
 		return
 	}
-	if _, err := s.sessions.Lookup(ctx, hello.GetSessionToken()); err != nil {
+	u, err := s.sessions.Lookup(ctx, hello.GetSessionToken())
+	if err != nil {
 		if !errors.Is(err, ErrUnauthenticated) {
 			s.log.Error("ws: session lookup", "err", err)
 		}
 		s.reject(ctx, c, env.GetId(), crewbov1.ErrorCode_ERROR_CODE_UNAUTHENTICATED, "sign in again with crewbo login")
 		return
 	}
+	subs, code, msg := s.subscribe(ctx, u.ID, hello.GetRooms())
+	if code != 0 {
+		s.reject(ctx, c, env.GetId(), code, msg)
+		return
+	}
+	var helpers sync.WaitGroup // keepalive and forwarders; all end with ctx
+	defer func() {
+		cancel()
+		for _, sub := range subs {
+			sub.Close()
+		}
+		helpers.Wait()
+	}()
 	if err := send(ctx, c, &crewbov1.Envelope{Body: &crewbov1.Envelope_Welcome{Welcome: &crewbov1.Welcome{ProtocolVersion: ProtocolVersion}}}); err != nil {
 		return
 	}
-
-	pingDone := make(chan struct{})
+	// Replay each room's missed events, then forward live ones. Live events
+	// committed meanwhile wait in the subscription, so none is lost.
+	for _, sub := range subs {
+		for _, ev := range sub.Backlog {
+			if err := send(ctx, c, &crewbov1.Envelope{Body: &crewbov1.Envelope_Event{Event: ev}}); err != nil {
+				return
+			}
+		}
+	}
+	for _, sub := range subs {
+		helpers.Add(1)
+		go func() { defer helpers.Done(); s.forward(ctx, c, sub) }()
+	}
+	helpers.Add(1)
 	go func() {
-		defer close(pingDone)
+		defer helpers.Done()
 		s.keepalive(ctx, c)
 		cancel()
 	}()
-	defer func() { cancel(); <-pingDone }()
 
 	for {
 		env, err := read(ctx, c)
@@ -194,8 +233,8 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 			s.log.Debug("ws: closed", "err", err)
 			return
 		}
-		// No request types are served yet; rooms and claims come in M3-02
-		// and M3-07. The protocol answers unknown requests with UNSUPPORTED.
+		// No request types are served yet; claims come in M3-07. The
+		// protocol answers unknown requests with UNSUPPORTED.
 		if err := send(ctx, c, errorEnvelope(env.GetId(), crewbov1.ErrorCode_ERROR_CODE_UNSUPPORTED, "not supported by this server yet")); err != nil {
 			return
 		}

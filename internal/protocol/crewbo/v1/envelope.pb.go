@@ -42,6 +42,9 @@ const (
 	ErrorCode_ERROR_CODE_TOO_LARGE ErrorCode = 6
 	// The daemon's protocol_version is too old for this server.
 	ErrorCode_ERROR_CODE_UPGRADE_REQUIRED ErrorCode = 7
+	// The member is not in a room named in the request (for example a Hello
+	// cursor for a room they left).
+	ErrorCode_ERROR_CODE_NOT_MEMBER ErrorCode = 8
 )
 
 // Enum value maps for ErrorCode.
@@ -55,6 +58,7 @@ var (
 		5: "ERROR_CODE_INVALID",
 		6: "ERROR_CODE_TOO_LARGE",
 		7: "ERROR_CODE_UPGRADE_REQUIRED",
+		8: "ERROR_CODE_NOT_MEMBER",
 	}
 	ErrorCode_value = map[string]int32{
 		"ERROR_CODE_UNSPECIFIED":      0,
@@ -65,6 +69,7 @@ var (
 		"ERROR_CODE_INVALID":          5,
 		"ERROR_CODE_TOO_LARGE":        6,
 		"ERROR_CODE_UPGRADE_REQUIRED": 7,
+		"ERROR_CODE_NOT_MEMBER":       8,
 	}
 )
 
@@ -694,7 +699,7 @@ const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12(\n" +
 	"\x04code\x18\x02 \x01(\x0e2\x14.crewbo.v1.ErrorCodeR\x04code\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x129\n" +
-	"\x0fblocking_claims\x18\x04 \x03(\v2\x10.crewbo.v1.ClaimR\x0eblockingClaims*\xe8\x01\n" +
+	"\x0fblocking_claims\x18\x04 \x03(\v2\x10.crewbo.v1.ClaimR\x0eblockingClaims*\x83\x02\n" +
 	"\tErrorCode\x12\x1a\n" +
 	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16ERROR_CODE_UNSUPPORTED\x10\x01\x12\x17\n" +
@@ -703,7 +708,8 @@ const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"\x13ERROR_CODE_NOT_LEAD\x10\x04\x12\x16\n" +
 	"\x12ERROR_CODE_INVALID\x10\x05\x12\x18\n" +
 	"\x14ERROR_CODE_TOO_LARGE\x10\x06\x12\x1f\n" +
-	"\x1bERROR_CODE_UPGRADE_REQUIRED\x10\aB?Z=github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1b\x06proto3"
+	"\x1bERROR_CODE_UPGRADE_REQUIRED\x10\a\x12\x19\n" +
+	"\x15ERROR_CODE_NOT_MEMBER\x10\bB?Z=github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1b\x06proto3"
 
 var (
 	file_crewbo_v1_envelope_proto_rawDescOnce sync.Once

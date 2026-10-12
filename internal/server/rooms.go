@@ -176,6 +176,13 @@ func (rs *Rooms) Leave(ctx context.Context, u auth.User, roomID string) error {
 	})
 }
 
+// IsMember reports whether the account is an active member of the room.
+func (rs *Rooms) IsMember(ctx context.Context, roomID string, userID int64) (bool, error) {
+	var n int
+	err := rs.db.QueryRowContext(ctx, `SELECT count(*) FROM members WHERE room_id = ? AND github_user_id = ? AND left_unix_ms IS NULL`, roomID, userID).Scan(&n)
+	return n > 0, err
+}
+
 // List returns the rooms u is a member of.
 func (rs *Rooms) List(ctx context.Context, u auth.User) ([]RoomInfo, error) {
 	rows, err := rs.db.QueryContext(ctx, `SELECT room_id FROM members WHERE github_user_id = ? AND left_unix_ms IS NULL ORDER BY joined_unix_ms`, u.ID)
