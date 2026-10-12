@@ -16,7 +16,10 @@ import (
 	"github.com/crewbo/crewbo/internal/server"
 )
 
-// sentTasks returns the signed tasks the server recorded for the room.
+// sentTasks returns the distinct signed tasks the server recorded for the
+// room. The outbox delivers at least once: a request resent after a
+// dropped connection is recorded again (decision log, #92), so copies are
+// counted once, as receiving daemons do.
 func (f *crossFixture) sentTasks() []*crewbov1.SignedTask {
 	f.t.Helper()
 	b, _ := auth.LoadBindings(auth.BindingsPath(f.a.paths.Config))
@@ -25,8 +28,10 @@ func (f *crossFixture) sentTasks() []*crewbov1.SignedTask {
 		f.t.Fatal(err)
 	}
 	var out []*crewbov1.SignedTask
+	seen := map[string]bool{}
 	for _, ev := range evs {
-		if st := ev.GetTaskDispatched().GetTask(); st != nil {
+		if st := ev.GetTaskDispatched().GetTask(); st != nil && !seen[string(taskDigest(st))] {
+			seen[string(taskDigest(st))] = true
 			out = append(out, st)
 		}
 	}

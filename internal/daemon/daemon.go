@@ -26,7 +26,6 @@ import (
 	"github.com/crewbo/crewbo/internal/platform"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
 	"github.com/crewbo/crewbo/internal/roomstate"
-	"github.com/crewbo/crewbo/internal/server"
 	"github.com/crewbo/crewbo/internal/store"
 )
 
@@ -65,13 +64,10 @@ type Daemon struct {
 	snapshots  map[string]*snapshot   // session + tool use -> pre-shell hashes
 	violations []Violation
 
-	sync    *syncer     // set by Run before the owner starts; safe for concurrent use
-	funcs   chan func() // work for the owner goroutine from the syncer
-	refused int         // claims the server refused after the fact
-
-	// roomKeys caches each room's lead and device keys for verifying
-	// tasks. Only the syncer goroutine uses it.
-	roomKeys map[string]server.RoomKeys
+	sync       *syncer       // set by Run before the owner starts; safe for concurrent use
+	funcs      chan func()   // work for the owner goroutine from the syncer
+	refused    int           // claims the server refused after the fact
+	verifyKick chan struct{} // received tasks to verify
 }
 
 type call struct {
@@ -87,7 +83,7 @@ func New(cfg Config) *Daemon {
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, roomKeys: map[string]server.RoomKeys{}, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
+	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, verifyKick: make(chan struct{}, 1), claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
 	for repo, set := range cfg.Claims {
 		d.claims[RepoKey(repo)] = set
 	}
@@ -137,6 +133,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 	go func() { defer close(ownerDone); d.own(ctx) }()
 	syncDone := make(chan struct{})
 	go func() { defer close(syncDone); d.sync.Run(ctx) }()
+	retry := taskRetry
+	if d.cfg.syncFast {
+		retry = 50 * time.Millisecond
+	}
+	verifyDone := make(chan struct{})
+	go func() { defer close(verifyDone); d.verifyTasks(ctx, retry) }()
 	go func() { <-ctx.Done(); _ = ln.Close() }()
 
 	for {
@@ -151,6 +153,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	conns.Wait()
 	<-ownerDone
 	<-syncDone
+	<-verifyDone
 	if err := os.Remove(filepath.Join(d.cfg.Paths.Runtime, TokenName)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		d.cfg.Log.Warn("remove token file", "err", err)
 	}
