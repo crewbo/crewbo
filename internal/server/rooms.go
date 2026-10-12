@@ -246,3 +246,71 @@ func (rs *Rooms) tx(ctx context.Context, f func(*sql.Tx) error) error {
 	}
 	return tx.Commit()
 }
+
+// MemberKeys lists one member's registered device keys.
+type MemberKeys struct {
+	Login        string      `json:"login"`
+	GitHubUserID int64       `json:"github_user_id"`
+	Keys         []DeviceKey `json:"keys"`
+}
+
+// DeviceKey is a registered device key; revoked keys are listed so
+// verifiers can reject them by name.
+type DeviceKey struct {
+	KeyID     string `json:"key_id"`
+	PublicKey []byte `json:"public_key"` // 32 bytes, base64 in JSON
+	Revoked   bool   `json:"revoked"`
+}
+
+// RoomKeys is what a daemon needs to verify a signed task: the current
+// lead and every active member's device keys.
+type RoomKeys struct {
+	RoomID    string       `json:"room_id"`
+	LeadLogin string       `json:"lead_login"`
+	Members   []MemberKeys `json:"members"`
+}
+
+// Keys returns the room's lead and its active members' device keys. Only
+// a member may ask.
+func (rs *Rooms) Keys(ctx context.Context, u auth.User, roomID string) (RoomKeys, error) {
+	if ok, err := rs.IsMember(ctx, roomID, u.ID); err != nil || !ok {
+		if err == nil {
+			err = ErrNotMember
+		}
+		return RoomKeys{}, err
+	}
+	out := RoomKeys{RoomID: roomID, Members: []MemberKeys{}}
+	rows, err := rs.db.QueryContext(ctx, `
+		SELECT m.github_user_id, m.github_login, m.role, d.key_id, d.public_key, d.revoked_unix_ms IS NOT NULL
+		FROM members m LEFT JOIN device_keys d ON d.github_user_id = m.github_user_id
+		WHERE m.room_id = ? AND m.left_unix_ms IS NULL
+		ORDER BY m.joined_unix_ms, d.created_unix_ms`, roomID)
+	if err != nil {
+		return RoomKeys{}, err
+	}
+	defer func() { _ = rows.Close() }()
+	index := map[int64]int{}
+	for rows.Next() {
+		var uid int64
+		var login, role string
+		var keyID sql.NullString
+		var pub []byte
+		var revoked sql.NullBool
+		if err := rows.Scan(&uid, &login, &role, &keyID, &pub, &revoked); err != nil {
+			return RoomKeys{}, err
+		}
+		if role == "lead" {
+			out.LeadLogin = login
+		}
+		i, seen := index[uid]
+		if !seen {
+			i = len(out.Members)
+			index[uid] = i
+			out.Members = append(out.Members, MemberKeys{Login: login, GitHubUserID: uid, Keys: []DeviceKey{}})
+		}
+		if keyID.Valid {
+			out.Members[i].Keys = append(out.Members[i].Keys, DeviceKey{KeyID: keyID.String, PublicKey: pub, Revoked: revoked.Bool})
+		}
+	}
+	return out, rows.Err()
+}
