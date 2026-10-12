@@ -65,6 +65,13 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	f.ts = httptest.NewServer(f.proxy)
 	t.Cleanup(f.ts.Close)
 	f.start()
+	// Close whichever server database is open last: Windows cannot delete
+	// an open file, so TempDir cleanup would fail. Cleanups run in reverse,
+	// so this runs before the temp dir is removed.
+	t.Cleanup(func() {
+		f.srv.Close()
+		_ = f.db.Close()
+	})
 	u := auth.User{ID: 1, Login: "RM1338"}
 	var err error
 	if f.token, _, err = server.NewSessions(f.db.SQL(), time.Now).Create(ctx, u); err != nil {
