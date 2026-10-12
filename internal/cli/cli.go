@@ -50,7 +50,7 @@ Commands:
   serve     Run the Crewbo sync server in the foreground
   login     Sign in with GitHub to a Crewbo sync server
   room      Create, join or leave the room for this repository
-  task      Send a signed task to a teammate's agent (room lead)
+  task      Send a signed task (room lead); list, read, approve or decline yours
   hook      Handle an agent hook call (run by Claude Code and Codex)
   version   Print the version and commit
   help      Show this help
