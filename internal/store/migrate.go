@@ -60,6 +60,24 @@ var Daemon = Schema{
 			CASE state WHEN 'dispatched' THEN 'pending' ELSE state END, detail, received_unix_ms FROM tasks;
 	DROP TABLE tasks;
 	ALTER TABLE tasks_3 RENAME TO tasks;`,
+	// 4: task runs (M4-04): running, then finished (the agent exited
+	// cleanly; checkpoints come with M5-01) or failed. The remaining
+	// data-model.md states are allowed now so later milestones need no
+	// rebuild.
+	`CREATE TABLE tasks_4 (
+		digest           BLOB    PRIMARY KEY,
+		task_id          TEXT    UNIQUE,
+		room_id          TEXT    NOT NULL,
+		signed           BLOB    NOT NULL,
+		state            TEXT    NOT NULL CHECK (state IN ('pending', 'dispatched', 'rejected', 'other', 'approved', 'declined', 'expired',
+			'running', 'finished', 'failed', 'checkpointed', 'merging', 'merged', 'cancelled')),
+		detail           TEXT    NOT NULL DEFAULT '',
+		received_unix_ms INTEGER NOT NULL,
+		expires_unix_ms  INTEGER
+	) WITHOUT ROWID;
+	INSERT INTO tasks_4 SELECT digest, task_id, room_id, signed, state, detail, received_unix_ms, expires_unix_ms FROM tasks;
+	DROP TABLE tasks;
+	ALTER TABLE tasks_4 RENAME TO tasks;`,
 }
 
 // Server is the schema of the sync server's database (`crewbo serve`).

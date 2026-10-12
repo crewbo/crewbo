@@ -149,7 +149,7 @@ func TestDaemonMigration3KeepsTasks(t *testing.T) {
 	if _, err := db.SQL().ExecContext(ctx, `UPDATE tasks SET state = 'approved' WHERE digest = x'01'`); err != nil {
 		t.Errorf("approved not accepted: %v", err)
 	}
-	if _, err := db.SQL().ExecContext(ctx, `UPDATE tasks SET state = 'running' WHERE digest = x'01'`); err == nil {
+	if _, err := db.SQL().ExecContext(ctx, `UPDATE tasks SET state = 'bogus' WHERE digest = x'01'`); err == nil {
 		t.Error("an unknown state was accepted")
 	}
 }
