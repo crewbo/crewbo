@@ -217,7 +217,7 @@ func TestCapturedPatchIsDenied(t *testing.T) {
 			waitForDaemon(t, paths)
 
 			var out bytes.Buffer
-			hooks.Run(context.Background(), Adapter{}, hooks.PreEdit, bytes.NewReader(raw), &out, hooks.Deps{Paths: paths})
+			hooks.Run(context.Background(), Adapter{}, hooks.PreEdit, bytes.NewReader(raw), &out, hooks.Deps{Paths: paths, Timeout: e2eTimeout})
 			if !strings.Contains(out.String(), `"permissionDecision":"deny"`) || !strings.Contains(out.String(), "blocked.txt is claimed by alice's agent") {
 				t.Errorf("hook output = %s", out.String())
 			}
@@ -242,3 +242,8 @@ func waitForDaemon(t *testing.T, p platform.Paths) {
 		time.Sleep(20 * time.Millisecond)
 	}
 }
+
+// e2eTimeout replaces the 300 ms production deadline in tests that assert a
+// decision: a daemon just started on a busy CI runner (Windows, -race) can
+// miss it, and the hook then fails open by design (seen on PR #69).
+const e2eTimeout = 5 * time.Second
