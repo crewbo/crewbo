@@ -373,7 +373,9 @@ func (d *Daemon) expireTasks(ctx context.Context) error {
 
 // answerTask records the member's approval or refusal of a task and tells
 // the room. Only a task still waiting for an answer, and not expired, can
-// be answered. Approving launches nothing yet (M4-04).
+// be answered. Approving first checks what the run needs (the repository,
+// the base commit, a signed-in agent), so a fixable problem leaves the
+// task waiting, then starts the agent.
 func (d *Daemon) answerTask(ctx context.Context, req Request) Response {
 	fail := func(format string, a ...any) Response {
 		return Response{ID: req.ID, Error: fmt.Sprintf(format, a...)}
@@ -387,6 +389,14 @@ func (d *Daemon) answerTask(ctx context.Context, req Request) Response {
 	}
 	if len(req.Text) > maxReason {
 		return fail("a reason is at most %d bytes", maxReason)
+	}
+	var run *taskRun
+	if req.Method == MethodTaskApprove {
+		r, err := d.prepareRun(ctx, req)
+		if err != nil {
+			return fail("%v", err)
+		}
+		run = r // nil: not waiting for an answer; the update below says why
 	}
 	db := d.sync.db
 	var room string
@@ -420,6 +430,13 @@ func (d *Daemon) answerTask(ctx context.Context, req Request) Response {
 		resp.Note = fmt.Sprintf("Recorded here; the sync server said: %s", reply.GetError().GetMessage())
 	default:
 		resp.Note = "The lead has been told."
+	}
+	if run != nil {
+		note, err := d.startRun(ctx, run)
+		if err != nil {
+			return fail("approved, but the agent could not start, so the task is marked failed: %v", err)
+		}
+		resp.Note = note + " " + resp.Note
 	}
 	return resp
 }

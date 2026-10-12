@@ -149,6 +149,7 @@ func TestTaskCommandsForTheAssignee(t *testing.T) {
 		{"unknown id", []string{"decline", "zzz"}, ExitError, "no task zzz"},
 		{"reason when showing", []string{"show", first, "--reason", "x"}, ExitUsage, "Usage:"},
 		{"no id", []string{"decline"}, ExitUsage, "Usage:"},
+		{"API key when declining", []string{"decline", first, "--use-api-key"}, ExitUsage, "Usage:"},
 		{"unknown subcommand", []string{"frobnicate"}, ExitUsage, "Usage:"},
 		{"decline with reason", []string{"decline", first, "--reason", "on holiday"}, ExitOK, "Task " + first + " declined. The lead has been told."},
 		{"decline again", []string{"decline", first}, ExitError, "already declined"},

@@ -20,7 +20,7 @@ const taskUsage = `Usage:
   crewbo task create --to LOGIN [--path PATH]... [--for DURATION] (TEXT... | --file FILE)
   crewbo task list
   crewbo task show ID
-  crewbo task approve ID
+  crewbo task approve ID [--use-api-key]
   crewbo task decline ID [--reason TEXT]
 
 create sends a signed task to a teammate's agent in this repository's room.
@@ -29,9 +29,12 @@ may change (repeat it); --for is how long the teammate has to approve
 (default 24h, at most 7 days); --file - reads the text from stdin.
 
 list shows the tasks sent to you; show prints one in full. approve shows
-the full task and asks you to type yes; it works only in an interactive
-terminal. decline tells the lead, with an optional reason. ID may be any
-unique start of a task id.
+the full task and asks you to type yes (only in an interactive terminal),
+then runs Claude Code on it in a new git worktree, with the task's paths
+claimed for it. ANTHROPIC_API_KEY is removed from Claude Code's
+environment so it uses your Claude plan; --use-api-key keeps it, which
+bills the API. decline tells the lead, with an optional reason. ID may be
+any unique start of a task id.
 `
 
 // paths is a repeatable --path flag.
@@ -74,11 +77,12 @@ func taskAnswer(ctx context.Context, args []string, stdin io.Reader, stdout, std
 	fs := flag.NewFlagSet("task "+args[0], flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	reason := fs.String("reason", "", "why you decline (decline only)")
+	useAPIKey := fs.Bool("use-api-key", false, "let Claude Code bill ANTHROPIC_API_KEY (approve only)")
 	rest, err := parseInterspersed(fs, args[1:])
 	if err != nil {
 		return ExitUsage
 	}
-	if len(rest) != 1 || (*reason != "" && args[0] != "decline") {
+	if len(rest) != 1 || (*reason != "" && args[0] != "decline") || (*useAPIKey && args[0] != "approve") {
 		return write(stderr, ExitUsage, "%s", taskUsage)
 	}
 	// Refuse before showing anything: an agent's shell has no terminal.
@@ -107,7 +111,8 @@ func taskAnswer(ctx context.Context, args []string, stdin io.Reader, stdout, std
 	if args[0] == "decline" {
 		method = daemon.MethodTaskDecline
 	}
-	resp, code := callTaskDaemon(ctx, daemon.Request{Method: method, Task: t.ID, Text: *reason}, stderr)
+	// Approving checks the repository and Claude Code and starts the agent.
+	resp, code := callTaskDaemon(ctx, daemon.Request{Method: method, Task: t.ID, Text: *reason, KeepAPIKey: *useAPIKey}, stderr)
 	if code != ExitOK {
 		return code
 	}
@@ -184,7 +189,7 @@ func callTaskDaemon(ctx context.Context, req daemon.Request, stderr io.Writer) (
 		return daemon.Response{}, write(stderr, ExitError, "crewbo: the daemon is not running; start it with crewbo daemon\n")
 	}
 	defer func() { _ = c.Close() }()
-	cctx, ccancel := context.WithTimeout(ctx, 30*time.Second)
+	cctx, ccancel := context.WithTimeout(ctx, 60*time.Second)
 	defer ccancel()
 	resp, err := c.Call(cctx, req)
 	if err != nil {

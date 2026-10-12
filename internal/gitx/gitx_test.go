@@ -199,3 +199,21 @@ func TestHead(t *testing.T) {
 		t.Error("Head of a repository with no commits succeeded")
 	}
 }
+
+func TestHasCommit(t *testing.T) {
+	dir := repo(t)
+	ctx := context.Background()
+	g := New("")
+	h, err := g.Head(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for commit, want := range map[string]bool{h: true, h[:12]: true, "HEAD": true, strings.Repeat("0", 40): false, "no-such-branch": false} {
+		if got, err := g.HasCommit(ctx, dir, commit); err != nil || got != want {
+			t.Errorf("HasCommit(%q) = %v, %v; want %v", commit, got, err, want)
+		}
+	}
+	if _, err := g.HasCommit(ctx, dir, "--upload-pack=x"); !errors.Is(err, ErrBadRef) {
+		t.Errorf("option-like commit: %v", err)
+	}
+}

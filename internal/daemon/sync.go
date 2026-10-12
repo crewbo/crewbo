@@ -427,6 +427,19 @@ func (s *syncer) binding(repo string) (b auth.Binding, deviceKey, login string, 
 	return auth.Binding{}, "", "", false
 }
 
+// roomBinding returns this machine's repository bound to a room on the
+// signed-in server.
+func (s *syncer) roomBinding(roomID string) (auth.Binding, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, b := range s.current.bindings {
+		if b.RoomID == roomID {
+			return b, true
+		}
+	}
+	return auth.Binding{}, false
+}
+
 // session returns the session the syncer last loaded.
 func (s *syncer) session() auth.Session {
 	s.mu.Lock()

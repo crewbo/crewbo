@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -327,6 +328,8 @@ func (m *machine) answer(method, task, reason string) (Response, error) {
 
 func TestTeammateApprovesOrDeclines(t *testing.T) {
 	f := newCrossFixture(t)
+	fakeClaude(t)
+	f.b.fetchFrom(f.a)
 	one, err := f.a.task("gavriel953", "First.", nil, time.Hour)
 	if err != nil {
 		t.Fatal(err)
@@ -337,12 +340,21 @@ func TestTeammateApprovesOrDeclines(t *testing.T) {
 	}
 	eventually(t, "both tasks", func() bool { return len(f.b.tasks()) == 2 })
 
-	if resp, err := f.b.answer(MethodTaskApprove, one.TaskID, ""); err != nil || resp.Note != "The lead has been told." {
+	// The fake agent exits at once, so the approved task runs and finishes.
+	if resp, err := f.b.answer(MethodTaskApprove, one.TaskID, ""); err != nil || !strings.HasSuffix(resp.Note, "The lead has been told.") {
 		t.Fatalf("approve: %+v %v", resp, err)
 	}
 	if resp, err := f.b.answer(MethodTaskDecline, two.TaskID, "busy with the release"); err != nil || resp.Note != "The lead has been told." {
 		t.Fatalf("decline: %+v %v", resp, err)
 	}
+	eventually(t, "the run to finish", func() bool {
+		for _, task := range f.b.tasks() {
+			if task.ID == one.TaskID {
+				return task.State == "finished"
+			}
+		}
+		return false
+	})
 	states := map[string]string{}
 	for _, task := range f.b.tasks() {
 		states[task.ID] = task.State + "/" + task.Detail
@@ -350,18 +362,19 @@ func TestTeammateApprovesOrDeclines(t *testing.T) {
 			t.Errorf("an answered task lost its text: %+v", task)
 		}
 	}
-	if states[one.TaskID] != "approved/" || states[two.TaskID] != "declined/busy with the release" {
+	if states[one.TaskID] != "finished/" || states[two.TaskID] != "declined/busy with the release" {
 		t.Errorf("states = %v", states)
 	}
-	got := map[string]crewbov1.TaskState{}
+	got := map[string][]crewbov1.TaskState{}
 	for _, ev := range f.statuses() {
 		st := ev.GetTaskStatusChanged().GetStatus()
-		got[st.GetTaskId()] = st.GetState()
+		got[st.GetTaskId()] = append(got[st.GetTaskId()], st.GetState())
 		if ev.GetActorMemberId() != "gavriel953" {
 			t.Errorf("status actor %q", ev.GetActorMemberId())
 		}
 	}
-	if got[one.TaskID] != crewbov1.TaskState_TASK_STATE_APPROVED || got[two.TaskID] != crewbov1.TaskState_TASK_STATE_DECLINED {
+	if !slices.Equal(got[one.TaskID], []crewbov1.TaskState{crewbov1.TaskState_TASK_STATE_APPROVED, crewbov1.TaskState_TASK_STATE_RUNNING}) ||
+		!slices.Equal(got[two.TaskID], []crewbov1.TaskState{crewbov1.TaskState_TASK_STATE_DECLINED}) {
 		t.Errorf("statuses in the log = %v", got)
 	}
 
@@ -370,8 +383,8 @@ func TestTeammateApprovesOrDeclines(t *testing.T) {
 		method, task string
 		want         string
 	}{
-		"approve twice":        {f.b, MethodTaskApprove, one.TaskID, "already approved"},
-		"decline an approved":  {f.b, MethodTaskDecline, one.TaskID, "already approved"},
+		"approve twice":        {f.b, MethodTaskApprove, one.TaskID, "already finished"},
+		"decline an approved":  {f.b, MethodTaskDecline, one.TaskID, "already finished"},
 		"approve a declined":   {f.b, MethodTaskApprove, two.TaskID, "already declined"},
 		"unknown task":         {f.b, MethodTaskApprove, "nope", "no task nope"},
 		"the lead's own sends": {f.a, MethodTaskApprove, one.TaskID, "no task"},
@@ -380,7 +393,7 @@ func TestTeammateApprovesOrDeclines(t *testing.T) {
 			t.Errorf("%s: %v, want %q", name, err, tc.want)
 		}
 	}
-	if n := len(f.statuses()); n != 2 {
+	if n := len(f.statuses()); n != 3 {
 		t.Errorf("refused answers reached the room: %d statuses", n)
 	}
 }
