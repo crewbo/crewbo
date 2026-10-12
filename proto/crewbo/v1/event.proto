@@ -3,6 +3,7 @@ syntax = "proto3";
 package crewbo.v1;
 
 import "crewbo/v1/claims.proto";
+import "crewbo/v1/task.proto";
 
 option go_package = "github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1";
 
@@ -19,6 +20,8 @@ message Event {
     ClaimsReleased claims_released = 11;
     ClaimsRenewed claims_renewed = 12;
     ClaimsExpired claims_expired = 13;
+    TaskDispatched task_dispatched = 20;
+    TaskStatusChanged task_status_changed = 21;
   }
 }
 
