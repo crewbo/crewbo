@@ -56,7 +56,7 @@ type Request struct {
 	// decide and event: the agent session sending the hook event. Every
 	// decide or event call registers the session and renews its leases.
 	Session string `json:"session,omitempty"`
-	Agent   string `json:"agent,omitempty"` // "claude-code", "codex"
+	Agent   string `json:"agent,omitempty"` // "claude-code", "codex"; task_approve: the agent to run (Claude Code when empty)
 	Repo    string `json:"repo,omitempty"`  // repository root the agent works in
 	Event   string `json:"event,omitempty"` // event: normalised hook event name
 

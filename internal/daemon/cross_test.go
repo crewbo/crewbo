@@ -119,7 +119,7 @@ func (m *machine) start() {
 	if err != nil {
 		m.t.Fatal(err)
 	}
-	m.run = start(m.t, Config{Paths: m.paths, Log: quietLog(), Keyring: m.keyring, ClaudeBin: exe, syncFast: true})
+	m.run = start(m.t, Config{Paths: m.paths, Log: quietLog(), Keyring: m.keyring, ClaudeBin: exe, CodexBin: exe, syncFast: true})
 	eventually(m.t, "the daemon to connect", func() bool { return strings.HasPrefix(m.status().Sync, "connected") })
 }
 

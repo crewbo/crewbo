@@ -49,9 +49,10 @@ type Config struct {
 
 	// Keyring holds this device's key; the OS keychain when nil.
 	Keyring keys.Keyring
-	// ClaudeBin is the Claude Code executable for approved tasks; "claude"
-	// from PATH when empty.
+	// ClaudeBin and CodexBin are the agent executables for approved
+	// tasks; "claude" and "codex" from PATH when empty.
 	ClaudeBin string
+	CodexBin  string
 
 	syncFast bool // tests: reconnect and reload in milliseconds
 }
@@ -74,6 +75,9 @@ type Daemon struct {
 
 	agents     sync.WaitGroup // supervisors of running task agents
 	renewEvery time.Duration  // ClaimRenew interval for running agents
+
+	runsMu sync.Mutex
+	runs   map[string]string // running task's worktree (pathKey) to its agent session
 }
 
 type call struct {
@@ -89,7 +93,7 @@ func New(cfg Config) *Daemon {
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, verifyKick: make(chan struct{}, 1), renewEvery: claimRenewEvery, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
+	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, verifyKick: make(chan struct{}, 1), renewEvery: claimRenewEvery, runs: map[string]string{}, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
 	for repo, set := range cfg.Claims {
 		d.claims[RepoKey(repo)] = set
 	}
@@ -361,11 +365,16 @@ func RepoKey(repo string) string {
 	if repo == "" {
 		return ""
 	}
-	repo = mainWorktree(repo)
-	if r, err := filepath.EvalSymlinks(repo); err == nil {
-		repo = r
+	return pathKey(mainWorktree(repo))
+}
+
+// pathKey identifies a directory across path spellings, as RepoKey does
+// without mapping worktrees.
+func pathKey(dir string) string {
+	if r, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = r
 	}
-	return strings.ToLower(filepath.ToSlash(filepath.Clean(repo)))
+	return strings.ToLower(filepath.ToSlash(filepath.Clean(dir)))
 }
 
 // mainWorktree returns the main worktree of a linked worktree, and any
@@ -433,8 +442,15 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 			_ = enc.Encode(Response{Error: "invalid request: " + err.Error()})
 			continue
 		}
+		// An agent working in a running task's worktree is that task's
+		// session, whatever id its agent gave it (Codex picks its own).
 		// In a repository in a room, agent sessions are qualified with this
 		// device's key, as the claims they hold on the server are.
+		if (req.Method == MethodDecide || req.Method == MethodEvent) && req.Session != "" {
+			if s, ok := d.runSession(req.Repo); ok {
+				req.Session = s
+			}
+		}
 		if (req.Method == MethodDecide || req.Method == MethodEvent) && req.Session != "" && d.sync != nil {
 			if _, key, _, ok := d.sync.binding(req.Repo); ok {
 				req.Session = key + "/" + req.Session

@@ -192,3 +192,64 @@ func mustEval(t *testing.T, p string) string {
 	}
 	return r
 }
+
+// M4-05: the member may run a task with Codex. Codex picks its own session
+// id, so hook calls from the task's worktree count as the task's session.
+func TestApprovedTaskRunsWithCodex(t *testing.T) {
+	f := newCrossFixture(t)
+	dir := fakeClaude(t)
+	touch(t, filepath.Join(dir, "hold"), "")
+	t.Setenv("OPENAI_API_KEY", "sk-not-for-the-agent")
+	f.b.fetchFrom(f.a)
+	sent, err := f.a.task("gavriel953", "Port the parser.", []string{"src/c.go"}, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the task", func() bool { return f.b.taskState(sent.TaskID).State == "dispatched" })
+	if _, err := f.b.call(Request{Method: MethodTaskApprove, Task: sent.TaskID, Agent: "aider"}); err == nil || !strings.Contains(err.Error(), "unknown agent") {
+		t.Errorf("unknown agent: %v", err)
+	}
+	touch(t, filepath.Join(dir, "signed-out"), "")
+	if _, err := f.b.call(Request{Method: MethodTaskApprove, Task: sent.TaskID, Agent: "codex"}); err == nil || !strings.Contains(err.Error(), "run codex login") {
+		t.Errorf("approve while Codex is signed out: %v", err)
+	}
+	if err := os.Remove(filepath.Join(dir, "signed-out")); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := f.b.call(Request{Method: MethodTaskApprove, Task: sent.TaskID, Agent: "codex"})
+	if err != nil || !strings.Contains(resp.Note, "Codex is working in") {
+		t.Fatalf("approve: %+v %v", resp, err)
+	}
+	eventually(t, "Codex to start", func() bool { return len(fakeRuns(t, dir)) == 1 })
+	run := fakeRuns(t, dir)[0]
+	wt := filepath.Join(f.b.paths.Data, "worktrees", sent.TaskID)
+	if len(run.Args) != 7 || run.Args[0] != "exec" || mustEval(t, run.Args[2]) != mustEval(t, wt) ||
+		!slices.Equal(run.Args[3:], []string{"--sandbox", "workspace-write", "--json", "-"}) {
+		t.Errorf("args = %q", run.Args)
+	}
+	if run.Stdin != "Port the parser." {
+		t.Errorf("stdin %q", run.Stdin)
+	}
+
+	// Any session in the worktree is the task's; the same id elsewhere is not.
+	if own, err := f.b.call(Request{Method: MethodDecide, Session: "codex-thread-1", Agent: "codex", Repo: wt, Paths: []string{"src/c.go"}}); err != nil || !own.Allow {
+		t.Errorf("Codex in the task's worktree is blocked: %+v %v", own.BlockedBy, err)
+	}
+	if other, err := f.b.call(Request{Method: MethodDecide, Session: "codex-thread-1", Agent: "codex", Repo: f.b.repo, Paths: []string{"src/c.go"}}); err != nil || other.Allow {
+		t.Errorf("the same session outside the worktree may edit the task's file: %v", err)
+	}
+	eventually(t, "the lead to see the claim", func() bool { ok, _ := f.a.agentMay("src/c.go"); return !ok })
+
+	touch(t, filepath.Join(dir, "exit"), "1")
+	eventually(t, "the run to fail", func() bool { return f.b.taskState(sent.TaskID).State == "failed" })
+	if d := f.b.taskState(sent.TaskID).Detail; d != "Codex: The 'x' model is not supported." {
+		t.Errorf("detail %q", d)
+	}
+	eventually(t, "the claim to be released", func() bool { ok, _ := f.a.agentMay("src/c.go"); return ok })
+	if s, ok := f.b.run.d.runSession(wt); ok {
+		t.Errorf("the finished run still owns its worktree's sessions (%s)", s)
+	}
+	if own, err := f.b.call(Request{Method: MethodDecide, Session: "codex-thread-2", Agent: "codex", Repo: wt, Paths: []string{"src/c.go"}}); err != nil || !own.Allow {
+		t.Errorf("after the run: %+v %v", own, err)
+	}
+}
