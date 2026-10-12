@@ -1,12 +1,16 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/crewbo/crewbo/internal/daemon"
 	"github.com/crewbo/crewbo/internal/hooks"
@@ -14,12 +18,20 @@ import (
 
 const taskUsage = `Usage:
   crewbo task create --to LOGIN [--path PATH]... [--for DURATION] (TEXT... | --file FILE)
+  crewbo task list
+  crewbo task show ID
+  crewbo task approve ID
+  crewbo task decline ID [--reason TEXT]
 
-Sends a signed task to a teammate's agent in this repository's room. Only
-the room lead can send tasks. The teammate sees the full text and must
-approve it before anything runs. --path names the files or globs the task
+create sends a signed task to a teammate's agent in this repository's room.
+Only the room lead can send tasks. --path names the files or globs the task
 may change (repeat it); --for is how long the teammate has to approve
 (default 24h, at most 7 days); --file - reads the text from stdin.
+
+list shows the tasks sent to you; show prints one in full. approve shows
+the full task and asks you to type yes; it works only in an interactive
+terminal. decline tells the lead, with an optional reason. ID may be any
+unique start of a task id.
 `
 
 // paths is a repeatable --path flag.
@@ -29,9 +41,80 @@ func (p *pathList) String() string     { return strings.Join(*p, ",") }
 func (p *pathList) Set(v string) error { *p = append(*p, v); return nil }
 
 func runTask(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	if len(args) == 0 || args[0] != "create" {
+	if len(args) == 0 {
 		return write(stderr, ExitUsage, "%s", taskUsage)
 	}
+	switch args[0] {
+	case "create":
+		return taskCreate(ctx, args, stdin, stdout, stderr)
+	case "list":
+		if len(args) != 1 {
+			return write(stderr, ExitUsage, "%s", taskUsage)
+		}
+		tasks, code := listTasks(ctx, stderr)
+		if code != ExitOK {
+			return code
+		}
+		if len(tasks) == 0 {
+			return write(stdout, ExitOK, "No tasks.\n")
+		}
+		now := time.Now()
+		for _, t := range tasks {
+			_, _ = fmt.Fprintln(stdout, listLine(t, now))
+		}
+		return ExitOK
+	case "show", "approve", "decline":
+		return taskAnswer(ctx, args, stdin, stdout, stderr)
+	}
+	return write(stderr, ExitUsage, "%s", taskUsage)
+}
+
+// taskAnswer runs show, approve and decline.
+func taskAnswer(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("task "+args[0], flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	reason := fs.String("reason", "", "why you decline (decline only)")
+	rest, err := parseInterspersed(fs, args[1:])
+	if err != nil {
+		return ExitUsage
+	}
+	if len(rest) != 1 || (*reason != "" && args[0] != "decline") {
+		return write(stderr, ExitUsage, "%s", taskUsage)
+	}
+	// Refuse before showing anything: an agent's shell has no terminal.
+	if args[0] == "approve" && !interactive(stdin) {
+		return write(stderr, ExitError, "crewbo: approve a task from an interactive terminal, where you can read it first\n")
+	}
+	tasks, code := listTasks(ctx, stderr)
+	if code != ExitOK {
+		return code
+	}
+	t, err := resolveTask(tasks, rest[0])
+	if err != nil {
+		return write(stderr, ExitError, "crewbo: %v\n", err)
+	}
+	switch args[0] {
+	case "show":
+		printTask(stdout, t, time.Now())
+		return ExitOK
+	case "approve":
+		printTask(stdout, t, time.Now())
+		if !confirm(stdin, stdout) {
+			return write(stdout, ExitError, "Not approved.\n")
+		}
+	}
+	method := daemon.MethodTaskApprove
+	if args[0] == "decline" {
+		method = daemon.MethodTaskDecline
+	}
+	resp, code := callTaskDaemon(ctx, daemon.Request{Method: method, Task: t.ID, Text: *reason}, stderr)
+	if code != ExitOK {
+		return code
+	}
+	return write(stdout, ExitOK, "Task %s %s. %s\n", t.ID, map[string]string{"approve": "approved", "decline": "declined"}[args[0]], resp.Note)
+}
+
+func taskCreate(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("task create", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	to := fs.String("to", "", "the teammate's GitHub login")
@@ -77,25 +160,127 @@ func runTask(ctx context.Context, args []string, stdin io.Reader, stdout, stderr
 		}
 		patterns = append(patterns, pat)
 	}
+	resp, code := callTaskDaemon(ctx, daemon.Request{
+		Method: daemon.MethodTaskCreate, Repo: root, Assignee: *to, Text: text,
+		Patterns: patterns, TTLSeconds: int64(ttl.Seconds()),
+	}, stderr)
+	if code != ExitOK {
+		return code
+	}
+	return write(stdout, ExitOK, "Task %s: %s\n", resp.TaskID, resp.Note)
+}
+
+// callTaskDaemon sends one request to the daemon; a failure is written to
+// stderr and returned as an exit code.
+func callTaskDaemon(ctx context.Context, req daemon.Request, stderr io.Writer) (daemon.Response, int) {
 	p, err := paths()
 	if err != nil {
-		return write(stderr, ExitError, "crewbo: %v\n", err)
+		return daemon.Response{}, write(stderr, ExitError, "crewbo: %v\n", err)
 	}
 	dctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	c, err := daemon.Dial(dctx, p)
 	cancel()
 	if err != nil {
-		return write(stderr, ExitError, "crewbo: the daemon is not running; start it with crewbo daemon\n")
+		return daemon.Response{}, write(stderr, ExitError, "crewbo: the daemon is not running; start it with crewbo daemon\n")
 	}
 	defer func() { _ = c.Close() }()
 	cctx, ccancel := context.WithTimeout(ctx, 30*time.Second)
 	defer ccancel()
-	resp, err := c.Call(cctx, daemon.Request{
-		Method: daemon.MethodTaskCreate, Repo: root, Assignee: *to, Text: text,
-		Patterns: patterns, TTLSeconds: int64(ttl.Seconds()),
-	})
+	resp, err := c.Call(cctx, req)
 	if err != nil {
-		return write(stderr, ExitError, "crewbo: %v\n", err)
+		return daemon.Response{}, write(stderr, ExitError, "crewbo: %v\n", err)
 	}
-	return write(stdout, ExitOK, "Task %s: %s\n", resp.TaskID, resp.Note)
+	return resp, ExitOK
+}
+
+func listTasks(ctx context.Context, stderr io.Writer) ([]daemon.Task, int) {
+	resp, code := callTaskDaemon(ctx, daemon.Request{Method: daemon.MethodTaskList}, stderr)
+	return resp.Tasks, code
+}
+
+// resolveTask finds the task whose id starts with prefix.
+func resolveTask(tasks []daemon.Task, prefix string) (daemon.Task, error) {
+	var found []daemon.Task
+	for _, t := range tasks {
+		if t.ID != "" && strings.HasPrefix(t.ID, prefix) {
+			found = append(found, t)
+		}
+	}
+	switch len(found) {
+	case 0:
+		return daemon.Task{}, fmt.Errorf("no task %s (crewbo task list shows yours)", prefix)
+	case 1:
+		return found[0], nil
+	}
+	return daemon.Task{}, fmt.Errorf("%s matches %d tasks; give more of the id", prefix, len(found))
+}
+
+// listLine is one task in crewbo task list.
+func listLine(t daemon.Task, now time.Time) string {
+	if t.ID == "" {
+		return fmt.Sprintf("(rejected)  received %s: %s", t.Received.Format(time.DateTime), visible(t.Detail))
+	}
+	first, _, more := strings.Cut(t.Text, "\n")
+	if r := []rune(first); len(r) > 60 {
+		first, more = string(r[:60]), true
+	}
+	if more {
+		first += " ..."
+	}
+	return fmt.Sprintf("%s  %-10s  from %s, %s  %s", t.ID, t.State, t.Author, until(t.Expires, now), visible(first))
+}
+
+// until describes an expiry relative to now.
+func until(expires, now time.Time) string {
+	if !expires.After(now) {
+		return "expired " + expires.Format(time.DateTime)
+	}
+	return fmt.Sprintf("expires %s (in %s)", expires.Format(time.DateTime), expires.Sub(now).Round(time.Minute))
+}
+
+// printTask prints a task in full: its text verbatim, with control
+// characters made visible so a terminal cannot hide or rewrite any of it.
+func printTask(w io.Writer, t daemon.Task, now time.Time) {
+	owned := "none"
+	if len(t.OwnedPaths) > 0 {
+		owned = strings.Join(t.OwnedPaths, ", ")
+	}
+	_, _ = fmt.Fprintf(w, "Task:     %s\nFrom:     %s (room lead)\nState:    %s\nBase:     %s\nPaths:    %s\nCreated:  %s\nExpiry:   %s\n",
+		t.ID, t.Author, t.State, t.BaseCommit, visible(owned), t.Created.Format(time.DateTime), until(t.Expires, now))
+	if t.Detail != "" {
+		_, _ = fmt.Fprintf(w, "Reason:   %s\n", visible(t.Detail))
+	}
+	_, _ = fmt.Fprintf(w, "\n----- task text -----\n%s\n----- end of task text -----\n", visible(t.Text))
+}
+
+// visible keeps newlines and tabs and writes every other control
+// character, including escape sequences, as a Go escape such as \x1b.
+func visible(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r == '\n' || r == '\t' || !unicode.IsControl(r) && r != '\u2028' && r != '\u2029' && !unicode.Is(unicode.Bidi_Control, r) {
+			b.WriteRune(r)
+			continue
+		}
+		q := strconv.QuoteRune(r)
+		b.WriteString(q[1 : len(q)-1])
+	}
+	return b.String()
+}
+
+// interactive reports whether stdin is a terminal.
+func interactive(stdin io.Reader) bool {
+	f, ok := stdin.(*os.File)
+	if !ok {
+		return false
+	}
+	fi, err := f.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+}
+
+// confirm asks the member to type yes.
+func confirm(stdin io.Reader, stdout io.Writer) bool {
+	_, _ = fmt.Fprint(stdout, "\nApprove this task? Type yes to approve: ")
+	line, _ := bufio.NewReader(stdin).ReadString('\n')
+	return strings.TrimSpace(line) == "yes"
 }
