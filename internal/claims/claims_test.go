@@ -164,3 +164,31 @@ func TestMentionedBy(t *testing.T) {
 		t.Error("expired claim matched")
 	}
 }
+
+func TestExtendNeverShortens(t *testing.T) {
+	now := time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)
+	s := NewSet()
+	long := Claim{ID: "long", Pattern: "a.go", Holder: Holder{SessionID: "s"}, LeaseExpires: now.Add(8 * time.Hour)}
+	short := Claim{ID: "short", Pattern: "b.go", Holder: Holder{SessionID: "s"}, LeaseExpires: now.Add(time.Minute)}
+	other := Claim{ID: "other", Pattern: "c.go", Holder: Holder{SessionID: "t"}, LeaseExpires: now.Add(time.Minute)}
+	gone := Claim{ID: "gone", Pattern: "d.go", Holder: Holder{SessionID: "s"}, LeaseExpires: now.Add(-time.Second)}
+	for _, c := range []Claim{long, short, other, gone} {
+		s.Put(c)
+	}
+	if n := s.Extend("s", now.Add(5*time.Minute), now); n != 1 {
+		t.Errorf("Extend changed %d claims, want 1", n)
+	}
+	for id, want := range map[string]time.Time{"long": long.LeaseExpires, "short": now.Add(5 * time.Minute), "other": other.LeaseExpires, "gone": gone.LeaseExpires} {
+		if c, ok := s.Get(id); !ok || !c.LeaseExpires.Equal(want) {
+			t.Errorf("%s lease = %v, want %v", id, c.LeaseExpires, want)
+		}
+	}
+	// Put skips the overlap check and replaces by id.
+	s.Put(Claim{ID: "dup", Pattern: "a.go", Holder: Holder{SessionID: "u"}, LeaseExpires: now.Add(time.Hour)})
+	if _, ok := s.Get("dup"); !ok {
+		t.Error("Put refused an overlapping claim")
+	}
+	if _, ok := s.Get("nope"); ok {
+		t.Error("Get found a missing id")
+	}
+}

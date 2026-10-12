@@ -191,6 +191,15 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 		s.reject(ctx, c, env.GetId(), crewbov1.ErrorCode_ERROR_CODE_UNAUTHENTICATED, "sign in again with crewbo login")
 		return
 	}
+	caller := Caller{Member: u.Login}
+	if key := hello.GetDeviceKeyId(); key != "" {
+		ok, err := s.deviceOwned(ctx, key, u.ID)
+		if err != nil || !ok {
+			s.reject(ctx, c, env.GetId(), crewbov1.ErrorCode_ERROR_CODE_UNAUTHENTICATED, "this device's key is not registered to you; run crewbo login")
+			return
+		}
+		caller.DeviceKey = key
+	}
 	subs, code, msg := s.subscribe(ctx, u.ID, hello.GetRooms())
 	if code != 0 {
 		s.reject(ctx, c, env.GetId(), code, msg)
@@ -204,7 +213,12 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 		}
 		helpers.Wait()
 	}()
-	if err := send(ctx, c, &crewbov1.Envelope{Body: &crewbov1.Envelope_Welcome{Welcome: &crewbov1.Welcome{ProtocolVersion: ProtocolVersion}}}); err != nil {
+	joined := map[string]bool{}
+	for _, cur := range hello.GetRooms() {
+		joined[cur.GetRoomId()] = true
+	}
+	welcome := &crewbov1.Welcome{ProtocolVersion: ProtocolVersion, ServerTimeUnixMs: time.Now().UnixMilli()}
+	if err := send(ctx, c, &crewbov1.Envelope{Body: &crewbov1.Envelope_Welcome{Welcome: welcome}}); err != nil {
 		return
 	}
 	// Replay each room's missed events, then forward live ones. Live events
@@ -233,9 +247,26 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 			s.log.Debug("ws: closed", "err", err)
 			return
 		}
-		// No request types are served yet; claims come in M3-07. The
-		// protocol answers unknown requests with UNSUPPORTED.
-		if err := send(ctx, c, errorEnvelope(env.GetId(), crewbov1.ErrorCode_ERROR_CODE_UNSUPPORTED, "not supported by this server yet")); err != nil {
+		var roomID string
+		switch b := env.GetBody().(type) {
+		case *crewbov1.Envelope_ClaimRequest:
+			roomID = b.ClaimRequest.GetRoomId()
+		case *crewbov1.Envelope_ClaimRelease:
+			roomID = b.ClaimRelease.GetRoomId()
+		case *crewbov1.Envelope_ClaimRenew:
+			roomID = b.ClaimRenew.GetRoomId()
+		default:
+			// The protocol answers unknown requests with UNSUPPORTED.
+			if err := send(ctx, c, errorEnvelope(env.GetId(), crewbov1.ErrorCode_ERROR_CODE_UNSUPPORTED, "not supported by this server")); err != nil {
+				return
+			}
+			continue
+		}
+		reply := errorEnvelope(env.GetId(), crewbov1.ErrorCode_ERROR_CODE_NOT_MEMBER, "this connection has not joined room "+roomID)
+		if joined[roomID] {
+			reply = s.room(roomID).Handle(ctx, caller, env)
+		}
+		if err := send(ctx, c, reply); err != nil {
 			return
 		}
 	}

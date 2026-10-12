@@ -83,8 +83,8 @@ func TestHubReplaysThenStreams(t *testing.T) {
 			t.Errorf("%s: live = %v", name, got)
 		}
 	}
-	// Requests still answer UNSUPPORTED on a connection with rooms.
-	sendEnv(t, all, &crewbov1.Envelope{Id: "r", Body: &crewbov1.Envelope_ClaimRequest{ClaimRequest: &crewbov1.ClaimRequest{}}})
+	// Unknown request types answer UNSUPPORTED on a connection with rooms.
+	sendEnv(t, all, &crewbov1.Envelope{Id: "r", Body: &crewbov1.Envelope_Ack{Ack: &crewbov1.Ack{}}})
 	if env, err := recv(t, all); err != nil || env.GetError().GetCode() != crewbov1.ErrorCode_ERROR_CODE_UNSUPPORTED {
 		t.Errorf("request: %v %v", env, err)
 	}

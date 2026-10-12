@@ -100,6 +100,32 @@ func (s *Set) Renew(sessionID string, now time.Time, lease time.Duration) int {
 	return n
 }
 
+// Extend moves every active claim of the session to end no earlier than
+// until, and returns how many it changed. Unlike Renew it never shortens a
+// lease, so a long terminal claim survives a short renewal.
+func (s *Set) Extend(sessionID string, until, now time.Time) int {
+	n := 0
+	for id, c := range s.claims {
+		if c.Holder.SessionID == sessionID && c.active(now) && c.LeaseExpires.Before(until) {
+			c.LeaseExpires = until
+			s.claims[id] = c
+			n++
+		}
+	}
+	return n
+}
+
+// Put records c as granted elsewhere (by the sync server, the authority on
+// overlaps), replacing any claim with the same id. It skips the checks Add
+// makes.
+func (s *Set) Put(c Claim) { s.claims[c.ID] = c }
+
+// Get returns the claim with the given id.
+func (s *Set) Get(id string) (Claim, bool) {
+	c, ok := s.claims[id]
+	return c, ok
+}
+
 // Release removes the claim with the given id and reports whether it existed.
 func (s *Set) Release(id string) bool {
 	_, ok := s.claims[id]

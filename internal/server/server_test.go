@@ -137,7 +137,7 @@ func TestHelloWelcomeThenUnsupported(t *testing.T) {
 	if err != nil || env.GetWelcome().GetProtocolVersion() != ProtocolVersion {
 		t.Fatalf("want Welcome, got %v %v", env, err)
 	}
-	sendEnv(t, c, &crewbov1.Envelope{Id: "r1", Body: &crewbov1.Envelope_ClaimRequest{ClaimRequest: &crewbov1.ClaimRequest{}}})
+	sendEnv(t, c, &crewbov1.Envelope{Id: "r1", Body: &crewbov1.Envelope_Ack{Ack: &crewbov1.Ack{}}})
 	env, err = recv(t, c)
 	if e := env.GetError(); err != nil || e.GetCode() != crewbov1.ErrorCode_ERROR_CODE_UNSUPPORTED || e.GetRequestId() != "r1" {
 		t.Fatalf("want UNSUPPORTED for r1, got %v %v", env, err)
@@ -228,7 +228,7 @@ func TestKeepalive(t *testing.T) {
 	for i := range 15 { // 600 ms, past PongWait; each Read answers pings
 		time.Sleep(40 * time.Millisecond)
 		id := "r" + strconv.Itoa(i)
-		sendEnv(t, alive, &crewbov1.Envelope{Id: id, Body: &crewbov1.Envelope_ClaimRenew{ClaimRenew: &crewbov1.ClaimRenew{}}})
+		sendEnv(t, alive, &crewbov1.Envelope{Id: id, Body: &crewbov1.Envelope_Ack{Ack: &crewbov1.Ack{}}})
 		if env, err := recv(t, alive); err != nil || env.GetError().GetRequestId() != id {
 			t.Fatalf("connection dropped while reading: %v %v", env, err)
 		}

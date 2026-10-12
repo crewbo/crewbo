@@ -5,7 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/crewbo/crewbo/internal/claims"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
+	"github.com/crewbo/crewbo/internal/roomstate"
 )
 
 // ErrRoomClosed means the room's goroutine has stopped.
@@ -25,14 +27,25 @@ type Room struct {
 	reqs chan func()
 	done chan struct{}
 	subs map[chan *crewbov1.Event]uint64 // subscriber to its cursor
+
+	// claims is the room's current claims, a projection of its log in
+	// server time; only the room goroutine touches it.
+	claims      *claims.Set
+	expireEvery time.Duration
 }
 
 // NewRoom returns a room over log. Call Run to start it.
 func NewRoom(id string, log *Log, now func() time.Time) *Room {
-	return &Room{id: id, log: log, now: now, reqs: make(chan func()), done: make(chan struct{}), subs: map[chan *crewbov1.Event]uint64{}}
+	return &Room{
+		id: id, log: log, now: now, reqs: make(chan func()), done: make(chan struct{}),
+		subs: map[chan *crewbov1.Event]uint64{}, claims: claims.NewSet(), expireEvery: 5 * time.Second,
+	}
 }
 
-// Run serves the room until ctx ends, then closes every subscription.
+// Run rebuilds the room's claims from its log, then serves the room until
+// ctx ends, expiring leases as they lapse, and finally closes every
+// subscription. If the log cannot be read the room refuses everything
+// rather than grant claims from an empty view.
 func (r *Room) Run(ctx context.Context) {
 	defer func() {
 		close(r.done)
@@ -40,12 +53,23 @@ func (r *Room) Run(ctx context.Context) {
 			close(ch)
 		}
 	}()
+	evs, err := r.log.Since(ctx, r.id, 0)
+	if err != nil {
+		return
+	}
+	for _, ev := range evs {
+		roomstate.Apply(r.claims, ev, roomstate.ServerClock, r.now())
+	}
+	tick := time.NewTicker(r.expireEvery)
+	defer tick.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case f := <-r.reqs:
 			f()
+		case <-tick.C:
+			r.expire(ctx)
 		}
 	}
 }
@@ -70,25 +94,33 @@ func (r *Room) Append(ctx context.Context, ev *crewbov1.Event) (*crewbov1.Event,
 	var out *crewbov1.Event
 	var err error
 	if derr := r.do(ctx.Done(), func() {
-		out, err = r.log.Append(ctx, r.id, ev, r.now())
-		if err != nil {
-			return
-		}
-		for ch, after := range r.subs {
-			if out.GetSeq() <= after {
-				continue // cursor ahead of the log; see Subscribe
-			}
-			select {
-			case ch <- out:
-			default: // too slow: drop it; it resyncs from its cursor
-				delete(r.subs, ch)
-				close(ch)
-			}
-		}
+		out, err = r.commit(ctx, ev)
 	}); derr != nil {
 		return nil, derr
 	}
 	return out, err
+}
+
+// commit appends ev, applies it to the claims and delivers it to
+// subscribers. It runs on the room goroutine.
+func (r *Room) commit(ctx context.Context, ev *crewbov1.Event) (*crewbov1.Event, error) {
+	out, err := r.log.Append(ctx, r.id, ev, r.now())
+	if err != nil {
+		return nil, err
+	}
+	roomstate.Apply(r.claims, out, roomstate.ServerClock, r.now())
+	for ch, after := range r.subs {
+		if out.GetSeq() <= after {
+			continue // cursor ahead of the log; see Subscribe
+		}
+		select {
+		case ch <- out:
+		default: // too slow: drop it; it resyncs from its cursor
+			delete(r.subs, ch)
+			close(ch)
+		}
+	}
+	return out, nil
 }
 
 // Subscription is a reader's view of a room: Backlog holds the events after
