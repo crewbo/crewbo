@@ -77,6 +77,10 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	if f.token, _, err = server.NewSessions(f.db.SQL(), time.Now).Create(ctx, u); err != nil {
 		t.Fatal(err)
 	}
+	// The device key the daemon presents, registered as crewbo login does.
+	if _, err := f.db.SQL().Exec(`INSERT INTO device_keys (key_id, github_user_id, public_key, name, os, created_unix_ms) VALUES ('ed25519:test', 1, zeroblob(32), 'd', 'linux', 0)`); err != nil {
+		t.Fatal(err)
+	}
 	info, err := server.NewRooms(f.db.SQL(), time.Now).Create(ctx, u, "crewbo")
 	if err != nil {
 		t.Fatal(err)

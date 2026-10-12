@@ -119,11 +119,16 @@ func (x *Claim) GetLeaseExpiresUnixMs() int64 {
 
 // ClaimRequest asks for new claims for one agent session.
 type ClaimRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RoomId        string                 `protobuf:"bytes,1,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
-	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	Patterns      []string               `protobuf:"bytes,3,rep,name=patterns,proto3" json:"patterns,omitempty"`
-	TaskId        string                 `protobuf:"bytes,4,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	RoomId    string                 `protobuf:"bytes,1,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
+	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Patterns  []string               `protobuf:"bytes,3,rep,name=patterns,proto3" json:"patterns,omitempty"`
+	TaskId    string                 `protobuf:"bytes,4,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	// One client-chosen id per pattern, so a request resent after a lost
+	// reply is recognised instead of granted twice.
+	ClaimIds []string `protobuf:"bytes,5,rep,name=claim_ids,json=claimIds,proto3" json:"claim_ids,omitempty"`
+	// Requested lease length; the server applies its own default and cap.
+	LeaseSeconds  int64 `protobuf:"varint,6,opt,name=lease_seconds,json=leaseSeconds,proto3" json:"lease_seconds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -184,6 +189,20 @@ func (x *ClaimRequest) GetTaskId() string {
 		return x.TaskId
 	}
 	return ""
+}
+
+func (x *ClaimRequest) GetClaimIds() []string {
+	if x != nil {
+		return x.ClaimIds
+	}
+	return nil
+}
+
+func (x *ClaimRequest) GetLeaseSeconds() int64 {
+	if x != nil {
+		return x.LeaseSeconds
+	}
+	return 0
 }
 
 // ClaimRelease gives up claims before their lease ends.
@@ -305,13 +324,15 @@ const file_crewbo_v1_claims_proto_rawDesc = "" +
 	"session_id\x18\x04 \x01(\tR\tsessionId\x12\x1b\n" +
 	"\tmember_id\x18\x05 \x01(\tR\bmemberId\x12\x17\n" +
 	"\atask_id\x18\x06 \x01(\tR\x06taskId\x121\n" +
-	"\x15lease_expires_unix_ms\x18\a \x01(\x03R\x12leaseExpiresUnixMs\"{\n" +
+	"\x15lease_expires_unix_ms\x18\a \x01(\x03R\x12leaseExpiresUnixMs\"\xbd\x01\n" +
 	"\fClaimRequest\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x1a\n" +
 	"\bpatterns\x18\x03 \x03(\tR\bpatterns\x12\x17\n" +
-	"\atask_id\x18\x04 \x01(\tR\x06taskId\"D\n" +
+	"\atask_id\x18\x04 \x01(\tR\x06taskId\x12\x1b\n" +
+	"\tclaim_ids\x18\x05 \x03(\tR\bclaimIds\x12#\n" +
+	"\rlease_seconds\x18\x06 \x01(\x03R\fleaseSeconds\"D\n" +
 	"\fClaimRelease\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x1b\n" +
 	"\tclaim_ids\x18\x02 \x03(\tR\bclaimIds\"D\n" +

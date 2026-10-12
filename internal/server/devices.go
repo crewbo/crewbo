@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/json"
 	"net/http"
@@ -73,4 +74,12 @@ func (s *Server) serveDevice(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(DeviceResponse{KeyID: id})
+}
+
+// deviceOwned reports whether a device key is registered to the account and
+// not revoked.
+func (s *Server) deviceOwned(ctx context.Context, keyID string, userID int64) (bool, error) {
+	var n int
+	err := s.sessions.db.QueryRowContext(ctx, `SELECT count(*) FROM device_keys WHERE key_id = ? AND github_user_id = ? AND revoked_unix_ms IS NULL`, keyID, userID).Scan(&n)
+	return n > 0, err
 }

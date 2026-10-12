@@ -422,8 +422,11 @@ type Welcome struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	ProtocolVersion int32                  `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
 	Snapshots       []*RoomSnapshot        `protobuf:"bytes,2,rep,name=snapshots,proto3" json:"snapshots,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// The server's clock when it sent Welcome, so the daemon can convert
+	// lease ends (server time) to its own clock.
+	ServerTimeUnixMs int64 `protobuf:"varint,3,opt,name=server_time_unix_ms,json=serverTimeUnixMs,proto3" json:"server_time_unix_ms,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Welcome) Reset() {
@@ -468,6 +471,13 @@ func (x *Welcome) GetSnapshots() []*RoomSnapshot {
 		return x.Snapshots
 	}
 	return nil
+}
+
+func (x *Welcome) GetServerTimeUnixMs() int64 {
+	if x != nil {
+		return x.ServerTimeUnixMs
+	}
+	return 0
 }
 
 // RoomSnapshot is the full claim state of a room at a sequence number.
@@ -682,10 +692,11 @@ const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"\n" +
 	"RoomCursor\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x19\n" +
-	"\blast_seq\x18\x02 \x01(\x04R\alastSeq\"k\n" +
+	"\blast_seq\x18\x02 \x01(\x04R\alastSeq\"\x9a\x01\n" +
 	"\aWelcome\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\x05R\x0fprotocolVersion\x125\n" +
-	"\tsnapshots\x18\x02 \x03(\v2\x17.crewbo.v1.RoomSnapshotR\tsnapshots\"c\n" +
+	"\tsnapshots\x18\x02 \x03(\v2\x17.crewbo.v1.RoomSnapshotR\tsnapshots\x12-\n" +
+	"\x13server_time_unix_ms\x18\x03 \x01(\x03R\x10serverTimeUnixMs\"c\n" +
 	"\fRoomSnapshot\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x10\n" +
 	"\x03seq\x18\x02 \x01(\x04R\x03seq\x12(\n" +

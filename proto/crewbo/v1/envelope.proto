@@ -53,6 +53,9 @@ message RoomCursor {
 message Welcome {
   int32 protocol_version = 1;
   repeated RoomSnapshot snapshots = 2;
+  // The server's clock when it sent Welcome, so the daemon can convert
+  // lease ends (server time) to its own clock.
+  int64 server_time_unix_ms = 3;
 }
 
 // RoomSnapshot is the full claim state of a room at a sequence number.
