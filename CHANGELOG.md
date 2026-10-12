@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The daemon connects to the sync server for repositories in a room (after `crewbo login` and `crewbo room create` or `join`), catches up after a server restart or time offline, and keeps working locally when it cannot connect. `crewbo status` shows the sync state.
 - `crewbo room create | invite | join | leave | status`, run inside a git repository, put that repository in a room on the sync server: the creator is the lead, invites are codes valid 24 h for up to 9 people by default, and a room holds at most 10 members.
 - `crewbo login` also creates this device's signing key (kept in the system keychain, or in a file readable only by you when no keychain answers within 3 s) and registers its public key with the sync server.
 - `crewbo login --server URL` signs in with GitHub (device flow: open github.com/login/device and enter the code shown) and saves a 7-day Crewbo session for that sync server. `crewbo serve` now issues these sessions, requires one on every daemon connection, and keeps its data in `server.db` (`--data DIR`).

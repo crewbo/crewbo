@@ -20,8 +20,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/crewbo/crewbo/internal/auth"
 	"github.com/crewbo/crewbo/internal/claims"
 	"github.com/crewbo/crewbo/internal/platform"
+	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
+	"github.com/crewbo/crewbo/internal/store"
 )
 
 // TokenName is the token file inside platform.Paths.Runtime.
@@ -53,6 +56,8 @@ type Daemon struct {
 	claims     map[string]*claims.Set // keyed by RepoKey
 	snapshots  map[string]*snapshot   // session + tool use -> pre-shell hashes
 	violations []Violation
+
+	sync *syncer // set by Run before the owner starts; safe for concurrent State
 }
 
 type call struct {
@@ -98,9 +103,22 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	db, err := openDB(ctx, filepath.Join(d.cfg.Paths.Data, "daemon.db"), d.cfg.Log)
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
+	defer func() { _ = db.Close() }()
+	d.sync = newSyncer(d.cfg.Paths, db.SQL(), d.cfg.Log, func(b auth.Binding, ev *crewbov1.Event) {
+		// M3-07 turns room events into claims; until then they only move
+		// the cursor.
+		d.cfg.Log.Debug("sync: event", "room_id", b.RoomID, "seq", ev.GetSeq())
+	})
 	var conns sync.WaitGroup
 	ownerDone := make(chan struct{})
 	go func() { defer close(ownerDone); d.own(ctx) }()
+	syncDone := make(chan struct{})
+	go func() { defer close(syncDone); d.sync.Run(ctx) }()
 	go func() { <-ctx.Done(); _ = ln.Close() }()
 
 	for {
@@ -114,6 +132,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	cancel()
 	conns.Wait()
 	<-ownerDone
+	<-syncDone
 	if err := os.Remove(filepath.Join(d.cfg.Paths.Runtime, TokenName)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		d.cfg.Log.Warn("remove token file", "err", err)
 	}
@@ -186,6 +205,7 @@ func (d *Daemon) handle(req Request) Response {
 		return Response{ID: req.ID, Status: &Status{
 			Version: d.cfg.Version, PID: os.Getpid(), Started: d.started,
 			ActiveClaims: d.activeClaims(now), Sessions: len(d.sessions), Violations: len(d.violations),
+			Sync: d.syncState(),
 		}}
 	default:
 		return Response{ID: req.ID, Error: fmt.Sprintf("unknown method %q", req.Method)}
@@ -270,6 +290,29 @@ func newClaimID() string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b) // crypto/rand.Read never returns an error (Go 1.24+)
 	return "c-" + hex.EncodeToString(b)
+}
+
+func (d *Daemon) syncState() string {
+	if d.sync == nil {
+		return ""
+	}
+	return d.sync.State()
+}
+
+// openDB opens the daemon database, moving a damaged file aside and
+// starting empty (failure mode F19): the database holds only cursors and
+// queued requests, which the server can rebuild.
+func openDB(ctx context.Context, path string, log *slog.Logger) (*store.DB, error) {
+	db, err := store.Open(ctx, path, store.Daemon)
+	if errors.Is(err, store.ErrCorrupt) {
+		aside := fmt.Sprintf("%s.damaged-%d", path, time.Now().Unix())
+		log.Warn("daemon database is damaged; starting a new one", "moved_to", aside, "err", err)
+		if rerr := os.Rename(path, aside); rerr != nil {
+			return nil, fmt.Errorf("%w (and moving it aside failed: %w)", err, rerr)
+		}
+		return store.Open(ctx, path, store.Daemon)
+	}
+	return db, err
 }
 
 // RepoKey identifies a repository across path spellings: symlinks resolved
