@@ -150,7 +150,12 @@ var claudeVersionRE = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)`)
 func claudeVersion(ctx context.Context) ([3]int, bool) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "claude", "--version").Output()
+	cmd := exec.CommandContext(ctx, "claude", "--version")
+	// Without WaitDelay, Output waits for the pipe to close even after the
+	// timeout kills claude, which never happens while a child it started
+	// (a version manager shim, an updater) still holds stdout.
+	cmd.WaitDelay = time.Second
+	out, err := cmd.Output()
 	if err != nil {
 		return [3]int{}, false
 	}

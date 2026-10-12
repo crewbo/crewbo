@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `crewbo hooks install` could hang forever when `claude --version` stalled and left a child process holding its output (for example a version-manager shim without network access). It now gives up after the 5 s timeout plus 1 s.
 - `crewbo claim add` treated flags placed after the paths (`claim add src/a.go --task 12`) as extra claims.
 - `crewbo hooks uninstall` replaced the `.crewbo.bak` backup with the hooked config, so the original was lost. The backup is now written only from a config without Crewbo hooks.
 - `crewbo hooks install` and `uninstall` re-sorted the keys of `settings.json` and wrote `&`, `<` and `>` as `\u0026`, `\u003c` and `\u003e`. Key order and characters are now kept, and an install and uninstall give back the same file.
