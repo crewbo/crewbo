@@ -10,7 +10,7 @@ import (
 
 func open(t *testing.T, path string) *DB {
 	t.Helper()
-	db, err := Open(context.Background(), path)
+	db, err := Open(context.Background(), path, Daemon)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,8 +22,8 @@ func TestOpenCreatesMigratedWALDatabase(t *testing.T) {
 	ctx := context.Background()
 	db := open(t, filepath.Join(t.TempDir(), "crewbo.db"))
 	v, err := db.SchemaVersion(ctx)
-	if err != nil || v != len(migrations) {
-		t.Fatalf("schema version = %d, %v; want %d", v, err, len(migrations))
+	if err != nil || v != len(Daemon) {
+		t.Fatalf("schema version = %d, %v; want %d", v, err, len(Daemon))
 	}
 	var mode string
 	if err := db.SQL().QueryRowContext(ctx, "PRAGMA journal_mode").Scan(&mode); err != nil || mode != "wal" {
@@ -48,7 +48,7 @@ func TestOpenCreatesMigratedWALDatabase(t *testing.T) {
 func TestReopenIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "crewbo.db")
-	db, err := Open(ctx, path)
+	db, err := Open(ctx, path, Daemon)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,8 +63,8 @@ func TestReopenIsIdempotent(t *testing.T) {
 	if err := db.SQL().QueryRowContext(ctx, `SELECT last_seq FROM room_cursor WHERE room_id = 'r1'`).Scan(&seq); err != nil || seq != 7 {
 		t.Errorf("after reopen last_seq = %d, %v; want 7", seq, err)
 	}
-	if v, _ := db.SchemaVersion(ctx); v != len(migrations) {
-		t.Errorf("schema version %d after reopen, want %d", v, len(migrations))
+	if v, _ := db.SchemaVersion(ctx); v != len(Daemon) {
+		t.Errorf("schema version %d after reopen, want %d", v, len(Daemon))
 	}
 }
 
@@ -73,7 +73,7 @@ func TestOpenRejectsNonDatabase(t *testing.T) {
 	if err := os.WriteFile(path, []byte("this is not a sqlite database, it is plain text padded to look like a file header"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := Open(context.Background(), path)
+	_, err := Open(context.Background(), path, Daemon)
 	if !errors.Is(err, ErrCorrupt) {
 		t.Fatalf("err = %v, want ErrCorrupt", err)
 	}
@@ -82,7 +82,7 @@ func TestOpenRejectsNonDatabase(t *testing.T) {
 func TestOpenRejectsNewerSchema(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "crewbo.db")
-	db, err := Open(ctx, path)
+	db, err := Open(ctx, path, Daemon)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestOpenRejectsNewerSchema(t *testing.T) {
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Open(ctx, path); !errors.Is(err, ErrSchemaTooNew) {
+	if _, err := Open(ctx, path, Daemon); !errors.Is(err, ErrSchemaTooNew) {
 		t.Fatalf("err = %v, want ErrSchemaTooNew", err)
 	}
 }

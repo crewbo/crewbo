@@ -5,10 +5,14 @@ import (
 	"fmt"
 )
 
-// migrations are applied in order; the database records how many have run in
-// PRAGMA user_version. Never edit or reorder an entry once released: add a
-// new one.
-var migrations = []string{
+// Schema is the ordered migrations of one kind of database. Open applies
+// them in order and records how many have run in PRAGMA user_version.
+// Never edit or reorder an entry once released: add a new one. Daemon and
+// server databases are separate files with separate schemas.
+type Schema []string
+
+// Daemon is the schema of a member's daemon database.
+var Daemon = Schema{
 	// 1: daemon outbox for requests queued while the sync server is
 	// unreachable (protocol.md, reconnect and resync), and the last applied
 	// event sequence number per room.
@@ -24,9 +28,29 @@ var migrations = []string{
 	);`,
 }
 
+// Server is the schema of the sync server's database (`crewbo serve`).
+var Server = Schema{
+	// 1: rooms and their append-only event logs (data-model.md). next_seq
+	// only increases; (room_id, seq) is unique and gap-free because the
+	// event insert and the next_seq bump share one transaction. payload is
+	// the binary Protobuf crewbo.v1.Event.
+	`CREATE TABLE rooms (
+		id              TEXT    PRIMARY KEY,
+		name            TEXT    NOT NULL,
+		created_unix_ms INTEGER NOT NULL,
+		next_seq        INTEGER NOT NULL DEFAULT 1 CHECK (next_seq >= 1)
+	);
+	CREATE TABLE events (
+		room_id TEXT    NOT NULL REFERENCES rooms (id),
+		seq     INTEGER NOT NULL CHECK (seq >= 1),
+		payload BLOB    NOT NULL,
+		PRIMARY KEY (room_id, seq)
+	) WITHOUT ROWID;`,
+}
+
 // migrate applies pending migrations, each in its own transaction together
 // with the user_version bump, so a crash never leaves a half-applied step.
-func (db *DB) migrate(ctx context.Context) error {
+func (db *DB) migrate(ctx context.Context, migrations Schema) error {
 	current, err := db.SchemaVersion(ctx)
 	if err != nil {
 		return err
