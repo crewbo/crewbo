@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An agent working in a git worktree (`git worktree add`) was not blocked by claims made in the main checkout or shared by teammates, because Crewbo treated each worktree as a separate repository. A linked worktree now shares its repository's claims and room.
 - When the hook could not get an answer from the daemon for any reason, it always said the daemon "did not answer in time". It now says that only for real timeouts and names the actual failure otherwise.
 - The daemon took minutes to notice a silently lost network (for example Wi-Fi turned off) and kept showing "connected". It now pings the sync server and shows "offline, retrying" within about 30 seconds.
 - A claim a teammate made from their terminal was described as their agent's ("gavriel953's agent") in hook messages, `crewbo claim list` and the MCP tools once shared through a room. It now says "(from a terminal)" again.

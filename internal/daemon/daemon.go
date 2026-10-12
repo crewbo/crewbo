@@ -344,18 +344,54 @@ func openDB(ctx context.Context, path string, log *slog.Logger) (*store.DB, erro
 	return db, err
 }
 
-// RepoKey identifies a repository across path spellings: symlinks resolved
-// (macOS /tmp is /private/tmp), forward slashes, case folded (Windows tools
-// disagree on drive-letter case). Claims are per repository, so a hook and
-// a terminal in the same checkout must map to the same key.
+// RepoKey identifies a repository across path spellings: linked worktrees
+// mapped to their main worktree, symlinks resolved (macOS /tmp is
+// /private/tmp), forward slashes, case folded (Windows tools disagree on
+// drive-letter case). Claims are per repository, so a hook and a terminal
+// in the same repository, in any of its worktrees, map to the same key.
 func RepoKey(repo string) string {
 	if repo == "" {
 		return ""
 	}
+	repo = mainWorktree(repo)
 	if r, err := filepath.EvalSymlinks(repo); err == nil {
 		repo = r
 	}
 	return strings.ToLower(filepath.ToSlash(filepath.Clean(repo)))
+}
+
+// mainWorktree returns the main worktree of a linked worktree, and any
+// other directory unchanged (a normal checkout, a submodule, a worktree of
+// a bare repository). A linked worktree's .git is a file holding
+// "gitdir: <path>" (gitrepository-layout(5), gitfile; relative to the
+// worktree), and that directory's commondir file names the main $GIT_DIR
+// (relative to that directory). It reads files only: hooks call it on
+// every decision.
+func mainWorktree(repo string) string {
+	b, err := os.ReadFile(filepath.Join(repo, ".git")) //nolint:gosec // the repository's own gitfile; fails for a .git directory
+	if err != nil {
+		return repo
+	}
+	gitdir, ok := strings.CutPrefix(strings.TrimSpace(string(b)), "gitdir:")
+	if !ok {
+		return repo
+	}
+	gitdir = strings.TrimSpace(gitdir)
+	if !filepath.IsAbs(gitdir) {
+		gitdir = filepath.Join(repo, gitdir)
+	}
+	c, err := os.ReadFile(filepath.Join(gitdir, "commondir")) //nolint:gosec // git's own metadata for this repository
+	if err != nil {
+		return repo // a submodule has no commondir: it is its own repository
+	}
+	common := strings.TrimSpace(string(c))
+	if !filepath.IsAbs(common) {
+		common = filepath.Join(gitdir, common)
+	}
+	if filepath.Base(common) != ".git" {
+		return repo // a bare main repository has no main worktree
+	}
+	return filepath.Dir(common)
 }
 
 // serve authenticates one connection and answers its requests in order.
