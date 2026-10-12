@@ -119,6 +119,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		func(b auth.Binding, ids []string, reason string) { d.claimRefused(ctx, b, ids, reason) })
 	if d.cfg.syncFast {
 		d.sync.minBackoff, d.sync.maxBackoff, d.sync.reloadEvery = 20*time.Millisecond, 100*time.Millisecond, 20*time.Millisecond
+		d.sync.pingEvery, d.sync.pongWait = 200*time.Millisecond, 200*time.Millisecond
 	}
 	var conns sync.WaitGroup
 	ownerDone := make(chan struct{})

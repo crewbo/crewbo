@@ -27,6 +27,11 @@ const (
 	minBackoff  = time.Second
 	maxBackoff  = 30 * time.Second
 	reloadEvery = 2 * time.Second
+	// The daemon pings the server too: a network that drops silently (Wi-Fi
+	// off) otherwise goes unnoticed until the OS times the connection out,
+	// which took about 4 minutes on macOS (#85).
+	pingEvery = 20 * time.Second
+	pongWait  = 10 * time.Second
 )
 
 // syncer keeps this daemon's rooms in step with the sync server: it reads
@@ -45,6 +50,7 @@ type syncer struct {
 	refused func(b auth.Binding, claimIDs []string, reason string)
 
 	minBackoff, maxBackoff, reloadEvery time.Duration
+	pingEvery, pongWait                 time.Duration
 
 	// cursors is each room's last applied seq. It lives in memory, so a
 	// new daemon replays every room from the start and rebuilds its claims.
@@ -64,6 +70,7 @@ func newSyncer(p platform.Paths, db *sql.DB, log *slog.Logger, apply func(auth.B
 	return &syncer{
 		paths: p, db: db, log: log, apply: apply, refused: refused,
 		minBackoff: minBackoff, maxBackoff: maxBackoff, reloadEvery: reloadEvery, state: "starting",
+		pingEvery: pingEvery, pongWait: pongWait,
 		cursors: map[string]uint64{}, kick: make(chan struct{}, 1), waiters: map[string]chan *crewbov1.Envelope{},
 	}
 }
@@ -265,6 +272,27 @@ func (s *syncer) connect(ctx context.Context, cfg config) (bool, error) {
 		defer helpers.Done()
 		if !s.sleep(ctx, 1<<62, cfg.stamp) && ctx.Err() == nil {
 			cancel()
+		}
+	}()
+	// Ping the server; a missing pong ends the connection so Run reconnects.
+	helpers.Add(1)
+	go func() {
+		defer helpers.Done()
+		t := time.NewTicker(s.pingEvery)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+			}
+			pctx, pcancel := context.WithTimeout(ctx, s.pongWait)
+			err := c.Ping(pctx)
+			pcancel()
+			if err != nil && ctx.Err() == nil {
+				_ = c.CloseNow()
+				return
+			}
 		}
 	}()
 	// Send the outbox now and whenever something is queued.
