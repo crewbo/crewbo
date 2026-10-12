@@ -24,6 +24,7 @@ import (
 	"github.com/crewbo/crewbo/internal/claims"
 	"github.com/crewbo/crewbo/internal/platform"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
+	"github.com/crewbo/crewbo/internal/roomstate"
 	"github.com/crewbo/crewbo/internal/store"
 )
 
@@ -44,6 +45,8 @@ type Config struct {
 	Claims map[string]*claims.Set
 	Now    func() time.Time // clock; time.Now when nil
 	Log    *slog.Logger
+
+	syncFast bool // tests: reconnect and reload in milliseconds
 }
 
 // Daemon is one running crewbo daemon.
@@ -57,7 +60,9 @@ type Daemon struct {
 	snapshots  map[string]*snapshot   // session + tool use -> pre-shell hashes
 	violations []Violation
 
-	sync *syncer // set by Run before the owner starts; safe for concurrent State
+	sync    *syncer     // set by Run before the owner starts; safe for concurrent use
+	funcs   chan func() // work for the owner goroutine from the syncer
+	refused int         // claims the server refused after the fact
 }
 
 type call struct {
@@ -73,7 +78,7 @@ func New(cfg Config) *Daemon {
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	d := &Daemon{cfg: cfg, calls: make(chan call), sessions: map[string]*Session{}, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
+	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
 	for repo, set := range cfg.Claims {
 		d.claims[RepoKey(repo)] = set
 	}
@@ -109,11 +114,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return err
 	}
 	defer func() { _ = db.Close() }()
-	d.sync = newSyncer(d.cfg.Paths, db.SQL(), d.cfg.Log, func(b auth.Binding, ev *crewbov1.Event) {
-		// M3-07 turns room events into claims; until then they only move
-		// the cursor.
-		d.cfg.Log.Debug("sync: event", "room_id", b.RoomID, "seq", ev.GetSeq())
-	})
+	d.sync = newSyncer(d.cfg.Paths, db.SQL(), d.cfg.Log,
+		func(b auth.Binding, ev *crewbov1.Event, clock roomstate.Clock) { d.applyEvent(ctx, b, ev, clock) },
+		func(b auth.Binding, ids []string, reason string) { d.claimRefused(ctx, b, ids, reason) })
+	if d.cfg.syncFast {
+		d.sync.minBackoff, d.sync.maxBackoff, d.sync.reloadEvery = 20*time.Millisecond, 100*time.Millisecond, 20*time.Millisecond
+	}
 	var conns sync.WaitGroup
 	ownerDone := make(chan struct{})
 	go func() { defer close(ownerDone); d.own(ctx) }()
@@ -148,6 +154,8 @@ func (d *Daemon) own(ctx context.Context) {
 			return
 		case c := <-d.calls:
 			c.reply <- d.handle(c.req)
+		case f := <-d.funcs:
+			f()
 		}
 	}
 }
@@ -190,22 +198,28 @@ func (d *Daemon) handle(req Request) Response {
 	case MethodClaimList:
 		return Response{ID: req.ID, Claims: d.set(req.Repo).Active(now)}
 	case MethodClaimRelease:
-		n := 0
 		set := d.set(req.Repo)
+		var released []string
 		for _, id := range req.IDs {
-			if set.Release(id) {
-				n++
+			c, ok := set.Get(id)
+			if !ok {
+				continue
 			}
+			if !ownedBy(c, req.OwnerPrefix) {
+				return Response{ID: req.ID, Error: fmt.Sprintf("claim %s is held by %s; only they can release it", id, c.Holder.MemberID)}
+			}
+			set.Release(id)
+			released = append(released, id)
 		}
-		if n == 0 && len(req.IDs) > 0 {
+		if len(released) == 0 && len(req.IDs) > 0 {
 			return Response{ID: req.ID, Error: "no matching claims in this repository"}
 		}
-		return Response{ID: req.ID, Released: n}
+		return Response{ID: req.ID, Released: len(released), ReleasedIDs: released}
 	case MethodStatus:
 		return Response{ID: req.ID, Status: &Status{
 			Version: d.cfg.Version, PID: os.Getpid(), Started: d.started,
 			ActiveClaims: d.activeClaims(now), Sessions: len(d.sessions), Violations: len(d.violations),
-			Sync: d.syncState(),
+			Sync: d.syncState(), Refused: d.refused,
 		}}
 	default:
 		return Response{ID: req.ID, Error: fmt.Sprintf("unknown method %q", req.Method)}
@@ -360,13 +374,19 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 			_ = enc.Encode(Response{Error: "invalid request: " + err.Error()})
 			continue
 		}
-		reply := make(chan Response, 1)
-		select {
-		case d.calls <- call{req: req, reply: reply}:
-		case <-ctx.Done():
-			return
+		var resp Response
+		if d.shared(req) {
+			resp = d.sharedClaim(ctx, req)
+		} else {
+			reply := make(chan Response, 1)
+			select {
+			case d.calls <- call{req: req, reply: reply}:
+			case <-ctx.Done():
+				return
+			}
+			resp = <-reply
 		}
-		if err := enc.Encode(<-reply); err != nil {
+		if err := enc.Encode(resp); err != nil {
 			return
 		}
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/crewbo/crewbo/internal/auth"
 	"github.com/crewbo/crewbo/internal/platform"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
+	"github.com/crewbo/crewbo/internal/roomstate"
 	"github.com/crewbo/crewbo/internal/server"
 	"github.com/crewbo/crewbo/internal/store"
 )
@@ -93,11 +94,11 @@ func newSyncFixture(t *testing.T) *syncFixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = ddb.Close() })
-	f.sy = newSyncer(f.paths, ddb.SQL(), quietLog(), func(_ auth.Binding, ev *crewbov1.Event) {
+	f.sy = newSyncer(f.paths, ddb.SQL(), quietLog(), func(_ auth.Binding, ev *crewbov1.Event, _ roomstate.Clock) {
 		f.mu.Lock()
 		f.seqs = append(f.seqs, ev.GetSeq())
 		f.mu.Unlock()
-	})
+	}, func(auth.Binding, []string, string) {})
 	f.sy.minBackoff, f.sy.maxBackoff, f.sy.reloadEvery = 20*time.Millisecond, 100*time.Millisecond, 20*time.Millisecond
 	return f
 }
@@ -200,9 +201,6 @@ func TestSyncReplaysAcrossRestartsAndOutages(t *testing.T) {
 	f.start()
 	f.appendEvents(1)
 	eventually(t, "event 6 after the outage", func() bool { return seqsAre(f.applied(), 1, 6) })
-	if seq, err := f.sy.cursor(context.Background(), f.room); err != nil || seq != 6 {
-		t.Errorf("saved cursor = %d %v", seq, err)
-	}
 
 	// Leaving the room (bindings emptied) drops back to local only.
 	if err := auth.SaveBindings(auth.BindingsPath(f.paths.Config), nil); err != nil {

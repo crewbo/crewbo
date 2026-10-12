@@ -148,6 +148,9 @@ func runStatus(ctx context.Context, stdout, stderr io.Writer) int {
 	if st.Sync != "" {
 		sync = "\nsync: " + st.Sync
 	}
+	if st.Refused > 0 {
+		sync += fmt.Sprintf("\n%d claim(s) made earlier were refused by the sync server and no longer apply (see the daemon log)", st.Refused)
+	}
 	return write(stdout, ExitOK, "crewbo daemon running: version %s, pid %d, up %s, %d active claims, %d agent sessions%s%s\n",
 		st.Version, st.PID, time.Since(st.Started).Round(time.Second), st.ActiveClaims, st.Sessions, violations, sync)
 }
