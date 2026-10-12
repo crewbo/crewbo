@@ -2,6 +2,7 @@ package gitx
 
 import (
 	"context"
+	"errors"
 	"strings"
 )
 
@@ -13,4 +14,19 @@ func (g *Git) Head(ctx context.Context, repo string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// HasCommit reports whether the repository has commit (any revision that
+// names one), without fetching anything.
+func (g *Git) HasCommit(ctx context.Context, repo, commit string) (bool, error) {
+	if err := checkRefs(commit); err != nil {
+		return false, err
+	}
+	// git cat-file -e exits non-zero when the object is missing or invalid.
+	_, err := g.run(ctx, repo, "cat-file", "-e", commit+"^{commit}")
+	var exit *ExitError
+	if errors.As(err, &exit) {
+		return false, nil
+	}
+	return err == nil, err
 }
