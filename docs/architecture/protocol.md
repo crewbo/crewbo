@@ -91,4 +91,4 @@ Verifiers check the signature over the received `body` bytes, then decode them. 
 
 ## Size limits
 
-Envelope max 64 KiB; task text max 32 KiB; paths per claim request max 200. Oversized frames close the connection with a policy error.
+Envelope max 64 KiB; task text max 32 KiB; paths per claim request max 200. Oversized frames close the connection with status 1009 (message too big); malformed frames with 1008 (policy violation), binary frames with 1003.

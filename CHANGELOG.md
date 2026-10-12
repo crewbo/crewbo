@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `crewbo serve [--addr HOST:PORT] [--tls-cert FILE --tls-key FILE] [--insecure-lan]` runs the sync server skeleton: `/healthz` and the daemon WebSocket at `/v1/ws` (Hello and Welcome only; rooms and claims follow). Plain HTTP is allowed only on loopback unless `--insecure-lan` is given.
 - `crewbo version` prints the version and commit; `crewbo help` prints usage.
 - `crewbo daemon` runs the per-user daemon in the foreground and stops cleanly on Ctrl+C (and SIGTERM on Linux and macOS).
 - `crewbo status` reports whether the daemon is running, with its version, process id, uptime, active claims and agent sessions.

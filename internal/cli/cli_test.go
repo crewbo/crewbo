@@ -57,3 +57,14 @@ func TestRunWriteFailure(t *testing.T) {
 		t.Errorf("exit code = %d, want %d", code, ExitError)
 	}
 }
+
+func TestServeUsageAndInsecureRefusal(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := Run(context.Background(), []string{"serve", "extra"}, nil, &out, &errOut, BuildInfo{}); code != ExitUsage || !strings.Contains(errOut.String(), "--insecure-lan") {
+		t.Errorf("serve extra: %d %q", code, errOut.String())
+	}
+	errOut.Reset()
+	if code := Run(context.Background(), []string{"serve", "--addr", "0.0.0.0:0"}, nil, &out, &errOut, BuildInfo{}); code != ExitError || !strings.Contains(errOut.String(), "refusing plain HTTP") {
+		t.Errorf("serve on all interfaces: %d %q", code, errOut.String())
+	}
+}
