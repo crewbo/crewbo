@@ -32,14 +32,15 @@ type running struct {
 	cancel context.CancelFunc
 	done   chan struct{}
 	err    error
+	d      *Daemon
 }
 
 // start runs a daemon until the test ends and waits until it answers.
 func start(t *testing.T, cfg Config) *running {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &running{cancel: cancel, done: make(chan struct{})}
-	go func() { r.err = New(cfg).Run(ctx); close(r.done) }()
+	r := &running{cancel: cancel, done: make(chan struct{}), d: New(cfg)}
+	go func() { r.err = r.d.Run(ctx); close(r.done) }()
 	t.Cleanup(func() { cancel(); <-r.done })
 	deadline := time.Now().Add(5 * time.Second)
 	for {

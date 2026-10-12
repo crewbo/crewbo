@@ -16,7 +16,7 @@ import (
 // as "claude -p ..." or "claude auth status" it is a fake agent, enabled
 // by CREWBO_FAKE_CLAUDE naming a directory; never the test suite again.
 func TestMain(m *testing.M) {
-	if len(os.Args) > 1 && (os.Args[1] == "-p" || os.Args[1] == "auth") {
+	if len(os.Args) > 1 && (os.Args[1] == "-p" || os.Args[1] == "auth" || os.Args[1] == "exec" || os.Args[1] == "login") {
 		dir := os.Getenv("CREWBO_FAKE_CLAUDE")
 		if dir == "" {
 			fmt.Fprintln(os.Stderr, "fake claude not enabled in this test")
@@ -36,13 +36,21 @@ type fakeRun struct {
 	APIKey  bool
 }
 
-// fakeClaudeMain answers auth status (signed out when dir/signed-out
-// exists) or records a run in dir/run-<session>.json, then, when dir/hold
-// exists, waits for dir/exit and exits with the code in it.
+// fakeClaudeMain answers claude auth status and codex login status
+// (signed out when dir/signed-out exists), or records a run of either in
+// dir/run-<pid>.json, then, when dir/hold exists, waits for dir/exit and
+// exits with the code in it (a failing codex prints turn.failed first).
 func fakeClaudeMain(dir string) int {
-	if os.Args[1] == "auth" {
-		_, err := os.Stat(filepath.Join(dir, "signed-out"))
-		fmt.Printf(`{"loggedIn": %v}`, err != nil)
+	_, signedOut := os.Stat(filepath.Join(dir, "signed-out"))
+	switch os.Args[1] {
+	case "auth": // claude auth status
+		fmt.Printf(`{"loggedIn": %v}`, signedOut != nil)
+		return 0
+	case "login": // codex login status
+		if signedOut == nil {
+			fmt.Println("Not logged in")
+			return 1
+		}
 		return 0
 	}
 	run := fakeRun{Args: os.Args[1:], APIKey: os.Getenv("ANTHROPIC_API_KEY") != ""}
@@ -55,13 +63,16 @@ func fakeClaudeMain(dir string) int {
 	run.Stdin = string(b)
 	run.Cwd, _ = os.Getwd()
 	out, _ := json.Marshal(run)
-	_ = os.WriteFile(filepath.Join(dir, "run-"+run.Session+".json"), out, 0o600)
+	_ = os.WriteFile(filepath.Join(dir, fmt.Sprintf("run-%d.json", os.Getpid())), out, 0o600)
 	if _, err := os.Stat(filepath.Join(dir, "hold")); err != nil {
 		return 0
 	}
 	for deadline := time.Now().Add(60 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
 		if b, err := os.ReadFile(filepath.Join(dir, "exit")); err == nil {
 			code, _ := strconv.Atoi(strings.TrimSpace(string(b)))
+			if code != 0 && os.Args[1] == "exec" { // as codex-cli 0.161.0 reports a failed turn
+				fmt.Println(`{"type":"turn.failed","error":{"message":"{\"type\":\"error\",\"status\":400,\"error\":{\"message\":\"The 'x' model is not supported.\"}}"}}`)
+			}
 			return code
 		}
 	}
