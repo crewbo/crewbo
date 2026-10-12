@@ -35,6 +35,8 @@ type Event struct {
 	//	*Event_ClaimsReleased
 	//	*Event_ClaimsRenewed
 	//	*Event_ClaimsExpired
+	//	*Event_TaskDispatched
+	//	*Event_TaskStatusChanged
 	Body          isEvent_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -141,6 +143,24 @@ func (x *Event) GetClaimsExpired() *ClaimsExpired {
 	return nil
 }
 
+func (x *Event) GetTaskDispatched() *TaskDispatched {
+	if x != nil {
+		if x, ok := x.Body.(*Event_TaskDispatched); ok {
+			return x.TaskDispatched
+		}
+	}
+	return nil
+}
+
+func (x *Event) GetTaskStatusChanged() *TaskStatusChanged {
+	if x != nil {
+		if x, ok := x.Body.(*Event_TaskStatusChanged); ok {
+			return x.TaskStatusChanged
+		}
+	}
+	return nil
+}
+
 type isEvent_Body interface {
 	isEvent_Body()
 }
@@ -161,6 +181,14 @@ type Event_ClaimsExpired struct {
 	ClaimsExpired *ClaimsExpired `protobuf:"bytes,13,opt,name=claims_expired,json=claimsExpired,proto3,oneof"`
 }
 
+type Event_TaskDispatched struct {
+	TaskDispatched *TaskDispatched `protobuf:"bytes,20,opt,name=task_dispatched,json=taskDispatched,proto3,oneof"`
+}
+
+type Event_TaskStatusChanged struct {
+	TaskStatusChanged *TaskStatusChanged `protobuf:"bytes,21,opt,name=task_status_changed,json=taskStatusChanged,proto3,oneof"`
+}
+
 func (*Event_ClaimsGranted) isEvent_Body() {}
 
 func (*Event_ClaimsReleased) isEvent_Body() {}
@@ -168,6 +196,10 @@ func (*Event_ClaimsReleased) isEvent_Body() {}
 func (*Event_ClaimsRenewed) isEvent_Body() {}
 
 func (*Event_ClaimsExpired) isEvent_Body() {}
+
+func (*Event_TaskDispatched) isEvent_Body() {}
+
+func (*Event_TaskStatusChanged) isEvent_Body() {}
 
 // ClaimsGranted records claims added to the room.
 type ClaimsGranted struct {
@@ -361,7 +393,7 @@ var File_crewbo_v1_event_proto protoreflect.FileDescriptor
 
 const file_crewbo_v1_event_proto_rawDesc = "" +
 	"\n" +
-	"\x15crewbo/v1/event.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\"\xa0\x03\n" +
+	"\x15crewbo/v1/event.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\x1a\x14crewbo/v1/task.proto\"\xb6\x04\n" +
 	"\x05Event\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x10\n" +
 	"\x03seq\x18\x02 \x01(\x04R\x03seq\x12-\n" +
@@ -371,7 +403,9 @@ const file_crewbo_v1_event_proto_rawDesc = "" +
 	" \x01(\v2\x18.crewbo.v1.ClaimsGrantedH\x00R\rclaimsGranted\x12D\n" +
 	"\x0fclaims_released\x18\v \x01(\v2\x19.crewbo.v1.ClaimsReleasedH\x00R\x0eclaimsReleased\x12A\n" +
 	"\x0eclaims_renewed\x18\f \x01(\v2\x18.crewbo.v1.ClaimsRenewedH\x00R\rclaimsRenewed\x12A\n" +
-	"\x0eclaims_expired\x18\r \x01(\v2\x18.crewbo.v1.ClaimsExpiredH\x00R\rclaimsExpiredB\x06\n" +
+	"\x0eclaims_expired\x18\r \x01(\v2\x18.crewbo.v1.ClaimsExpiredH\x00R\rclaimsExpired\x12D\n" +
+	"\x0ftask_dispatched\x18\x14 \x01(\v2\x19.crewbo.v1.TaskDispatchedH\x00R\x0etaskDispatched\x12N\n" +
+	"\x13task_status_changed\x18\x15 \x01(\v2\x1c.crewbo.v1.TaskStatusChangedH\x00R\x11taskStatusChangedB\x06\n" +
 	"\x04body\"9\n" +
 	"\rClaimsGranted\x12(\n" +
 	"\x06claims\x18\x01 \x03(\v2\x10.crewbo.v1.ClaimR\x06claims\"-\n" +
@@ -398,24 +432,28 @@ func file_crewbo_v1_event_proto_rawDescGZIP() []byte {
 
 var file_crewbo_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_crewbo_v1_event_proto_goTypes = []any{
-	(*Event)(nil),          // 0: crewbo.v1.Event
-	(*ClaimsGranted)(nil),  // 1: crewbo.v1.ClaimsGranted
-	(*ClaimsReleased)(nil), // 2: crewbo.v1.ClaimsReleased
-	(*ClaimsRenewed)(nil),  // 3: crewbo.v1.ClaimsRenewed
-	(*ClaimsExpired)(nil),  // 4: crewbo.v1.ClaimsExpired
-	(*Claim)(nil),          // 5: crewbo.v1.Claim
+	(*Event)(nil),             // 0: crewbo.v1.Event
+	(*ClaimsGranted)(nil),     // 1: crewbo.v1.ClaimsGranted
+	(*ClaimsReleased)(nil),    // 2: crewbo.v1.ClaimsReleased
+	(*ClaimsRenewed)(nil),     // 3: crewbo.v1.ClaimsRenewed
+	(*ClaimsExpired)(nil),     // 4: crewbo.v1.ClaimsExpired
+	(*TaskDispatched)(nil),    // 5: crewbo.v1.TaskDispatched
+	(*TaskStatusChanged)(nil), // 6: crewbo.v1.TaskStatusChanged
+	(*Claim)(nil),             // 7: crewbo.v1.Claim
 }
 var file_crewbo_v1_event_proto_depIdxs = []int32{
 	1, // 0: crewbo.v1.Event.claims_granted:type_name -> crewbo.v1.ClaimsGranted
 	2, // 1: crewbo.v1.Event.claims_released:type_name -> crewbo.v1.ClaimsReleased
 	3, // 2: crewbo.v1.Event.claims_renewed:type_name -> crewbo.v1.ClaimsRenewed
 	4, // 3: crewbo.v1.Event.claims_expired:type_name -> crewbo.v1.ClaimsExpired
-	5, // 4: crewbo.v1.ClaimsGranted.claims:type_name -> crewbo.v1.Claim
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	5, // 4: crewbo.v1.Event.task_dispatched:type_name -> crewbo.v1.TaskDispatched
+	6, // 5: crewbo.v1.Event.task_status_changed:type_name -> crewbo.v1.TaskStatusChanged
+	7, // 6: crewbo.v1.ClaimsGranted.claims:type_name -> crewbo.v1.Claim
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_crewbo_v1_event_proto_init() }
@@ -424,11 +462,14 @@ func file_crewbo_v1_event_proto_init() {
 		return
 	}
 	file_crewbo_v1_claims_proto_init()
+	file_crewbo_v1_task_proto_init()
 	file_crewbo_v1_event_proto_msgTypes[0].OneofWrappers = []any{
 		(*Event_ClaimsGranted)(nil),
 		(*Event_ClaimsReleased)(nil),
 		(*Event_ClaimsRenewed)(nil),
 		(*Event_ClaimsExpired)(nil),
+		(*Event_TaskDispatched)(nil),
+		(*Event_TaskStatusChanged)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

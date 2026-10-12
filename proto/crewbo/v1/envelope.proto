@@ -8,6 +8,7 @@ package crewbo.v1;
 
 import "crewbo/v1/claims.proto";
 import "crewbo/v1/event.proto";
+import "crewbo/v1/task.proto";
 
 option go_package = "github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1";
 
@@ -26,6 +27,8 @@ message Envelope {
     ClaimRequest claim_request = 20;
     ClaimRelease claim_release = 21;
     ClaimRenew claim_renew = 22;
+    DispatchTask dispatch_task = 40;
+    TaskStatus task_status = 41;
     Event event = 60;
   }
 }
