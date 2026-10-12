@@ -85,14 +85,25 @@ Notes from M1 and M2 that shape M3:
 
 ## M4: lead dispatch
 
+Refined for Gate C on 2026-10-12 with what M3 taught. Unchanged: ADR 0006 (Ed25519 device keys, sign the exact task bytes, verify against the lead's registered key before showing anything, verbatim text, explicit approval, fresh worktree, the teammate's own agent and login, never a bypass permission mode, task text is data).
+
 | ID | Issue | Acceptance criteria | Test plan | Deps |
 | --- | --- | --- | --- | --- |
-| M4-01 | Task signing and verification (exact-bytes Ed25519) | Rejects tampered, unknown, revoked, non-lead, expired, wrong-room, replayed | Table tests; 85%+ coverage | M3-04 |
-| M4-02 | `crewbo task create` and store-and-forward | Offline teammate receives task on next hello | e2e | M4-01, M3-05 |
-| M4-03 | Approval UX in CLI: full verbatim text, approve or decline | Nothing launches without approval | Unit tests; manual | M4-02 |
-| M4-04 | Claude Code launcher: cwd = worktree, explicit permission mode, strip `ANTHROPIC_API_KEY`, never `--bare` | Flags asserted in tests; preflight `claude auth status` | Unit tests with a fake binary; manual run | M4-03, M1-09 |
-| M4-05 | Codex launcher: `codex exec -C <wt> --sandbox workspace-write --json` | Flags asserted; JSONL parsed | Unit tests with a fake binary; manual run | M4-03, M1-09 |
-| M4-06 | Task state machine and status events | All transitions in data-model.md enforced | Table tests | M4-02 |
+| M4-01 | Task signing and verification, and the key lookup it needs: `build(proto)` for `TaskBody`, `SignedTask` and task status; a server endpoint listing room members' registered device keys (with revocation) and the current lead | Verification rejects tampered bytes, unknown, revoked and non-lead keys, expired, wrong room, wrong assignee, replayed task ids; nothing is decoded before the signature checks | Table tests over every rejection; 85%+ coverage | M3-04, M3-06 |
+| M4-02 | `crewbo task create` (lead only) and delivery through the room event log | A teammate offline at dispatch receives the task on the next connection (replay); the server never alters task bytes | e2e: two daemons, one offline at dispatch | M4-01, M3-05 |
+| M4-03 | Approval in the CLI: `crewbo task list`, `show`, `approve`, `decline` | The full text is shown verbatim before approval; nothing launches without `approve`; decline and expiry are recorded as task status events | Unit tests; manual | M4-02 |
+| M4-04 | Claude Code launcher: fresh worktree (`gitx`), cwd in it, explicit `--permission-mode acceptEdits`, `ANTHROPIC_API_KEY` stripped unless the member opts in, never `--bare`; the task's owned paths claimed for the agent session, with `ClaimRenew` sent while it runs (deferred from M3-07) | Flags and environment asserted; preflight `claude auth status`; claims renewed and released at exit | Unit tests with a fake binary; manual run | M4-03, M1-09 |
+| M4-05 | Codex launcher: `codex exec -C <worktree> --sandbox workspace-write --json` | Flags asserted; JSONL parsed for status; Windows refused with a clear message until U-20 is resolved | Unit tests with a fake binary; manual run on Linux and macOS | M4-03, M1-09 |
+| M4-06 | Task state machine and status events | Every transition in data-model.md enforced on the daemon and visible to the lead (`crewbo task list`) | Table tests | M4-02 |
+| M4-07 | Two-machine dispatch check (lead on Omarchy, teammate on macOS through the tunnel), like the M3 check | A signed task reaches the teammate, is shown verbatim, runs only after approval, in a worktree, with claims, and reports status back | Manual, both machines, written reports | M4-01 to M4-06 |
+
+Notes from M3 that shape M4:
+
+- Delivery is the room log: a dispatched task is a room event, so replay from M3-05 gives store-and-forward to offline teammates without new transport.
+- Verification needs keys the daemon does not have today: the server must list members' public keys and revocation, and the current lead (M4-01).
+- Agent-held claims expire in 5 minutes unless renewed; the daemon starts sending `ClaimRenew` for running dispatched tasks (M4-04).
+- Windows Codex dispatch stays unsupported until U-20 is retested; the launcher refuses it with a clear message.
+- Nothing in M4 changes how members sign in or how claims work for people at a terminal.
 
 ## M5: conflict warnings and extension v0
 
