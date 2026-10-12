@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -104,5 +105,70 @@ func TestIsTerminalSession(t *testing.T) {
 		if got := IsTerminalSession(id); got != want {
 			t.Errorf("IsTerminalSession(%q) = %v", id, got)
 		}
+	}
+}
+
+func git(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...) //nolint:gosec // test helper
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+// A linked worktree (absolute or relative paths) is the same repository as
+// its main worktree; a submodule-style gitfile without commondir is not.
+func TestRepoKeyMapsWorktreesToTheirRepository(t *testing.T) {
+	dir := t.TempDir()
+	main := filepath.Join(dir, "app")
+	gitInit(t, main)
+	abs, rel := filepath.Join(dir, "wt-abs"), filepath.Join(dir, "nested", "wt-rel")
+	git(t, main, "worktree", "add", "-q", "-b", "a", abs)
+	git(t, main, "worktree", "add", "-q", "--relative-paths", "-b", "r", rel)
+	for _, wt := range []string{abs, rel} {
+		if RepoKey(wt) != RepoKey(main) {
+			t.Errorf("RepoKey(%s) = %q, want %q", wt, RepoKey(wt), RepoKey(main))
+		}
+	}
+	if b, _ := os.ReadFile(filepath.Join(rel, ".git")); !strings.HasPrefix(string(b), "gitdir: ..") {
+		t.Errorf("the relative worktree's gitfile is %q; the test does not cover relative paths", b)
+	}
+	sub := filepath.Join(dir, "sub")
+	if err := os.MkdirAll(filepath.Join(main, ".git", "modules", "sub"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(sub, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, ".git"), []byte("gitdir: "+filepath.Join(main, ".git", "modules", "sub")+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if RepoKey(sub) == RepoKey(main) {
+		t.Error("a submodule-style gitfile maps to the superproject")
+	}
+}
+
+// A claim made in the main checkout blocks an agent working in a linked
+// worktree of the same repository, as dispatched tasks will (M4-04).
+func TestClaimInMainCheckoutBlocksAgentInWorktree(t *testing.T) {
+	p := testPaths(t)
+	start(t, Config{Paths: p, Log: quietLog()})
+	dir := t.TempDir()
+	main, wt := filepath.Join(dir, "app"), filepath.Join(dir, "wt")
+	gitInit(t, main)
+	git(t, main, "worktree", "add", "-q", "-b", "task", wt)
+	c, err := dial(t, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	ctx := context.Background()
+	if _, err := c.Call(ctx, Request{Method: MethodClaimAdd, Session: TerminalSession, Member: "me", Repo: main, Patterns: []string{"src/a.go"}}); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := c.Call(ctx, Request{Method: MethodDecide, Session: "agent-1", Agent: "claude-code", Repo: wt, Paths: []string{"src/a.go"}})
+	if err != nil || resp.Allow {
+		t.Errorf("agent in the worktree: allow %v, %v", resp.Allow, err)
 	}
 }
