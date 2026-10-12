@@ -91,7 +91,7 @@ func setup(t *testing.T, withDaemon bool) env {
 func run(t *testing.T, e env, kind Kind, payload string) Result {
 	t.Helper()
 	var out bytes.Buffer
-	code := Run(context.Background(), fakeAdapter{}, kind, strings.NewReader(payload), &out, Deps{Paths: e.paths})
+	code := Run(context.Background(), fakeAdapter{}, kind, strings.NewReader(payload), &out, Deps{Paths: e.paths, Timeout: testTimeout})
 	if code != 0 {
 		t.Fatalf("exit code %d", code)
 	}
@@ -208,7 +208,7 @@ func TestEventsRegisterSession(t *testing.T) {
 func TestShellTargetsAreChecked(t *testing.T) {
 	e := setup(t, true)
 	var out bytes.Buffer
-	d := Deps{Paths: e.paths, ParseShell: func(cmd string, _ Shell) ([]string, bool) {
+	d := Deps{Paths: e.paths, Timeout: testTimeout, ParseShell: func(cmd string, _ Shell) ([]string, bool) {
 		switch cmd {
 		case "echo x >> src/auth.go":
 			return []string{"src/auth.go"}, false
@@ -282,7 +282,7 @@ func TestPostShellViolationReachesAgent(t *testing.T) {
 	if err := os.WriteFile(file, []byte("package auth\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	d := Deps{Paths: e.paths, ParseShell: func(string, Shell) ([]string, bool) { return nil, false }}
+	d := Deps{Paths: e.paths, Timeout: testTimeout, ParseShell: func(string, Shell) ([]string, bool) { return nil, false }}
 	run := func(kind Kind, ev Event) Result {
 		t.Helper()
 		var out bytes.Buffer
@@ -306,3 +306,9 @@ func TestPostShellViolationReachesAgent(t *testing.T) {
 		t.Errorf("post_edit = %+v", r)
 	}
 }
+
+// testTimeout replaces the 300 ms production deadline in tests that assert
+// a decision: a daemon just started on a busy CI runner can miss it, and
+// the hook then fails open by design (TestByteOrderMarkIsStripped on
+// ubuntu-latest, PR #87; the adapter tests had the same fix in #71).
+const testTimeout = 5 * time.Second
