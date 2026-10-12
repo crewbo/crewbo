@@ -46,6 +46,7 @@ stateDiagram-v2
   Merging --> Merged: merge pushed
   Merging --> Checkpointed: merge-tree conflict, needs work
   Running --> Cancelled: lead or teammate cancels
+  Running --> Finished: agent exits cleanly (until checkpoints, M5-01)
   Checkpointed --> Cancelled
   Rejected --> [*]
   Expired --> [*]
@@ -53,7 +54,10 @@ stateDiagram-v2
   Failed --> [*]
   Merged --> [*]
   Cancelled --> [*]
+  Finished --> [*]
 ```
+
+`internal/dispatch/state.go` holds these transitions. A teammate's daemon refuses any other change to its tasks. A lead's daemon shows each task it sent in the state its assignee last reported along an allowed transition; statuses from anyone else are ignored. Finished was added on 2026-10-12 (Ronel): before checkpoints, a clean exit otherwise left the lead seeing Running.
 
 ## Claim state machine
 

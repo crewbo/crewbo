@@ -78,6 +78,19 @@ var Daemon = Schema{
 	INSERT INTO tasks_4 SELECT digest, task_id, room_id, signed, state, detail, received_unix_ms, expires_unix_ms FROM tasks;
 	DROP TABLE tasks;
 	ALTER TABLE tasks_4 RENAME TO tasks;`,
+	// 5: task statuses from the room log (TaskStatusChanged), so a lead can
+	// follow the tasks they sent; actor is the sender's GitHub login as the
+	// server recorded it.
+	`CREATE TABLE task_status (
+		room_id TEXT    NOT NULL,
+		seq     INTEGER NOT NULL,
+		task_id TEXT    NOT NULL,
+		actor   TEXT    NOT NULL,
+		state   TEXT    NOT NULL,
+		detail  TEXT    NOT NULL DEFAULT '',
+		PRIMARY KEY (room_id, seq)
+	) WITHOUT ROWID;
+	CREATE INDEX task_status_task ON task_status (room_id, task_id, seq);`,
 }
 
 // Server is the schema of the sync server's database (`crewbo serve`).

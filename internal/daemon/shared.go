@@ -36,6 +36,9 @@ func (d *Daemon) applyEvent(ctx context.Context, b auth.Binding, ev *crewbov1.Ev
 	if st := ev.GetTaskDispatched().GetTask(); st != nil {
 		return d.receiveTask(ctx, b, st)
 	}
+	if ev.GetTaskStatusChanged() != nil {
+		return d.recordStatus(ctx, b, ev)
+	}
 	return d.onOwner(ctx, func() {
 		roomstate.Apply(d.set(b.Repo), ev, clock, d.cfg.Now())
 	})

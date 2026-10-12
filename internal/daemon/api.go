@@ -158,9 +158,13 @@ type Task struct {
 	BaseCommit string    `json:"base_commit,omitempty"`
 	Created    time.Time `json:"created,omitzero"`
 	Expires    time.Time `json:"expires,omitzero"`
-	State      string    `json:"state"` // dispatched, rejected, approved, declined, expired, running, finished or failed
-	Detail     string    `json:"detail,omitempty"`
-	Received   time.Time `json:"received"`
+	State      string    `json:"state"` // a dispatch.State* name
+	// Sent marks a task this member sent; State is then what its Assignee
+	// reported.
+	Sent     bool      `json:"sent,omitempty"`
+	Assignee string    `json:"assignee,omitempty"`
+	Detail   string    `json:"detail,omitempty"`
+	Received time.Time `json:"received"`
 }
 
 // Session is an agent session the daemon has heard from.

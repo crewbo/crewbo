@@ -137,12 +137,24 @@ func TestApprovedTaskRunsClaudeInAWorktree(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(wt, ".git")); err != nil {
 		t.Errorf("the worktree with the agent's work is gone: %v", err)
 	}
-	var states []crewbov1.TaskState
-	for _, ev := range f.statuses() {
-		states = append(states, ev.GetTaskStatusChanged().GetStatus().GetState())
+	want := []crewbov1.TaskState{crewbov1.TaskState_TASK_STATE_APPROVED, crewbov1.TaskState_TASK_STATE_RUNNING, crewbov1.TaskState_TASK_STATE_FINISHED}
+	eventually(t, "APPROVED, RUNNING and FINISHED in the room log", func() bool {
+		var states []crewbov1.TaskState
+		for _, ev := range f.statuses() {
+			states = append(states, ev.GetTaskStatusChanged().GetStatus().GetState())
+		}
+		return slices.Equal(states, want)
+	})
+	eventually(t, "the lead to see the run finish", func() bool { return f.a.taskState(sent.TaskID).State == "finished" })
+	// The daemon refuses moves the state machine does not allow.
+	ctx := context.Background()
+	for _, to := range []string{"running", "approved", "dispatched", "failed"} {
+		if f.b.run.d.setTaskState(ctx, sent.TaskID, to, "") {
+			t.Errorf("a finished task moved to %s", to)
+		}
 	}
-	if !slices.Equal(states, []crewbov1.TaskState{crewbov1.TaskState_TASK_STATE_APPROVED, crewbov1.TaskState_TASK_STATE_RUNNING}) {
-		t.Errorf("statuses = %v", states)
+	if st := f.b.taskState(sent.TaskID).State; st != "finished" {
+		t.Errorf("state after refused moves: %s", st)
 	}
 }
 
@@ -182,6 +194,10 @@ func TestFailedRunIsReported(t *testing.T) {
 	if ok, _ := f.b.agentMay("src/b.go"); !ok {
 		t.Error("a failed run kept its claim")
 	}
+	eventually(t, "the lead to see the failure and why", func() bool {
+		lt := f.a.taskState(sent.TaskID)
+		return lt.Sent && lt.State == "failed" && lt.Detail == "Claude Code exit status 3"
+	})
 }
 
 func mustEval(t *testing.T, p string) string {

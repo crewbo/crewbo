@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -26,9 +27,9 @@ import (
 // Task run states (store.Daemon migration 4). finished means the agent
 // exited cleanly; M5-01 replaces it with a pushed checkpoint.
 const (
-	taskRunning  = "running"
-	taskFinished = "finished"
-	taskFailed   = "failed"
+	taskRunning  = dispatch.StateRunning
+	taskFinished = dispatch.StateFinished
+	taskFailed   = dispatch.StateFailed
 )
 
 // claimRenewEvery keeps a running agent's claims alive on the server:
@@ -198,7 +199,9 @@ func (d *Daemon) startRun(ctx context.Context, r *taskRun) (string, error) {
 		release()
 		return failed(fmt.Errorf("start %s: %w", agentName(r.agent), err))
 	}
-	d.setTaskState(ctx, id, taskRunning, "")
+	if !d.setTaskState(ctx, id, taskRunning, "") {
+		d.cfg.Log.Warn("task was not approved when its agent started", "task_id", id)
+	}
 	if _, err := d.sendStatus(ctx, r.b.RoomID, id, crewbov1.TaskState_TASK_STATE_RUNNING, "", 0); err != nil && !errors.Is(err, errNotSent) {
 		d.cfg.Log.Warn("task status not queued", "task_id", id, "err", err)
 	}
@@ -270,28 +273,46 @@ func (d *Daemon) superviseRun(ctx context.Context, r *taskRun, cmd *exec.Cmd, se
 	}
 }
 
-// finishRun records how a run ended: finished with no detail, otherwise
-// failed with the reason, which the room hears. It survives a stopping
+// finishRun records how a run ended, finished with no failure, otherwise
+// failed with the reason, and tells the room. It survives a stopping
 // daemon so the outcome is kept and sent on the next start.
 func (d *Daemon) finishRun(ctx context.Context, r *taskRun, failure string) {
 	ctx = context.WithoutCancel(ctx)
 	id := r.body.GetTaskId()
-	if failure == "" {
-		d.setTaskState(ctx, id, taskFinished, "")
-		d.cfg.Log.Info("task agent finished", "task_id", id)
+	state := taskFinished
+	if failure != "" {
+		state = taskFailed
+	}
+	if !d.setTaskState(ctx, id, state, failure) {
 		return
 	}
-	d.setTaskState(ctx, id, taskFailed, failure)
-	d.cfg.Log.Warn("task failed", "task_id", id, "reason", failure)
-	if _, err := d.sendStatus(ctx, r.b.RoomID, id, crewbov1.TaskState_TASK_STATE_FAILED, truncate(failure, maxReason), 0); err != nil && !errors.Is(err, errNotSent) {
+	d.cfg.Log.Info("task run ended", "task_id", id, "state", state, "reason", failure)
+	if _, err := d.sendStatus(ctx, r.b.RoomID, id, dispatch.Wire(state), truncate(failure, maxReason), 0); err != nil && !errors.Is(err, errNotSent) {
 		d.cfg.Log.Warn("task status not queued", "task_id", id, "err", err)
 	}
 }
 
-func (d *Daemon) setTaskState(ctx context.Context, id, state, detail string) {
-	if _, err := d.sync.db.ExecContext(ctx, `UPDATE tasks SET state = ?, detail = ? WHERE task_id = ?`, state, detail, id); err != nil {
-		d.cfg.Log.Warn("record task state", "task_id", id, "state", state, "err", err)
+// setTaskState moves a task to state if the state machine allows it from
+// the task's current state (data-model.md), and reports whether it moved.
+func (d *Daemon) setTaskState(ctx context.Context, id, state, detail string) bool {
+	from := dispatch.From(state)
+	if len(from) == 0 {
+		return false
 	}
+	allowed, err := json.Marshal(from)
+	if err != nil {
+		return false
+	}
+	res, err := d.sync.db.ExecContext(ctx, `UPDATE tasks SET state = ?, detail = ? WHERE task_id = ? AND state IN (SELECT value FROM json_each(?))`, state, detail, id, string(allowed))
+	if err != nil {
+		d.cfg.Log.Warn("record task state", "task_id", id, "state", state, "err", err)
+		return false
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		d.cfg.Log.Warn("refused a task state change the state machine does not allow", "task_id", id, "state", state)
+		return false
+	}
+	return true
 }
 
 // truncate cuts s to at most n bytes without splitting a character

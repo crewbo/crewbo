@@ -197,6 +197,14 @@ func TestListLine(t *testing.T) {
 	if !strings.Contains(got, strings.Repeat("x", 60)+" ...") || strings.Contains(got, strings.Repeat("x", 61)) || !strings.Contains(got, "(in 1h30m0s)") {
 		t.Errorf("long task: %q", got)
 	}
+	if got := listLine(daemon.Task{ID: "id3", State: "running", Sent: true, Assignee: "gavriel953", Author: "RM1338", Text: "t", Expires: now.Add(time.Hour)}, now); !strings.Contains(got, "running     to gavriel953,") {
+		t.Errorf("sent task: %q", got)
+	}
+	var b strings.Builder
+	printTask(&b, daemon.Task{ID: "id3", State: "declined", Detail: "busy", Sent: true, Assignee: "gavriel953", Author: "RM1338", Text: "t"}, now)
+	if !strings.Contains(b.String(), "To:       gavriel953 (sent by you)") || !strings.Contains(b.String(), "Reason:   busy") || strings.Contains(b.String(), "From:") {
+		t.Errorf("show a sent task: %q", b.String())
+	}
 	if got := listLine(daemon.Task{ID: "id2", State: "dispatched", Author: "RM1338", Text: "done", Expires: now.Add(-time.Minute)}, now); !strings.Contains(got, "expired 2026-10-12 11:59:00") {
 		t.Errorf("expired task: %q", got)
 	}
