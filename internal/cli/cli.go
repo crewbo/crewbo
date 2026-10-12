@@ -48,6 +48,7 @@ Commands:
   hooks     Install or remove Crewbo's hooks in Claude Code and Codex
   mcp       Serve Crewbo's read-only MCP tools over stdio
   serve     Run the Crewbo sync server in the foreground
+  login     Sign in with GitHub to a Crewbo sync server
   hook      Handle an agent hook call (run by Claude Code and Codex)
   version   Print the version and commit
   help      Show this help
@@ -79,6 +80,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runMCP(ctx, stderr, info)
 	case "serve":
 		return runServe(ctx, args[1:], stderr)
+	case "login":
+		return runLogin(ctx, args[1:], stdout, stderr)
 	default:
 		return write(stderr, ExitUsage, "crewbo: unknown command %q\n\n%s", args[0], usage)
 	}

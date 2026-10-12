@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,6 +17,7 @@ import (
 	"github.com/coder/websocket"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"github.com/crewbo/crewbo/internal/auth"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
 )
 
@@ -39,9 +41,12 @@ type Config struct {
 	InsecureLAN bool
 }
 
-// Server serves the health check and daemon connections.
+// Server serves the health check, sign-in and daemon connections.
 type Server struct {
-	log *slog.Logger
+	log      *slog.Logger
+	sessions *Sessions
+	// lookupUser asks GitHub whose token it is; tests replace it.
+	lookupUser func(ctx context.Context, githubToken string) (auth.User, error)
 	// HelloWait is how long a new connection may take to send Hello.
 	HelloWait time.Duration
 	// PingEvery and PongWait keep connections alive: a ping every PingEvery,
@@ -51,9 +56,18 @@ type Server struct {
 	wg sync.WaitGroup // connection handlers, including hijacked ones
 }
 
-// New returns a Server with the protocol's keepalive defaults.
-func New(log *slog.Logger) *Server {
-	return &Server{log: log, HelloWait: 10 * time.Second, PingEvery: 20 * time.Second, PongWait: 60 * time.Second}
+// New returns a Server over a database opened with store.Server, with the
+// protocol's keepalive defaults.
+func New(log *slog.Logger, db *sql.DB) *Server {
+	github := &http.Client{Timeout: 10 * time.Second}
+	return &Server{
+		log:      log,
+		sessions: NewSessions(db, time.Now),
+		lookupUser: func(ctx context.Context, token string) (auth.User, error) {
+			return auth.LookupUser(ctx, github, auth.APIURL, token)
+		},
+		HelloWait: 10 * time.Second, PingEvery: 20 * time.Second, PongWait: 60 * time.Second,
+	}
 }
 
 // Run listens on cfg.Addr and serves until ctx is cancelled. ready, if not
@@ -105,12 +119,13 @@ func (s *Server) Run(ctx context.Context, cfg Config, ready func(net.Addr)) erro
 	return err
 }
 
-// Handler routes /healthz and /v1/ws.
+// Handler routes /healthz, /v1/auth/session and /v1/ws.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok\n"))
 	})
+	mux.HandleFunc("POST /v1/auth/session", s.serveSession)
 	mux.HandleFunc("GET /v1/ws", s.serveWS)
 	return mux
 }
@@ -146,7 +161,13 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("this server speaks protocol version %d; update crewbo", ProtocolVersion))
 		return
 	}
-	// Session tokens are checked from M3-03 (#61) on.
+	if _, err := s.sessions.Lookup(ctx, hello.GetSessionToken()); err != nil {
+		if !errors.Is(err, ErrUnauthenticated) {
+			s.log.Error("ws: session lookup", "err", err)
+		}
+		s.reject(ctx, c, env.GetId(), crewbov1.ErrorCode_ERROR_CODE_UNAUTHENTICATED, "sign in again with crewbo login")
+		return
+	}
 	if err := send(ctx, c, &crewbov1.Envelope{Body: &crewbov1.Envelope_Welcome{Welcome: &crewbov1.Welcome{ProtocolVersion: ProtocolVersion}}}); err != nil {
 		return
 	}

@@ -27,6 +27,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
+	"github.com/crewbo/crewbo/internal/store"
 )
 
 func quiet() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
@@ -92,11 +93,28 @@ func closeBody(resp *http.Response) {
 }
 
 func hello(v int32) *crewbov1.Envelope {
-	return &crewbov1.Envelope{Id: "h1", Body: &crewbov1.Envelope_Hello{Hello: &crewbov1.Hello{ProtocolVersion: v}}}
+	return &crewbov1.Envelope{Id: "h1", Body: &crewbov1.Envelope_Hello{Hello: &crewbov1.Hello{ProtocolVersion: v, SessionToken: testToken}}}
+}
+
+// testToken is a session every test server accepts.
+const testToken = "cbs_test"
+
+// newTestServer returns a Server over a fresh database holding testToken.
+func newTestServer(t *testing.T) *Server {
+	t.Helper()
+	db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "server.db"), store.Server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err := db.SQL().ExecContext(t.Context(), `INSERT INTO sessions VALUES (?, 1, 'tester', 0, ?)`, hashToken(testToken), time.Now().Add(time.Hour).UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	return New(quiet(), db.SQL())
 }
 
 func TestHealthz(t *testing.T) {
-	ts := httptest.NewServer(New(quiet()).Handler())
+	ts := httptest.NewServer(newTestServer(t).Handler())
 	defer ts.Close()
 	resp, err := http.Get(ts.URL + "/healthz")
 	if err != nil {
@@ -110,9 +128,9 @@ func TestHealthz(t *testing.T) {
 }
 
 func TestHelloWelcomeThenUnsupported(t *testing.T) {
-	c := dial(t, testServer(t, New(quiet())))
+	c := dial(t, testServer(t, newTestServer(t)))
 	// Unknown fields from a newer daemon are ignored.
-	sendRaw(t, c, websocket.MessageText, []byte(`{"id":"h1","hello":{"protocolVersion":1,"futureField":"x"},"futureBody":{}}`))
+	sendRaw(t, c, websocket.MessageText, []byte(`{"id":"h1","hello":{"protocolVersion":1,"sessionToken":"`+testToken+`","futureField":"x"},"futureBody":{}}`))
 	env, err := recv(t, c)
 	if err != nil || env.GetWelcome().GetProtocolVersion() != ProtocolVersion {
 		t.Fatalf("want Welcome, got %v %v", env, err)
@@ -158,7 +176,7 @@ func TestRejectsBadFirstFrames(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			c := dial(t, testServer(t, New(quiet())))
+			c := dial(t, testServer(t, newTestServer(t)))
 			tc.send(c)
 			env, err := recv(t, c)
 			if tc.code != 0 {
@@ -176,7 +194,7 @@ func TestRejectsBadFirstFrames(t *testing.T) {
 
 // The library's default read limit is 32 KiB; the protocol allows 64 KiB.
 func TestAcceptsLargeEnvelope(t *testing.T) {
-	c := dial(t, testServer(t, New(quiet())))
+	c := dial(t, testServer(t, newTestServer(t)))
 	big := hello(1)
 	big.Id = strings.Repeat("a", 60<<10)
 	sendEnv(t, c, big)
@@ -186,7 +204,7 @@ func TestAcceptsLargeEnvelope(t *testing.T) {
 }
 
 func TestHelloTimeout(t *testing.T) {
-	s := New(quiet())
+	s := newTestServer(t)
 	s.HelloWait = 50 * time.Millisecond
 	c := dial(t, testServer(t, s))
 	if _, err := recv(t, c); err == nil {
@@ -195,7 +213,7 @@ func TestHelloTimeout(t *testing.T) {
 }
 
 func TestKeepalive(t *testing.T) {
-	s := New(quiet())
+	s := newTestServer(t)
 	// Wide margins: Windows sleeps in ~15.6 ms steps and CI runs with -race.
 	s.PingEvery, s.PongWait = 20*time.Millisecond, 300*time.Millisecond
 
@@ -230,11 +248,11 @@ func TestRunLoopbackRule(t *testing.T) {
 	// A deadline so a broken rule fails the test instead of serving forever.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	err := New(quiet()).Run(ctx, Config{Addr: "0.0.0.0:0"}, nil)
+	err := newTestServer(t).Run(ctx, Config{Addr: "0.0.0.0:0"}, nil)
 	if !errors.Is(err, ErrInsecure) {
 		t.Errorf("plain HTTP on all interfaces: %v, want ErrInsecure", err)
 	}
-	if err := New(quiet()).Run(ctx, Config{Addr: "127.0.0.1:0", CertFile: "c.pem"}, nil); err == nil {
+	if err := newTestServer(t).Run(ctx, Config{Addr: "127.0.0.1:0", CertFile: "c.pem"}, nil); err == nil {
 		t.Error("cert without key accepted")
 	}
 	// --insecure-lan allows it.
@@ -254,11 +272,12 @@ func runAndStop(t *testing.T, cfg Config, scheme string, client *http.Client) {
 	if client == nil {
 		client = http.DefaultClient
 	}
+	srv := newTestServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	addrs := make(chan net.Addr, 1)
 	done := make(chan error, 1)
-	go func() { done <- New(quiet()).Run(ctx, cfg, func(a net.Addr) { addrs <- a }) }()
+	go func() { done <- srv.Run(ctx, cfg, func(a net.Addr) { addrs <- a }) }()
 	var addr net.Addr
 	select {
 	case addr = <-addrs:
