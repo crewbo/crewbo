@@ -132,7 +132,7 @@ func list(ctx context.Context, cfg Config) (string, []claims.Claim, error) {
 func view(c claims.Claim) Claim {
 	held := c.Holder.MemberID
 	switch {
-	case c.Holder.SessionID == daemon.TerminalSession && held != "":
+	case daemon.IsTerminalSession(c.Holder.SessionID) && held != "":
 		held += " (from a terminal)"
 	case held == "":
 		held = "agent session " + c.Holder.SessionID

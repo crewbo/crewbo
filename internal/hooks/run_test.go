@@ -271,6 +271,11 @@ func TestDenyReasonForTerminalClaim(t *testing.T) {
 	if !strings.Contains(got, "a.go is claimed by ronel (from a terminal)") {
 		t.Errorf("denyReason = %q", got)
 	}
+	// A terminal claim shared through a room carries the device key (#84).
+	shared := denyReason(daemon.Response{Path: "a.go", BlockedBy: &claims.Claim{Holder: claims.Holder{SessionID: "ed25519:8d9e/terminal", MemberID: "gavriel953"}}})
+	if !strings.Contains(shared, "a.go is claimed by gavriel953 (from a terminal)") {
+		t.Errorf("shared terminal claim: %q", shared)
+	}
 }
 
 func TestPostShellViolationReachesAgent(t *testing.T) {

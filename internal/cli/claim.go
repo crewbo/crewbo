@@ -148,7 +148,7 @@ func printClaims(w io.Writer, cs []claims.Claim) int {
 	_, _ = fmt.Fprintln(tw, "ID\tPATTERN\tHELD BY\tUNTIL")
 	for _, c := range cs {
 		holder := c.Holder.MemberID
-		if c.Holder.SessionID == daemon.TerminalSession {
+		if daemon.IsTerminalSession(c.Holder.SessionID) {
 			holder += " (terminal)"
 		} else if holder == "" {
 			holder = "agent " + c.Holder.SessionID

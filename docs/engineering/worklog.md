@@ -125,3 +125,13 @@ In progress:
 
 Next:
 - M3-07 daemon half, then the two-machine check with gavriel953 over a Cloudflare quick tunnel.
+
+## 2026-10-12 (M3 complete)
+
+Done:
+- M3-07 merged (#80 server, #82 daemon). Cloudflare quick tunnel verified (U-30, #83).
+- Two-machine check with gavriel953 passed on Omarchy and macOS, Codex and Claude Code (spikes #7, #8). U-23 resolved.
+- Follow-ups: #86 (terminal claim wording), #87 (daemon ping for fast offline detection).
+
+Next:
+- Gate C for M4 (lead dispatch).

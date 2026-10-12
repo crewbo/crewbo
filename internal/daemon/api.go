@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"strings"
 	"time"
 
 	"github.com/crewbo/crewbo/internal/claims"
@@ -28,6 +29,13 @@ const (
 // TerminalSession holds claims made with `crewbo claim add`. It is not an
 // agent session, so its claims block every agent, including the user's own.
 const TerminalSession = "terminal"
+
+// IsTerminalSession reports whether a claim's session is a terminal one:
+// "terminal" locally, or "<device key id>/terminal" once shared through a
+// room (#84).
+func IsTerminalSession(id string) bool {
+	return id == TerminalSession || strings.HasSuffix(id, "/"+TerminalSession)
+}
 
 // Claim leases for claims made from the command line, which no hook event
 // renews (agent claims last claims.DefaultLease and renew on every event).

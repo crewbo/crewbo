@@ -1,6 +1,6 @@
 # Session handoff
 
-Last updated 2026-10-12 (M3 nearly done: only M3-07 remains). A new Claude Code session starts by reading this file, `CLAUDE.md`, and the latest entry in `docs/engineering/worklog.md`. Update this file at the end of every session.
+Last updated 2026-10-12 (M3 complete; Gate C for M4 next). A new Claude Code session starts by reading this file, `CLAUDE.md`, and the latest entry in `docs/engineering/worklog.md`. Update this file at the end of every session.
 
 ## Who and how
 
@@ -28,7 +28,8 @@ The repo stays private until ADR 0011 (sync server licence) is decided. Org is o
 - **Gate C for M3 approved** 2026-10-11. Order changed with Ronel: M3-06 before M3-05 (the hub needs membership).
 - **M3** (sync server and auth, milestone 3, issues #59 to #65):
   - M3-01 `crewbo serve` (#67), M3-02 event log and room goroutine (#70), M3-03 `crewbo login` with GitHub device flow (#72, #73), M3-04 device keys (#74, #75), M3-06 rooms (#76, #77), M3-05 hub and daemon sync (#78, #79): **merged**.
-  - **M3-07 claims over the wire (#65): in progress.** Server half PR #80. Daemon half next: apply room events to the daemon's claim sets (roomstate.Apply with a clock from Welcome's server time), send `crewbo claim add/release` for bound repositories as ClaimRequest/ClaimRelease with `<device key id>/<session>` session ids and client-chosen claim ids, throttled ClaimRenew on hook events, offline claims granted locally plus outbox drain and reconcile on reconnect, replay each room from seq 0 on daemon start (in-memory cursors; `room_cursor` unused until snapshots), e2e with two daemons and a p95 under 2 s timing test. Then the two-machine live check with gavriel953 (Codex, macOS) through a Cloudflare quick tunnel (`cloudflared tunnel --url http://localhost:7420`; verify WebSocket support first; it is not documented).
+  - M3-07 claims over the wire (#80, #82): **merged**. Two-machine check with gavriel953 passed (`docs/research/m3-two-machine-check.md`); follow-ups #86 (terminal wording, #84) and #87 (daemon ping, #85).
+- **Next: Gate C for M4** (lead dispatch). Present the M4 issue list (implementation-plan.md M4) to Ronel and wait for approval.
 - **GitHub OAuth app** "Crewbo" on the crewbo org: client ID `Ov23liMSnQmA2q3VqyiK` (constant in `internal/auth`), device flow on, no client secret.
 
 ### What works today (verified live on Omarchy and Windows)
