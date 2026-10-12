@@ -145,6 +145,12 @@ func (r *Room) handle(ctx context.Context, caller Caller, env *crewbov1.Envelope
 		}
 		ev = &crewbov1.Event{Body: &crewbov1.Event_ClaimsRenewed{ClaimsRenewed: &crewbov1.ClaimsRenewed{SessionId: session, LeaseExpiresUnixMs: until.UnixMilli()}}}
 
+	case *crewbov1.Envelope_DispatchTask:
+		// Admitted by Server.checkDispatch (lead, device key, signature).
+		// A resent request is recorded again; receiving daemons ignore a
+		// task id they already have.
+		ev = &crewbov1.Event{Body: &crewbov1.Event_TaskDispatched{TaskDispatched: &crewbov1.TaskDispatched{Task: b.DispatchTask.GetTask()}}}
+
 	default:
 		return errorEnvelope(id, crewbov1.ErrorCode_ERROR_CODE_UNSUPPORTED, "not supported by this server")
 	}
