@@ -184,3 +184,16 @@ func (s *Server) serveLeave(w http.ResponseWriter, r *http.Request) {
 	s.log.Info("rooms: left", "room_id", r.PathValue("id"), "github_login", u.Login)
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (s *Server) serveRoomKeys(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.authenticate(w, r)
+	if !ok {
+		return
+	}
+	keys, err := s.rooms.Keys(r.Context(), u, r.PathValue("id"))
+	if err != nil {
+		s.roomError(w, err)
+		return
+	}
+	reply(w, keys)
+}
