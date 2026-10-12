@@ -83,3 +83,11 @@ func (s *Server) deviceOwned(ctx context.Context, keyID string, userID int64) (b
 	err := s.sessions.db.QueryRowContext(ctx, `SELECT count(*) FROM device_keys WHERE key_id = ? AND github_user_id = ? AND revoked_unix_ms IS NULL`, keyID, userID).Scan(&n)
 	return n > 0, err
 }
+
+// devicePublicKey returns a device key's public key if it is registered to
+// the account and not revoked.
+func (s *Server) devicePublicKey(ctx context.Context, keyID string, userID int64) (ed25519.PublicKey, error) {
+	var pub []byte
+	err := s.sessions.db.QueryRowContext(ctx, `SELECT public_key FROM device_keys WHERE key_id = ? AND github_user_id = ? AND revoked_unix_ms IS NULL`, keyID, userID).Scan(&pub)
+	return pub, err
+}

@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"crypto/ed25519"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -256,6 +257,8 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 			roomID = b.ClaimRelease.GetRoomId()
 		case *crewbov1.Envelope_ClaimRenew:
 			roomID = b.ClaimRenew.GetRoomId()
+		case *crewbov1.Envelope_DispatchTask:
+			roomID = b.DispatchTask.GetRoomId()
 		default:
 			// The protocol answers unknown requests with UNSUPPORTED.
 			if err := send(ctx, c, errorEnvelope(env.GetId(), crewbov1.ErrorCode_ERROR_CODE_UNSUPPORTED, "not supported by this server")); err != nil {
@@ -265,7 +268,11 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 		}
 		reply := errorEnvelope(env.GetId(), crewbov1.ErrorCode_ERROR_CODE_NOT_MEMBER, "this connection has not joined room "+roomID)
 		if joined[roomID] {
-			reply = s.room(roomID).Handle(ctx, caller, env)
+			if refusal := s.checkDispatch(ctx, u.ID, caller, env); refusal != nil {
+				reply = refusal
+			} else {
+				reply = s.room(roomID).Handle(ctx, caller, env)
+			}
 		}
 		if err := send(ctx, c, reply); err != nil {
 			return
@@ -328,4 +335,38 @@ func send(ctx context.Context, c *websocket.Conn, env *crewbov1.Envelope) error 
 		return err
 	}
 	return c.Write(ctx, websocket.MessageText, b)
+}
+
+// checkDispatch admits a DispatchTask only from the room's lead, signed by
+// the device key that lead presented in Hello. The server does not decode
+// the task: teammates' daemons verify everything else (ADR 0006). It
+// returns nil for other requests and for an admitted task.
+func (s *Server) checkDispatch(ctx context.Context, userID int64, caller Caller, env *crewbov1.Envelope) *crewbov1.Envelope {
+	d := env.GetDispatchTask()
+	if d == nil {
+		return nil
+	}
+	refuse := func(code crewbov1.ErrorCode, msg string) *crewbov1.Envelope {
+		return errorEnvelope(env.GetId(), code, msg)
+	}
+	lead, err := s.rooms.IsLead(ctx, d.GetRoomId(), userID)
+	switch {
+	case err != nil:
+		s.log.Error("dispatch: lead check", "err", err)
+		return refuse(crewbov1.ErrorCode_ERROR_CODE_UNSPECIFIED, "internal error")
+	case !lead:
+		return refuse(crewbov1.ErrorCode_ERROR_CODE_NOT_LEAD, "only the room lead can send tasks")
+	case d.GetTask() == nil || len(d.GetTask().GetBody()) == 0:
+		return refuse(crewbov1.ErrorCode_ERROR_CODE_INVALID, "no task")
+	case caller.DeviceKey == "" || d.GetTask().GetKeyId() != caller.DeviceKey:
+		return refuse(crewbov1.ErrorCode_ERROR_CODE_INVALID, "the task must be signed by this device's key")
+	}
+	pub, err := s.devicePublicKey(ctx, caller.DeviceKey, userID)
+	if err != nil {
+		return refuse(crewbov1.ErrorCode_ERROR_CODE_UNAUTHENTICATED, "this device's key is not registered to you")
+	}
+	if !ed25519.Verify(pub, d.GetTask().GetBody(), d.GetTask().GetSignature()) {
+		return refuse(crewbov1.ErrorCode_ERROR_CODE_INVALID, "the task's signature does not match its body")
+	}
+	return nil
 }
