@@ -1,0 +1,104 @@
+package daemon
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+)
+
+// The test binary doubles as the machines' claude (Config.ClaudeBin): run
+// as "claude -p ..." or "claude auth status" it is a fake agent, enabled
+// by CREWBO_FAKE_CLAUDE naming a directory; never the test suite again.
+func TestMain(m *testing.M) {
+	if len(os.Args) > 1 && (os.Args[1] == "-p" || os.Args[1] == "auth") {
+		dir := os.Getenv("CREWBO_FAKE_CLAUDE")
+		if dir == "" {
+			fmt.Fprintln(os.Stderr, "fake claude not enabled in this test")
+			os.Exit(3)
+		}
+		os.Exit(fakeClaudeMain(dir))
+	}
+	os.Exit(m.Run())
+}
+
+// fakeRun is how the fake agent was started.
+type fakeRun struct {
+	Args    []string
+	Cwd     string
+	Stdin   string
+	Session string
+	APIKey  bool
+}
+
+// fakeClaudeMain answers auth status (signed out when dir/signed-out
+// exists) or records a run in dir/run-<session>.json, then, when dir/hold
+// exists, waits for dir/exit and exits with the code in it.
+func fakeClaudeMain(dir string) int {
+	if os.Args[1] == "auth" {
+		_, err := os.Stat(filepath.Join(dir, "signed-out"))
+		fmt.Printf(`{"loggedIn": %v}`, err != nil)
+		return 0
+	}
+	run := fakeRun{Args: os.Args[1:], APIKey: os.Getenv("ANTHROPIC_API_KEY") != ""}
+	for i, a := range os.Args {
+		if a == "--session-id" && i+1 < len(os.Args) {
+			run.Session = os.Args[i+1]
+		}
+	}
+	b, _ := io.ReadAll(os.Stdin)
+	run.Stdin = string(b)
+	run.Cwd, _ = os.Getwd()
+	out, _ := json.Marshal(run)
+	_ = os.WriteFile(filepath.Join(dir, "run-"+run.Session+".json"), out, 0o600)
+	if _, err := os.Stat(filepath.Join(dir, "hold")); err != nil {
+		return 0
+	}
+	for deadline := time.Now().Add(60 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		if b, err := os.ReadFile(filepath.Join(dir, "exit")); err == nil {
+			code, _ := strconv.Atoi(strings.TrimSpace(string(b)))
+			return code
+		}
+	}
+	return 9
+}
+
+// fakeClaude enables the fake agent for this test and returns its
+// directory.
+func fakeClaude(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("CREWBO_FAKE_CLAUDE", dir)
+	return dir
+}
+
+// fakeRuns returns the runs the fake agent recorded.
+func fakeRuns(t *testing.T, dir string) []fakeRun {
+	t.Helper()
+	files, _ := filepath.Glob(filepath.Join(dir, "run-*.json"))
+	var out []fakeRun
+	for _, f := range files {
+		b, err := os.ReadFile(f) //nolint:gosec // test file
+		if err != nil {
+			t.Fatal(err)
+		}
+		var r fakeRun
+		if err := json.Unmarshal(b, &r); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+func touch(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}

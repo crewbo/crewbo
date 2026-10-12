@@ -115,7 +115,11 @@ func (f *crossFixture) newMachine(u auth.User, room server.RoomInfo) *machine {
 }
 
 func (m *machine) start() {
-	m.run = start(m.t, Config{Paths: m.paths, Log: quietLog(), Keyring: m.keyring, syncFast: true})
+	exe, err := os.Executable() // a fake claude once a test calls fakeClaude
+	if err != nil {
+		m.t.Fatal(err)
+	}
+	m.run = start(m.t, Config{Paths: m.paths, Log: quietLog(), Keyring: m.keyring, ClaudeBin: exe, syncFast: true})
 	eventually(m.t, "the daemon to connect", func() bool { return strings.HasPrefix(m.status().Sync, "connected") })
 }
 
@@ -340,5 +344,15 @@ func gitInit(t *testing.T, dir string) {
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
+	}
+}
+
+// fetchFrom brings other's commits into m's clone, as git fetch from a
+// shared remote would.
+func (m *machine) fetchFrom(other *machine) {
+	m.t.Helper()
+	cmd := exec.Command("git", "-C", m.repo, "fetch", "-q", other.repo, "HEAD") //nolint:gosec // test
+	if out, err := cmd.CombinedOutput(); err != nil {
+		m.t.Fatalf("git fetch: %v\n%s", err, out)
 	}
 }

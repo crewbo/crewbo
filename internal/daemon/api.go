@@ -74,8 +74,10 @@ type Request struct {
 	Member   string   `json:"member,omitempty"`
 	// Task is the task a claim belongs to; for task_approve and
 	// task_decline, the task answered (Text is the decline reason).
+	// KeepAPIKey lets an approved task's agent keep ANTHROPIC_API_KEY.
 	Task         string `json:"task,omitempty"`
 	LeaseSeconds int64  `json:"lease_seconds,omitempty"` // DefaultCLILease when 0
+	KeepAPIKey   bool   `json:"keep_api_key,omitempty"`
 	// claim_release: claim ids.
 	IDs []string `json:"ids,omitempty"`
 	// task_create: the teammate's GitHub login, the task text and how long
@@ -156,7 +158,7 @@ type Task struct {
 	BaseCommit string    `json:"base_commit,omitempty"`
 	Created    time.Time `json:"created,omitzero"`
 	Expires    time.Time `json:"expires,omitzero"`
-	State      string    `json:"state"` // dispatched, rejected, approved, declined or expired
+	State      string    `json:"state"` // dispatched, rejected, approved, declined, expired, running, finished or failed
 	Detail     string    `json:"detail,omitempty"`
 	Received   time.Time `json:"received"`
 }

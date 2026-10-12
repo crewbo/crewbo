@@ -49,6 +49,9 @@ type Config struct {
 
 	// Keyring holds this device's key; the OS keychain when nil.
 	Keyring keys.Keyring
+	// ClaudeBin is the Claude Code executable for approved tasks; "claude"
+	// from PATH when empty.
+	ClaudeBin string
 
 	syncFast bool // tests: reconnect and reload in milliseconds
 }
@@ -68,6 +71,9 @@ type Daemon struct {
 	funcs      chan func()   // work for the owner goroutine from the syncer
 	refused    int           // claims the server refused after the fact
 	verifyKick chan struct{} // received tasks to verify
+
+	agents     sync.WaitGroup // supervisors of running task agents
+	renewEvery time.Duration  // ClaimRenew interval for running agents
 }
 
 type call struct {
@@ -83,7 +89,7 @@ func New(cfg Config) *Daemon {
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, verifyKick: make(chan struct{}, 1), claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
+	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, verifyKick: make(chan struct{}, 1), renewEvery: claimRenewEvery, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
 	for repo, set := range cfg.Claims {
 		d.claims[RepoKey(repo)] = set
 	}
@@ -127,6 +133,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if d.cfg.syncFast {
 		d.sync.minBackoff, d.sync.maxBackoff, d.sync.reloadEvery = 20*time.Millisecond, 100*time.Millisecond, 20*time.Millisecond
 		d.sync.pingEvery, d.sync.pongWait = 200*time.Millisecond, 200*time.Millisecond
+		d.renewEvery = 100 * time.Millisecond
 	}
 	var conns sync.WaitGroup
 	ownerDone := make(chan struct{})
@@ -154,6 +161,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	<-ownerDone
 	<-syncDone
 	<-verifyDone
+	d.agents.Wait() // agents were stopped with ctx; their final state is recorded
 	if err := os.Remove(filepath.Join(d.cfg.Paths.Runtime, TokenName)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		d.cfg.Log.Warn("remove token file", "err", err)
 	}
@@ -424,6 +432,13 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 		if err := json.Unmarshal(sc.Bytes(), &req); err != nil {
 			_ = enc.Encode(Response{Error: "invalid request: " + err.Error()})
 			continue
+		}
+		// In a repository in a room, agent sessions are qualified with this
+		// device's key, as the claims they hold on the server are.
+		if (req.Method == MethodDecide || req.Method == MethodEvent) && req.Session != "" && d.sync != nil {
+			if _, key, _, ok := d.sync.binding(req.Repo); ok {
+				req.Session = key + "/" + req.Session
+			}
 		}
 		var resp Response
 		switch {
