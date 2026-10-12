@@ -26,6 +26,21 @@ var Daemon = Schema{
 		room_id  TEXT    PRIMARY KEY,
 		last_seq INTEGER NOT NULL CHECK (last_seq >= 0)
 	);`,
+	// 2: signed tasks received from the room log (ADR 0006), keyed by a
+	// SHA-256 digest of the signed bytes so a replayed room log stores
+	// nothing twice. A task is pending until verified; task_id is set only
+	// for verified tasks addressed to this member (state dispatched);
+	// "other" tasks are for someone else; detail says why a task was
+	// rejected.
+	`CREATE TABLE tasks (
+		digest           BLOB    PRIMARY KEY,
+		task_id          TEXT    UNIQUE,
+		room_id          TEXT    NOT NULL,
+		signed           BLOB    NOT NULL,
+		state            TEXT    NOT NULL CHECK (state IN ('pending', 'dispatched', 'rejected', 'other')),
+		detail           TEXT    NOT NULL DEFAULT '',
+		received_unix_ms INTEGER NOT NULL
+	) WITHOUT ROWID;`,
 }
 
 // Server is the schema of the sync server's database (`crewbo serve`).

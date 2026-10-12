@@ -43,8 +43,9 @@ type syncer struct {
 	db    *sql.DB // store.Daemon schema
 	log   *slog.Logger
 	// apply receives each event in order with the clock that maps its
-	// server times to this machine.
-	apply func(b auth.Binding, ev *crewbov1.Event, clock roomstate.Clock)
+	// server times to this machine. An error leaves the cursor before the
+	// event and reconnects, so the event is replayed and applied again.
+	apply func(b auth.Binding, ev *crewbov1.Event, clock roomstate.Clock) error
 	// refused hears about a queued claim request the server turned down
 	// after the member stopped waiting (for example one made offline).
 	refused func(b auth.Binding, claimIDs []string, reason string)
@@ -66,7 +67,7 @@ type syncer struct {
 	waiters   map[string]chan *crewbov1.Envelope // envelope id to reply
 }
 
-func newSyncer(p platform.Paths, db *sql.DB, log *slog.Logger, apply func(auth.Binding, *crewbov1.Event, roomstate.Clock), refused func(auth.Binding, []string, string)) *syncer {
+func newSyncer(p platform.Paths, db *sql.DB, log *slog.Logger, apply func(auth.Binding, *crewbov1.Event, roomstate.Clock) error, refused func(auth.Binding, []string, string)) *syncer {
 	return &syncer{
 		paths: p, db: db, log: log, apply: apply, refused: refused,
 		minBackoff: minBackoff, maxBackoff: maxBackoff, reloadEvery: reloadEvery, state: "starting",
@@ -332,7 +333,9 @@ func (s *syncer) connect(ctx context.Context, cfg config) (bool, error) {
 		if next == s.cursors[b.RoomID] {
 			continue // duplicate
 		}
-		s.apply(b, ev, clock)
+		if err := s.apply(b, ev, clock); err != nil {
+			return true, fmt.Errorf("apply event %d of room %s: %w", ev.GetSeq(), b.Name, err)
+		}
 		s.cursors[b.RoomID] = next
 	}
 }
@@ -422,6 +425,13 @@ func (s *syncer) binding(repo string) (b auth.Binding, deviceKey, login string, 
 		}
 	}
 	return auth.Binding{}, "", "", false
+}
+
+// session returns the session the syncer last loaded.
+func (s *syncer) session() auth.Session {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.current.session
 }
 
 // errNotSent means the request is queued but the server has not answered

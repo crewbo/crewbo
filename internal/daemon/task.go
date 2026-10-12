@@ -2,14 +2,25 @@ package daemon
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/crewbo/crewbo/internal/auth"
 	"github.com/crewbo/crewbo/internal/dispatch"
 	"github.com/crewbo/crewbo/internal/gitx"
 	"github.com/crewbo/crewbo/internal/keys"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
+	"github.com/crewbo/crewbo/internal/server"
 )
 
 // Task lifetimes: how long a teammate has to approve before it expires.
@@ -92,4 +103,232 @@ func (d *Daemon) keyring() keys.Keyring {
 		return d.cfg.Keyring
 	}
 	return keys.OSKeyring{}
+}
+
+// Stored task states (store.Daemon migration 2).
+const (
+	taskPending    = "pending" // received, not verified yet
+	taskDispatched = "dispatched"
+	taskRejected   = "rejected"
+	taskOther      = "other" // addressed to another member
+)
+
+// Task verification bounds: the room keys request, and the wait before
+// retrying tasks whose keys could not be fetched.
+const (
+	keysTimeout = 5 * time.Second
+	taskRetry   = 5 * time.Second
+)
+
+// receiveTask stores a task from the room log as pending and wakes the
+// verifier. It runs on the syncer goroutine, which must keep reading
+// (pongs arrive there), so it does no network I/O. An error means nothing
+// was stored and the event is replayed.
+func (d *Daemon) receiveTask(ctx context.Context, b auth.Binding, st *crewbov1.SignedTask) error {
+	signed, err := proto.Marshal(st)
+	if err != nil {
+		return err
+	}
+	// A stored digest is a replayed room log or a resent request.
+	_, err = d.sync.db.ExecContext(ctx, `INSERT INTO tasks (digest, room_id, signed, state, received_unix_ms) VALUES (?, ?, ?, ?, ?) ON CONFLICT (digest) DO NOTHING`,
+		taskDigest(st), b.RoomID, signed, taskPending, d.cfg.Now().UnixMilli())
+	if err != nil {
+		return err
+	}
+	select {
+	case d.verifyKick <- struct{}{}:
+	default: // a pass is already due
+	}
+	return nil
+}
+
+// verifyTasks verifies pending tasks until ctx ends: on each kick, and
+// every retry interval while some wait for keys it could not fetch.
+func (d *Daemon) verifyTasks(ctx context.Context, retry time.Duration) {
+	roomKeys := map[string]server.RoomKeys{} // per room, refreshed on a key miss
+	t := time.NewTicker(retry)
+	defer t.Stop()
+	for {
+		if err := d.verifyPending(ctx, roomKeys); err != nil && ctx.Err() == nil {
+			d.cfg.Log.Warn("cannot verify received tasks yet; will retry", "err", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-d.verifyKick:
+		case <-t.C:
+		}
+	}
+}
+
+type pendingTask struct {
+	digest []byte
+	room   string
+	st     *crewbov1.SignedTask
+}
+
+// verifyPending verifies pending tasks in arrival order and records each
+// outcome. It stops at the first task whose room keys it cannot fetch.
+func (d *Daemon) verifyPending(ctx context.Context, roomKeys map[string]server.RoomKeys) error {
+	db := d.sync.db
+	rows, err := db.QueryContext(ctx, `SELECT digest, room_id, signed FROM tasks WHERE state = ? ORDER BY received_unix_ms`, taskPending)
+	if err != nil {
+		return err
+	}
+	var pending []pendingTask
+	for rows.Next() {
+		var p pendingTask
+		var signed []byte
+		if err := rows.Scan(&p.digest, &p.room, &signed); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		p.st = &crewbov1.SignedTask{}
+		if proto.Unmarshal(signed, p.st) != nil {
+			p.st = nil // stored by this daemon, so not expected
+		}
+		pending = append(pending, p)
+	}
+	_ = rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	sess := d.sync.session()
+	if len(pending) == 0 || sess.GitHubLogin == "" {
+		return nil // nobody signed in: wait, "me" is unknown
+	}
+	seen := func(id string) bool {
+		var n int
+		_ = db.QueryRowContext(ctx, `SELECT count(*) FROM tasks WHERE task_id = ?`, id).Scan(&n)
+		return n > 0
+	}
+	for _, p := range pending {
+		verify := func(fetch bool) (*crewbov1.TaskBody, error) {
+			rk, ok := roomKeys[p.room]
+			if fetch || !ok {
+				var err error
+				if rk, err = fetchRoomKeys(ctx, sess, p.room); err != nil {
+					return nil, err
+				}
+				roomKeys[p.room] = rk
+			}
+			c := dispatch.Check{RoomID: p.room, Lead: rk.LeadLogin, Me: sess.GitHubLogin, Now: d.cfg.Now(), Seen: seen, Keys: map[string]dispatch.Key{}}
+			for _, m := range rk.Members {
+				for _, k := range m.Keys {
+					c.Keys[k.KeyID] = dispatch.Key{Member: m.Login, Public: k.PublicKey, Revoked: k.Revoked}
+				}
+			}
+			return dispatch.Verify(p.st, c)
+		}
+		var body *crewbov1.TaskBody
+		err := dispatch.ErrMalformed
+		if p.st != nil {
+			body, err = verify(false)
+			// Cached keys may predate a new device, a revocation or a new lead.
+			if errors.Is(err, dispatch.ErrUnknownKey) || errors.Is(err, dispatch.ErrNotLead) || errors.Is(err, dispatch.ErrRevokedKey) {
+				body, err = verify(true)
+			}
+		}
+		var fetchErr *keysError
+		if errors.As(err, &fetchErr) {
+			return err
+		}
+		state, detail, taskID := taskDispatched, "", any(nil)
+		switch {
+		case errors.Is(err, dispatch.ErrNotForYou):
+			state = taskOther
+		case err != nil:
+			state, detail = taskRejected, err.Error()
+			d.cfg.Log.Warn("rejected a task from the room log", "room", p.room, "reason", detail)
+		default:
+			taskID = body.GetTaskId()
+			d.cfg.Log.Info("task received", "task_id", body.GetTaskId(), "room", p.room, "author", body.GetAuthorMemberId()) // never the text
+		}
+		if _, err := db.ExecContext(ctx, `UPDATE tasks SET state = ?, detail = ?, task_id = ? WHERE digest = ?`, state, detail, taskID, p.digest); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// taskDigest identifies a signed task by all of its received bytes, so a
+// forged copy of a body cannot shadow the genuine one.
+func taskDigest(st *crewbov1.SignedTask) []byte {
+	h := sha256.New()
+	for _, part := range [][]byte{[]byte(st.GetKeyId()), st.GetSignature(), st.GetBody()} {
+		_ = binary.Write(h, binary.BigEndian, uint64(len(part)))
+		h.Write(part)
+	}
+	return h.Sum(nil)
+}
+
+// keysError is a failure to get the room's keys: the task cannot be
+// verified yet, so it is retried rather than rejected.
+type keysError struct{ err error }
+
+func (e *keysError) Error() string { return "get the room's keys: " + e.err.Error() }
+func (e *keysError) Unwrap() error { return e.err }
+
+// fetchRoomKeys asks the sync server for a room's lead and device keys
+// (GET /v1/rooms/{id}/keys).
+func fetchRoomKeys(ctx context.Context, sess auth.Session, roomID string) (server.RoomKeys, error) {
+	var rk server.RoomKeys
+	fail := func(err error) (server.RoomKeys, error) { return rk, &keysError{err} }
+	ctx, cancel := context.WithTimeout(ctx, keysTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sess.Server+"/v1/rooms/"+url.PathEscape(roomID)+"/keys", nil)
+	if err != nil {
+		return fail(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+sess.SessionToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fail(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fail(fmt.Errorf("%s: %s", resp.Status, strings.TrimSpace(string(msg))))
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&rk); err != nil {
+		return fail(err)
+	}
+	return rk, nil
+}
+
+// listTasks returns the tasks sent to this member, newest first. It runs
+// on the connection goroutine and reads only the database.
+func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
+	if d.sync == nil {
+		return Response{ID: req.ID, Error: "task_list: the daemon is not ready"}
+	}
+	rows, err := d.sync.db.QueryContext(ctx, `SELECT room_id, signed, state, detail, received_unix_ms FROM tasks WHERE state IN (?, ?) ORDER BY received_unix_ms DESC`, taskDispatched, taskRejected)
+	if err != nil {
+		return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
+	}
+	defer func() { _ = rows.Close() }()
+	resp := Response{ID: req.ID, Tasks: []Task{}}
+	for rows.Next() {
+		var t Task
+		var signed []byte
+		var received int64
+		if err := rows.Scan(&t.Room, &signed, &t.State, &t.Detail, &received); err != nil {
+			return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
+		}
+		t.Received = time.UnixMilli(received)
+		if t.State == taskDispatched {
+			// Verified when it was stored; decoded only now.
+			st, body := &crewbov1.SignedTask{}, &crewbov1.TaskBody{}
+			if proto.Unmarshal(signed, st) != nil || proto.Unmarshal(st.GetBody(), body) != nil {
+				continue
+			}
+			t.ID, t.Author, t.Text, t.OwnedPaths, t.BaseCommit = body.GetTaskId(), body.GetAuthorMemberId(), body.GetText(), body.GetOwnedPaths(), body.GetBaseCommit()
+			t.Created, t.Expires = time.UnixMilli(body.GetCreatedUnixMs()), time.UnixMilli(body.GetExpiresUnixMs())
+		}
+		resp.Tasks = append(resp.Tasks, t)
+	}
+	if err := rows.Err(); err != nil {
+		return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
+	}
+	return resp
 }

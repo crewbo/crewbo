@@ -25,6 +25,7 @@ const (
 	MethodClaimList    = "claim_list"
 	MethodClaimRelease = "claim_release"
 	MethodTaskCreate   = "task_create"
+	MethodTaskList     = "task_list"
 )
 
 // TerminalSession holds claims made with `crewbo claim add`. It is not an
@@ -103,6 +104,8 @@ type Response struct {
 	ReleasedIDs []string `json:"released_ids,omitempty"`
 	// TaskID is the id of a created task.
 	TaskID string `json:"task_id,omitempty"`
+	// task_list: tasks sent to this member, newest first.
+	Tasks []Task `json:"tasks,omitempty"`
 	// Note tells the member what happened beyond the result, for example
 	// that a claim is queued for the sync server.
 	Note string `json:"note,omitempty"`
@@ -135,6 +138,22 @@ type Status struct {
 	// Refused counts claims the sync server turned down after they were
 	// granted locally (made offline, taken by someone else meanwhile).
 	Refused int `json:"refused,omitempty"`
+}
+
+// Task is a task sent to this member. A rejected task has only its State,
+// Detail, Room and Received set: nothing in it was trusted.
+type Task struct {
+	ID         string    `json:"id,omitempty"`
+	Room       string    `json:"room"` // room id
+	Author     string    `json:"author,omitempty"`
+	Text       string    `json:"text,omitempty"`
+	OwnedPaths []string  `json:"owned_paths,omitempty"`
+	BaseCommit string    `json:"base_commit,omitempty"`
+	Created    time.Time `json:"created,omitzero"`
+	Expires    time.Time `json:"expires,omitzero"`
+	State      string    `json:"state"` // dispatched or rejected
+	Detail     string    `json:"detail,omitempty"`
+	Received   time.Time `json:"received"`
 }
 
 // Session is an agent session the daemon has heard from.

@@ -2,6 +2,8 @@ package daemon
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"os/exec"
 	"strings"
 	"testing"
@@ -9,11 +11,15 @@ import (
 
 	"github.com/crewbo/crewbo/internal/auth"
 	"github.com/crewbo/crewbo/internal/dispatch"
+	"github.com/crewbo/crewbo/internal/keys"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
 	"github.com/crewbo/crewbo/internal/server"
 )
 
-// sentTasks returns the signed tasks the server recorded for the room.
+// sentTasks returns the distinct signed tasks the server recorded for the
+// room. The outbox delivers at least once: a request resent after a
+// dropped connection is recorded again (decision log, #92), so copies are
+// counted once, as receiving daemons do.
 func (f *crossFixture) sentTasks() []*crewbov1.SignedTask {
 	f.t.Helper()
 	b, _ := auth.LoadBindings(auth.BindingsPath(f.a.paths.Config))
@@ -22,8 +28,10 @@ func (f *crossFixture) sentTasks() []*crewbov1.SignedTask {
 		f.t.Fatal(err)
 	}
 	var out []*crewbov1.SignedTask
+	seen := map[string]bool{}
 	for _, ev := range evs {
-		if st := ev.GetTaskDispatched().GetTask(); st != nil {
+		if st := ev.GetTaskDispatched().GetTask(); st != nil && !seen[string(taskDigest(st))] {
+			seen[string(taskDigest(st))] = true
 			out = append(out, st)
 		}
 	}
@@ -130,5 +138,169 @@ func TestTaskRefusedWithAnUnregisteredKey(t *testing.T) {
 	}
 	if n := len(f.sentTasks()); n != 0 {
 		t.Errorf("tasks recorded: %d", n)
+	}
+}
+
+func (m *machine) tasks() []Task {
+	m.t.Helper()
+	resp, err := m.call(Request{Method: MethodTaskList})
+	if err != nil {
+		m.t.Fatal(err)
+	}
+	return resp.Tasks
+}
+
+func (m *machine) restart() {
+	m.run.cancel()
+	<-m.run.done
+	m.start()
+}
+
+// The M4-02 acceptance test: a teammate offline at dispatch gets the task
+// on the next connection, verified, and a daemon restart (which replays
+// the room from the start) stores nothing twice.
+func TestTeammateOfflineAtDispatchReceivesTheTask(t *testing.T) {
+	f := newCrossFixture(t)
+	f.b.link.cut()
+	eventually(t, "the teammate to notice it is offline", func() bool { return strings.HasPrefix(f.b.status().Sync, "offline") })
+	text := "Rename the sync loop.\n\nKeep the tests green."
+	sent, err := f.a.task("gavriel953", text, []string{"internal/daemon/sync.go"}, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := f.b.tasks(); len(got) != 0 {
+		t.Fatalf("an offline teammate has tasks: %+v", got)
+	}
+	f.b.link.restore()
+	eventually(t, "the teammate to receive the task", func() bool { return len(f.b.tasks()) == 1 })
+	got := f.b.tasks()[0]
+	if got.ID != sent.TaskID || got.State != "dispatched" || got.Text != text || got.Author != "RM1338" ||
+		len(got.OwnedPaths) != 1 || got.OwnedPaths[0] != "internal/daemon/sync.go" || got.BaseCommit == "" {
+		t.Errorf("received %+v", got)
+	}
+	if got := f.a.tasks(); len(got) != 0 {
+		t.Errorf("the lead lists a task addressed to someone else: %+v", got)
+	}
+
+	// After a restart the room replays from seq 0; the first task must not
+	// come back as a duplicate or a replay. A second task arriving proves
+	// the replay got past the first.
+	f.b.restart()
+	second, err := f.a.task("gavriel953", "Second task.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the second task", func() bool { return len(f.b.tasks()) == 2 })
+	for _, task := range f.b.tasks() {
+		if task.State != "dispatched" || (task.ID != sent.TaskID && task.ID != second.TaskID) {
+			t.Errorf("after a restart: %+v", task)
+		}
+	}
+}
+
+// Tasks that fail verification are stored as rejected with the reason,
+// and nothing from them is shown.
+func TestForgedTasksAreRejected(t *testing.T) {
+	f := newCrossFixture(t)
+	ctx := context.Background()
+	roomID := f.checkFor("gavriel953").RoomID
+	now := time.Now()
+	body := func(room string) *crewbov1.TaskBody {
+		id, _ := dispatch.NewTaskID()
+		return &crewbov1.TaskBody{
+			TaskId: id, RoomId: room, AuthorKeyId: f.a.key.ID(), AuthorMemberId: "RM1338", AssigneeMemberId: "gavriel953",
+			Text: "secret instructions", CreatedUnixMs: now.UnixMilli(), ExpiresUnixMs: now.Add(time.Hour).UnixMilli(),
+		}
+	}
+	tampered, err := dispatch.Sign(f.a.key, body(roomID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tampered.Body[len(tampered.Body)-1] ^= 1
+	otherRoom, err := dispatch.Sign(f.a.key, body("r_another"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	notLead := body(roomID)
+	notLead.AuthorKeyId, notLead.AuthorMemberId = f.b.key.ID(), "gavriel953"
+	fromMember, err := dispatch.Sign(f.b.key, notLead)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The server refuses these from a daemon, so write them into the log
+	// directly, as a compromised server could.
+	log := server.NewLog(f.db.SQL())
+	for _, st := range []*crewbov1.SignedTask{tampered, otherRoom, fromMember} {
+		ev := &crewbov1.Event{ActorMemberId: "RM1338", Body: &crewbov1.Event_TaskDispatched{TaskDispatched: &crewbov1.TaskDispatched{Task: st}}}
+		if _, err := log.Append(ctx, roomID, ev, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.b.restart() // replays the log, including the events written above
+	eventually(t, "the forged tasks to be handled", func() bool { return len(f.b.tasks()) == 3 })
+	reasons := map[string]bool{}
+	for _, task := range f.b.tasks() {
+		if task.State != "rejected" || task.ID != "" || task.Text != "" || task.Author != "" {
+			t.Errorf("a forged task was trusted: %+v", task)
+		}
+		reasons[task.Detail] = true
+	}
+	for _, want := range []error{dispatch.ErrBadSignature, dispatch.ErrWrongRoom, dispatch.ErrNotLead} {
+		if !reasons[want.Error()] {
+			t.Errorf("no task rejected with %q; got %v", want, reasons)
+		}
+	}
+}
+
+// A task signed with a lead device key registered after the teammate
+// cached the room's keys verifies once the keys are fetched again.
+func TestTaskFromANewLeadDeviceIsVerified(t *testing.T) {
+	f := newCrossFixture(t)
+	first, err := f.a.task("gavriel953", "First.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the first task (fills the key cache)", func() bool { return len(f.b.tasks()) == 1 })
+
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	laptop := keys.Key{Private: priv}
+	if _, err := f.db.SQL().Exec(`INSERT INTO device_keys (key_id, github_user_id, public_key, name, os, created_unix_ms) VALUES (?, 1, ?, 'laptop', 'linux', 0)`, laptop.ID(), []byte(laptop.Public())); err != nil {
+		t.Fatal(err)
+	}
+	roomID := f.checkFor("gavriel953").RoomID
+	id, _ := dispatch.NewTaskID()
+	now := time.Now()
+	st, err := dispatch.Sign(laptop, &crewbov1.TaskBody{
+		TaskId: id, RoomId: roomID, AuthorKeyId: laptop.ID(), AuthorMemberId: "RM1338", AssigneeMemberId: "gavriel953",
+		Text: "From the laptop.", CreatedUnixMs: now.UnixMilli(), ExpiresUnixMs: now.Add(time.Hour).UnixMilli(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Written straight to the log, it reaches B when the next live event
+	// shows B a gap and B replays from its cursor, keys still cached.
+	ev := &crewbov1.Event{ActorMemberId: "RM1338", Body: &crewbov1.Event_TaskDispatched{TaskDispatched: &crewbov1.TaskDispatched{Task: st}}}
+	if _, err := server.NewLog(f.db.SQL()).Append(context.Background(), roomID, ev, now); err != nil {
+		t.Fatal(err)
+	}
+	third, err := f.a.task("gavriel953", "Third.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "all three tasks", func() bool { return len(f.b.tasks()) == 3 })
+	ids := map[string]string{}
+	for _, task := range f.b.tasks() {
+		ids[task.ID] = task.State
+		if task.State != "dispatched" {
+			t.Errorf("task %+v", task)
+		}
+	}
+	for _, want := range []string{first.TaskID, id, third.TaskID} {
+		if ids[want] != "dispatched" {
+			t.Errorf("task %s missing: %v", want, ids)
+		}
 	}
 }
