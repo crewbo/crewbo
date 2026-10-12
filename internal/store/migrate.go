@@ -46,6 +46,16 @@ var Server = Schema{
 		payload BLOB    NOT NULL,
 		PRIMARY KEY (room_id, seq)
 	) WITHOUT ROWID;`,
+	// 2: Crewbo session tokens issued after a GitHub sign-in (ADR 0009).
+	// Only a SHA-256 hash of each token is stored; the GitHub token is not
+	// stored at all.
+	`CREATE TABLE sessions (
+		token_hash      BLOB    PRIMARY KEY,
+		github_user_id  INTEGER NOT NULL,
+		github_login    TEXT    NOT NULL,
+		created_unix_ms INTEGER NOT NULL,
+		expires_unix_ms INTEGER NOT NULL
+	) WITHOUT ROWID;`,
 }
 
 // migrate applies pending migrations, each in its own transaction together
