@@ -304,3 +304,106 @@ func TestTaskFromANewLeadDeviceIsVerified(t *testing.T) {
 		}
 	}
 }
+
+// statuses returns the task status events in the room log.
+func (f *crossFixture) statuses() []*crewbov1.Event {
+	f.t.Helper()
+	evs, err := server.NewLog(f.db.SQL()).Since(context.Background(), f.checkFor("gavriel953").RoomID, 0)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	var out []*crewbov1.Event
+	for _, ev := range evs {
+		if ev.GetTaskStatusChanged() != nil {
+			out = append(out, ev)
+		}
+	}
+	return out
+}
+
+func (m *machine) answer(method, task, reason string) (Response, error) {
+	return m.call(Request{Method: method, Task: task, Text: reason})
+}
+
+func TestTeammateApprovesOrDeclines(t *testing.T) {
+	f := newCrossFixture(t)
+	one, err := f.a.task("gavriel953", "First.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	two, err := f.a.task("gavriel953", "Second.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "both tasks", func() bool { return len(f.b.tasks()) == 2 })
+
+	if resp, err := f.b.answer(MethodTaskApprove, one.TaskID, ""); err != nil || resp.Note != "The lead has been told." {
+		t.Fatalf("approve: %+v %v", resp, err)
+	}
+	if resp, err := f.b.answer(MethodTaskDecline, two.TaskID, "busy with the release"); err != nil || resp.Note != "The lead has been told." {
+		t.Fatalf("decline: %+v %v", resp, err)
+	}
+	states := map[string]string{}
+	for _, task := range f.b.tasks() {
+		states[task.ID] = task.State + "/" + task.Detail
+		if task.Text == "" {
+			t.Errorf("an answered task lost its text: %+v", task)
+		}
+	}
+	if states[one.TaskID] != "approved/" || states[two.TaskID] != "declined/busy with the release" {
+		t.Errorf("states = %v", states)
+	}
+	got := map[string]crewbov1.TaskState{}
+	for _, ev := range f.statuses() {
+		st := ev.GetTaskStatusChanged().GetStatus()
+		got[st.GetTaskId()] = st.GetState()
+		if ev.GetActorMemberId() != "gavriel953" {
+			t.Errorf("status actor %q", ev.GetActorMemberId())
+		}
+	}
+	if got[one.TaskID] != crewbov1.TaskState_TASK_STATE_APPROVED || got[two.TaskID] != crewbov1.TaskState_TASK_STATE_DECLINED {
+		t.Errorf("statuses in the log = %v", got)
+	}
+
+	for name, tc := range map[string]struct {
+		m            *machine
+		method, task string
+		want         string
+	}{
+		"approve twice":        {f.b, MethodTaskApprove, one.TaskID, "already approved"},
+		"decline an approved":  {f.b, MethodTaskDecline, one.TaskID, "already approved"},
+		"approve a declined":   {f.b, MethodTaskApprove, two.TaskID, "already declined"},
+		"unknown task":         {f.b, MethodTaskApprove, "nope", "no task nope"},
+		"the lead's own sends": {f.a, MethodTaskApprove, one.TaskID, "no task"},
+	} {
+		if _, err := tc.m.answer(tc.method, tc.task, ""); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: %v, want %q", name, err, tc.want)
+		}
+	}
+	if n := len(f.statuses()); n != 2 {
+		t.Errorf("refused answers reached the room: %d statuses", n)
+	}
+}
+
+func TestUnansweredTaskExpires(t *testing.T) {
+	f := newCrossFixture(t)
+	sent, err := f.a.task("gavriel953", "Quick one.", nil, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the task", func() bool { return len(f.b.tasks()) == 1 })
+	deadline := time.Now().Add(10 * time.Second)
+	for f.b.tasks()[0].State != "expired" {
+		if time.Now().After(deadline) {
+			t.Fatalf("not expired: %+v", f.b.tasks()[0])
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if _, err := f.b.answer(MethodTaskApprove, sent.TaskID, ""); err == nil || !strings.Contains(err.Error(), "already expired") {
+		t.Errorf("approve after expiry: %v", err)
+	}
+	eventually(t, "the expiry in the room log", func() bool {
+		s := f.statuses()
+		return len(s) == 1 && s[0].GetTaskStatusChanged().GetStatus().GetState() == crewbov1.TaskState_TASK_STATE_EXPIRED
+	})
+}

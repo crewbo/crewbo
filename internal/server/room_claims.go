@@ -19,7 +19,16 @@ const (
 	maxLease     = 8 * time.Hour
 	minLease     = time.Minute
 	renewalLease = claims.DefaultLease
+	maxTaskID    = 64
+	maxDetail    = 512
 )
+
+// reportable reports whether a member may send state in a TaskStatus:
+// every state but the ones the log already implies (dispatched) or none.
+func reportable(state crewbov1.TaskState) bool {
+	_, known := crewbov1.TaskState_name[int32(state)]
+	return known && state != crewbov1.TaskState_TASK_STATE_UNSPECIFIED && state != crewbov1.TaskState_TASK_STATE_DISPATCHED
+}
 
 // Caller is who sends a request: the member from the session and the
 // device key presented in Hello.
@@ -150,6 +159,21 @@ func (r *Room) handle(ctx context.Context, caller Caller, env *crewbov1.Envelope
 		// A resent request is recorded again; receiving daemons ignore a
 		// task id they already have.
 		ev = &crewbov1.Event{Body: &crewbov1.Event_TaskDispatched{TaskDispatched: &crewbov1.TaskDispatched{Task: b.DispatchTask.GetTask()}}}
+
+	case *crewbov1.Envelope_TaskStatus:
+		// Recorded with the sender as actor. The server does not decode
+		// tasks, so it cannot tell the assignee; daemons trust a status
+		// only from the task's assignee (or its author).
+		st := b.TaskStatus
+		switch {
+		case st.GetTaskId() == "" || len(st.GetTaskId()) > maxTaskID:
+			return invalid("task ids are 1 to %d bytes", maxTaskID)
+		case !reportable(st.GetState()):
+			return invalid("%v is not a state a member reports", st.GetState())
+		case len(st.GetDetail()) > maxDetail:
+			return invalid("the detail is at most %d bytes", maxDetail)
+		}
+		ev = &crewbov1.Event{Body: &crewbov1.Event_TaskStatusChanged{TaskStatusChanged: &crewbov1.TaskStatusChanged{Status: st}}}
 
 	default:
 		return errorEnvelope(id, crewbov1.ErrorCode_ERROR_CODE_UNSUPPORTED, "not supported by this server")

@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -111,6 +112,9 @@ const (
 	taskDispatched = "dispatched"
 	taskRejected   = "rejected"
 	taskOther      = "other" // addressed to another member
+	taskApproved   = "approved"
+	taskDeclined   = "declined"
+	taskExpired    = "expired"
 )
 
 // Task verification bounds: the room keys request, and the wait before
@@ -151,6 +155,9 @@ func (d *Daemon) verifyTasks(ctx context.Context, retry time.Duration) {
 	for {
 		if err := d.verifyPending(ctx, roomKeys); err != nil && ctx.Err() == nil {
 			d.cfg.Log.Warn("cannot verify received tasks yet; will retry", "err", err)
+		}
+		if err := d.expireTasks(ctx); err != nil && ctx.Err() == nil {
+			d.cfg.Log.Warn("cannot expire tasks", "err", err)
 		}
 		select {
 		case <-ctx.Done():
@@ -233,7 +240,7 @@ func (d *Daemon) verifyPending(ctx context.Context, roomKeys map[string]server.R
 		if errors.As(err, &fetchErr) {
 			return err
 		}
-		state, detail, taskID := taskDispatched, "", any(nil)
+		state, detail, taskID, expires := taskDispatched, "", any(nil), any(nil)
 		switch {
 		case errors.Is(err, dispatch.ErrNotForYou):
 			state = taskOther
@@ -241,10 +248,10 @@ func (d *Daemon) verifyPending(ctx context.Context, roomKeys map[string]server.R
 			state, detail = taskRejected, err.Error()
 			d.cfg.Log.Warn("rejected a task from the room log", "room", p.room, "reason", detail)
 		default:
-			taskID = body.GetTaskId()
+			taskID, expires = body.GetTaskId(), body.GetExpiresUnixMs()
 			d.cfg.Log.Info("task received", "task_id", body.GetTaskId(), "room", p.room, "author", body.GetAuthorMemberId()) // never the text
 		}
-		if _, err := db.ExecContext(ctx, `UPDATE tasks SET state = ?, detail = ?, task_id = ? WHERE digest = ?`, state, detail, taskID, p.digest); err != nil {
+		if _, err := db.ExecContext(ctx, `UPDATE tasks SET state = ?, detail = ?, task_id = ?, expires_unix_ms = ? WHERE digest = ?`, state, detail, taskID, expires, p.digest); err != nil {
 			return err
 		}
 	}
@@ -302,7 +309,7 @@ func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
 	if d.sync == nil {
 		return Response{ID: req.ID, Error: "task_list: the daemon is not ready"}
 	}
-	rows, err := d.sync.db.QueryContext(ctx, `SELECT room_id, signed, state, detail, received_unix_ms FROM tasks WHERE state IN (?, ?) ORDER BY received_unix_ms DESC`, taskDispatched, taskRejected)
+	rows, err := d.sync.db.QueryContext(ctx, `SELECT room_id, signed, state, detail, received_unix_ms FROM tasks WHERE state NOT IN (?, ?) ORDER BY received_unix_ms DESC`, taskPending, taskOther)
 	if err != nil {
 		return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
 	}
@@ -316,7 +323,7 @@ func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
 			return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
 		}
 		t.Received = time.UnixMilli(received)
-		if t.State == taskDispatched {
+		if t.State != taskRejected {
 			// Verified when it was stored; decoded only now.
 			st, body := &crewbov1.SignedTask{}, &crewbov1.TaskBody{}
 			if proto.Unmarshal(signed, st) != nil || proto.Unmarshal(st.GetBody(), body) != nil {
@@ -331,4 +338,99 @@ func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
 		return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
 	}
 	return resp
+}
+
+// expireTasks marks tasks still waiting for an answer past their expiry
+// as expired and tells the room (data-model.md: Dispatched to Expired).
+func (d *Daemon) expireTasks(ctx context.Context) error {
+	rows, err := d.sync.db.QueryContext(ctx, `UPDATE tasks SET state = ? WHERE state = ? AND expires_unix_ms <= ? RETURNING task_id, room_id`,
+		taskExpired, taskDispatched, d.cfg.Now().UnixMilli())
+	if err != nil {
+		return err
+	}
+	type expired struct{ id, room string }
+	var gone []expired
+	for rows.Next() {
+		var e expired
+		if err := rows.Scan(&e.id, &e.room); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		gone = append(gone, e)
+	}
+	_ = rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, e := range gone {
+		d.cfg.Log.Info("task expired before an answer", "task_id", e.id)
+		if _, err := d.sendStatus(ctx, e.room, e.id, crewbov1.TaskState_TASK_STATE_EXPIRED, "", 0); err != nil && !errors.Is(err, errNotSent) {
+			return err
+		}
+	}
+	return nil
+}
+
+// answerTask records the member's approval or refusal of a task and tells
+// the room. Only a task still waiting for an answer, and not expired, can
+// be answered. Approving launches nothing yet (M4-04).
+func (d *Daemon) answerTask(ctx context.Context, req Request) Response {
+	fail := func(format string, a ...any) Response {
+		return Response{ID: req.ID, Error: fmt.Sprintf(format, a...)}
+	}
+	if d.sync == nil {
+		return fail("%s: the daemon is not ready", req.Method)
+	}
+	state, wire := taskApproved, crewbov1.TaskState_TASK_STATE_APPROVED
+	if req.Method == MethodTaskDecline {
+		state, wire = taskDeclined, crewbov1.TaskState_TASK_STATE_DECLINED
+	}
+	if len(req.Text) > maxReason {
+		return fail("a reason is at most %d bytes", maxReason)
+	}
+	db := d.sync.db
+	var room string
+	err := db.QueryRowContext(ctx, `UPDATE tasks SET state = ?, detail = ? WHERE task_id = ? AND state = ? AND expires_unix_ms > ? RETURNING room_id`,
+		state, req.Text, req.Task, taskDispatched, d.cfg.Now().UnixMilli()).Scan(&room)
+	if errors.Is(err, sql.ErrNoRows) {
+		var now string
+		switch err := db.QueryRowContext(ctx, `SELECT state FROM tasks WHERE task_id = ?`, req.Task).Scan(&now); {
+		case errors.Is(err, sql.ErrNoRows):
+			return fail("no task %s", req.Task)
+		case err != nil:
+			return fail("%s: %v", req.Method, err)
+		case now == taskDispatched:
+			return fail("task %s has expired", req.Task)
+		default:
+			return fail("task %s is already %s", req.Task, now)
+		}
+	}
+	if err != nil {
+		return fail("%s: %v", req.Method, err)
+	}
+	d.cfg.Log.Info("task answered", "task_id", req.Task, "state", state) // never the text or reason
+	resp := Response{ID: req.ID, TaskID: req.Task}
+	reply, err := d.sendStatus(ctx, room, req.Task, wire, req.Text, replyWait)
+	switch {
+	case errors.Is(err, errNotSent):
+		resp.Note = "The lead hears when the sync server answers."
+	case err != nil:
+		resp.Note = fmt.Sprintf("Recorded here, but telling the room failed: %v", err)
+	case reply.GetError() != nil:
+		resp.Note = fmt.Sprintf("Recorded here; the sync server said: %s", reply.GetError().GetMessage())
+	default:
+		resp.Note = "The lead has been told."
+	}
+	return resp
+}
+
+// maxReason is the longest decline reason (the server's TaskStatus detail
+// limit).
+const maxReason = 512
+
+// sendStatus queues a TaskStatus for the room and waits up to wait for the
+// server's answer.
+func (d *Daemon) sendStatus(ctx context.Context, room, taskID string, state crewbov1.TaskState, detail string, wait time.Duration) (*crewbov1.Envelope, error) {
+	env := &crewbov1.Envelope{Id: newEnvelopeID(), Body: &crewbov1.Envelope_TaskStatus{TaskStatus: &crewbov1.TaskStatus{RoomId: room, TaskId: taskID, State: state, Detail: detail}}}
+	return d.sync.submit(ctx, env, wait)
 }

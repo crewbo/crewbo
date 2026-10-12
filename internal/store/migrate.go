@@ -41,6 +41,25 @@ var Daemon = Schema{
 		detail           TEXT    NOT NULL DEFAULT '',
 		received_unix_ms INTEGER NOT NULL
 	) WITHOUT ROWID;`,
+	// 3: the member's answer to a task (approved, declined) or its expiry,
+	// and when a verified task expires. SQLite cannot alter a CHECK, so the
+	// table is rebuilt. Verified tasks go back to pending (task id cleared)
+	// so the daemon verifies them again and records their expiry.
+	`CREATE TABLE tasks_3 (
+		digest           BLOB    PRIMARY KEY,
+		task_id          TEXT    UNIQUE,
+		room_id          TEXT    NOT NULL,
+		signed           BLOB    NOT NULL,
+		state            TEXT    NOT NULL CHECK (state IN ('pending', 'dispatched', 'rejected', 'other', 'approved', 'declined', 'expired')),
+		detail           TEXT    NOT NULL DEFAULT '',
+		received_unix_ms INTEGER NOT NULL,
+		expires_unix_ms  INTEGER
+	) WITHOUT ROWID;
+	INSERT INTO tasks_3 (digest, task_id, room_id, signed, state, detail, received_unix_ms)
+		SELECT digest, CASE state WHEN 'dispatched' THEN NULL ELSE task_id END, room_id, signed,
+			CASE state WHEN 'dispatched' THEN 'pending' ELSE state END, detail, received_unix_ms FROM tasks;
+	DROP TABLE tasks;
+	ALTER TABLE tasks_3 RENAME TO tasks;`,
 }
 
 // Server is the schema of the sync server's database (`crewbo serve`).

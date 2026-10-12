@@ -26,6 +26,8 @@ const (
 	MethodClaimRelease = "claim_release"
 	MethodTaskCreate   = "task_create"
 	MethodTaskList     = "task_list"
+	MethodTaskApprove  = "task_approve"
+	MethodTaskDecline  = "task_decline"
 )
 
 // TerminalSession holds claims made with `crewbo claim add`. It is not an
@@ -68,10 +70,12 @@ type Request struct {
 	ToolUse string `json:"tool_use,omitempty"`
 
 	// claim_add: canonical patterns for Repo, held by Session (and Member).
-	Patterns     []string `json:"patterns,omitempty"`
-	Member       string   `json:"member,omitempty"`
-	Task         string   `json:"task,omitempty"`
-	LeaseSeconds int64    `json:"lease_seconds,omitempty"` // DefaultCLILease when 0
+	Patterns []string `json:"patterns,omitempty"`
+	Member   string   `json:"member,omitempty"`
+	// Task is the task a claim belongs to; for task_approve and
+	// task_decline, the task answered (Text is the decline reason).
+	Task         string `json:"task,omitempty"`
+	LeaseSeconds int64  `json:"lease_seconds,omitempty"` // DefaultCLILease when 0
 	// claim_release: claim ids.
 	IDs []string `json:"ids,omitempty"`
 	// task_create: the teammate's GitHub login, the task text and how long
@@ -141,7 +145,8 @@ type Status struct {
 }
 
 // Task is a task sent to this member. A rejected task has only its State,
-// Detail, Room and Received set: nothing in it was trusted.
+// Detail, Room and Received set: nothing in it was trusted. Detail is the
+// rejection or decline reason.
 type Task struct {
 	ID         string    `json:"id,omitempty"`
 	Room       string    `json:"room"` // room id
@@ -151,7 +156,7 @@ type Task struct {
 	BaseCommit string    `json:"base_commit,omitempty"`
 	Created    time.Time `json:"created,omitzero"`
 	Expires    time.Time `json:"expires,omitzero"`
-	State      string    `json:"state"` // dispatched or rejected
+	State      string    `json:"state"` // dispatched, rejected, approved, declined or expired
 	Detail     string    `json:"detail,omitempty"`
 	Received   time.Time `json:"received"`
 }

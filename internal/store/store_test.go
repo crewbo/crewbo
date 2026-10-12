@@ -102,3 +102,54 @@ func TestIsCorruption(t *testing.T) {
 		t.Error("a plain error with the same text must not count; only driver codes do")
 	}
 }
+
+// Migration 3 keeps received tasks and sends verified ones back to pending,
+// so the daemon verifies them again and records their expiry.
+func TestDaemonMigration3KeepsTasks(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "crewbo.db")
+	db, err := Open(ctx, path, Daemon[:2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.SQL().ExecContext(ctx, `INSERT INTO tasks (digest, task_id, room_id, signed, state, detail, received_unix_ms) VALUES
+		(x'01', 't1', 'r', x'00', 'dispatched', '', 1), (x'02', NULL, 'r', x'00', 'rejected', 'bad', 2), (x'03', NULL, 'r', x'00', 'other', '', 3)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db = open(t, path)
+	got := map[string]string{}
+	rows, err := db.SQL().QueryContext(ctx, `SELECT hex(digest), coalesce(task_id, '-'), state, detail, expires_unix_ms IS NULL FROM tasks`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var digest, id, state, detail string
+		var noExpiry bool
+		if err := rows.Scan(&digest, &id, &state, &detail, &noExpiry); err != nil {
+			t.Fatal(err)
+		}
+		got[digest] = id + " " + state + " " + detail
+		if !noExpiry {
+			t.Errorf("%s has an expiry", digest)
+		}
+	}
+	want := map[string]string{"01": "- pending ", "02": "- rejected bad", "03": "- other "}
+	if len(got) != len(want) {
+		t.Fatalf("rows = %v", got)
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s = %q, want %q", k, got[k], v)
+		}
+	}
+	if _, err := db.SQL().ExecContext(ctx, `UPDATE tasks SET state = 'approved' WHERE digest = x'01'`); err != nil {
+		t.Errorf("approved not accepted: %v", err)
+	}
+	if _, err := db.SQL().ExecContext(ctx, `UPDATE tasks SET state = 'running' WHERE digest = x'01'`); err == nil {
+		t.Error("an unknown state was accepted")
+	}
+}
