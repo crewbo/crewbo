@@ -2,10 +2,14 @@ package daemon
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
 	"io"
 	"net"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -15,6 +19,7 @@ import (
 
 	"github.com/crewbo/crewbo/internal/auth"
 	"github.com/crewbo/crewbo/internal/claims"
+	"github.com/crewbo/crewbo/internal/keys"
 	"github.com/crewbo/crewbo/internal/platform"
 	"github.com/crewbo/crewbo/internal/server"
 	"github.com/crewbo/crewbo/internal/store"
@@ -23,12 +28,20 @@ import (
 // machine is one teammate's computer: a daemon reaching the shared server
 // through its own proxy, so the test can take one machine offline.
 type machine struct {
-	t     *testing.T
-	paths platform.Paths
-	repo  string
-	link  *link
-	run   *running
+	t       *testing.T
+	paths   platform.Paths
+	repo    string
+	link    *link
+	run     *running
+	key     keys.Key
+	keyring *memKeyring
 }
+
+// memKeyring is a keychain holding one device key's seed.
+type memKeyring struct{ seed string }
+
+func (k *memKeyring) Get(string, string) (string, error) { return k.seed, nil }
+func (k *memKeyring) Set(_, _, s string) error           { k.seed = s; return nil }
 
 type crossFixture struct {
 	t   *testing.T
@@ -61,25 +74,32 @@ func newCrossFixture(t *testing.T) *crossFixture {
 	if _, err := rooms.Join(ctx, mate, code); err != nil {
 		t.Fatal(err)
 	}
-	f.a = f.newMachine(lead, "ed25519:aaaa", room)
-	f.b = f.newMachine(mate, "ed25519:bbbb", room)
+	f.a = f.newMachine(lead, room)
+	f.b = f.newMachine(mate, room)
 	return f
 }
 
-func (f *crossFixture) newMachine(u auth.User, key string, room server.RoomInfo) *machine {
+func (f *crossFixture) newMachine(u auth.User, room server.RoomInfo) *machine {
 	t := f.t
 	t.Helper()
-	if _, err := f.db.SQL().Exec(`INSERT INTO device_keys (key_id, github_user_id, public_key, name, os, created_unix_ms) VALUES (?, ?, zeroblob(32), 'd', 'linux', 0)`, key, u.ID); err != nil {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	devKey := keys.Key{Private: priv}
+	key := devKey.ID()
+	if _, err := f.db.SQL().Exec(`INSERT INTO device_keys (key_id, github_user_id, public_key, name, os, created_unix_ms) VALUES (?, ?, ?, 'd', 'linux', 0)`, key, u.ID, []byte(devKey.Public())); err != nil {
 		t.Fatal(err)
 	}
 	token, _, err := server.NewSessions(f.db.SQL(), time.Now).Create(context.Background(), u)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := &machine{t: t, paths: testPaths(t), repo: filepath.Join(t.TempDir(), "crewbo")}
-	if err := os.MkdirAll(filepath.Join(m.repo, ".git"), 0o700); err != nil {
-		t.Fatal(err)
+	m := &machine{
+		t: t, paths: testPaths(t), repo: filepath.Join(t.TempDir(), "crewbo"), key: devKey,
+		keyring: &memKeyring{seed: base64.StdEncoding.EncodeToString(priv.Seed())},
 	}
+	gitInit(t, m.repo)
 	ts := httptest.NewServer(f.srv.Handler())
 	t.Cleanup(ts.Close)
 	m.link = newLink(t, strings.TrimPrefix(ts.URL, "http://"))
@@ -95,7 +115,7 @@ func (f *crossFixture) newMachine(u auth.User, key string, room server.RoomInfo)
 }
 
 func (m *machine) start() {
-	m.run = start(m.t, Config{Paths: m.paths, Log: quietLog(), syncFast: true})
+	m.run = start(m.t, Config{Paths: m.paths, Log: quietLog(), Keyring: m.keyring, syncFast: true})
 	eventually(m.t, "the daemon to connect", func() bool { return strings.HasPrefix(m.status().Sync, "connected") })
 }
 
@@ -303,4 +323,22 @@ func (l *link) restore() {
 	l.mu.Lock()
 	l.down = false
 	l.mu.Unlock()
+}
+
+// gitInit makes dir a git repository with one commit.
+func gitInit(t *testing.T, dir string) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	for _, args := range [][]string{{"init", "-q"}, {"-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "base"}} {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", args...) //nolint:gosec // test helper with fixed arguments
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
 }

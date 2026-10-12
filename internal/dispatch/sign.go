@@ -117,7 +117,7 @@ func Verify(st *crewbov1.SignedTask, c Check) (*crewbov1.TaskBody, error) {
 	case body.GetCreatedUnixMs() > now+ClockSkew.Milliseconds():
 		return nil, ErrNotYetValid
 	}
-	if err := wellFormed(body); err != nil {
+	if err := WellFormed(body); err != nil {
 		return nil, err
 	}
 	if c.Seen != nil && c.Seen(body.GetTaskId()) {
@@ -126,7 +126,9 @@ func Verify(st *crewbov1.SignedTask, c Check) (*crewbov1.TaskBody, error) {
 	return body, nil
 }
 
-func wellFormed(b *crewbov1.TaskBody) error {
+// WellFormed checks a task body's id, text size and owned paths: the rules
+// Verify applies, so a lead's daemon can refuse a bad task before signing.
+func WellFormed(b *crewbov1.TaskBody) error {
 	if _, err := uuid.Parse(b.GetTaskId()); err != nil {
 		return fmt.Errorf("%w: task id: %w", ErrInvalidFields, err)
 	}

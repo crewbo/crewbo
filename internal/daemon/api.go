@@ -24,6 +24,7 @@ const (
 	MethodClaimAdd     = "claim_add"
 	MethodClaimList    = "claim_list"
 	MethodClaimRelease = "claim_release"
+	MethodTaskCreate   = "task_create"
 )
 
 // TerminalSession holds claims made with `crewbo claim add`. It is not an
@@ -72,6 +73,11 @@ type Request struct {
 	LeaseSeconds int64    `json:"lease_seconds,omitempty"` // DefaultCLILease when 0
 	// claim_release: claim ids.
 	IDs []string `json:"ids,omitempty"`
+	// task_create: the teammate's GitHub login, the task text and how long
+	// it stays valid; Patterns are the owned paths.
+	Assignee   string `json:"assignee,omitempty"`
+	Text       string `json:"text,omitempty"`
+	TTLSeconds int64  `json:"ttl_seconds,omitempty"`
 	// OwnerPrefix limits claim_release to claims whose session starts with
 	// it (this device's claims in a room). Set by the daemon, not clients.
 	OwnerPrefix string `json:"-"`
@@ -95,6 +101,8 @@ type Response struct {
 	// claim_release
 	Released    int      `json:"released,omitempty"`
 	ReleasedIDs []string `json:"released_ids,omitempty"`
+	// TaskID is the id of a created task.
+	TaskID string `json:"task_id,omitempty"`
 	// Note tells the member what happened beyond the result, for example
 	// that a claim is queued for the sync server.
 	Note string `json:"note,omitempty"`

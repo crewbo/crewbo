@@ -22,6 +22,7 @@ import (
 
 	"github.com/crewbo/crewbo/internal/auth"
 	"github.com/crewbo/crewbo/internal/claims"
+	"github.com/crewbo/crewbo/internal/keys"
 	"github.com/crewbo/crewbo/internal/platform"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
 	"github.com/crewbo/crewbo/internal/roomstate"
@@ -45,6 +46,9 @@ type Config struct {
 	Claims map[string]*claims.Set
 	Now    func() time.Time // clock; time.Now when nil
 	Log    *slog.Logger
+
+	// Keyring holds this device's key; the OS keychain when nil.
+	Keyring keys.Keyring
 
 	syncFast bool // tests: reconnect and reload in milliseconds
 }
@@ -376,9 +380,12 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 			continue
 		}
 		var resp Response
-		if d.shared(req) {
+		switch {
+		case req.Method == MethodTaskCreate:
+			resp = d.createTask(ctx, req)
+		case d.shared(req):
 			resp = d.sharedClaim(ctx, req)
-		} else {
+		default:
 			reply := make(chan Response, 1)
 			select {
 			case d.calls <- call{req: req, reply: reply}:
