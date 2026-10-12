@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package crewbo.v1;
+
+option go_package = "github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1";
+
+// TaskBody is what a room lead asks a teammate's agent to do. The lead's
+// daemon serializes it once and signs those exact bytes (ADR 0006); nobody
+// re-encodes it before verifying.
+message TaskBody {
+  // Unique per task; verifiers refuse an id they have seen before.
+  string task_id = 1;
+  string room_id = 2;
+  // The lead's device key and GitHub login.
+  string author_key_id = 3;
+  string author_member_id = 4;
+  // The teammate's GitHub login.
+  string assignee_member_id = 5;
+  // Shown verbatim before approval; data, never instructions to Crewbo.
+  string text = 6;
+  // Repository-relative paths or globs the task may change; claimed for
+  // the agent while it runs.
+  repeated string owned_paths = 7;
+  // Commit the worktree starts from.
+  string base_commit = 8;
+  int64 created_unix_ms = 9;
+  int64 expires_unix_ms = 10;
+}
+
+// SignedTask carries a TaskBody exactly as signed.
+message SignedTask {
+  // Serialized TaskBody.
+  bytes body = 1;
+  // Ed25519 signature over body.
+  bytes signature = 2;
+  // Signing device key id (keys.KeyID of the public key).
+  string key_id = 3;
+}
+
+// DispatchTask asks the server to deliver a signed task to the room.
+message DispatchTask {
+  string room_id = 1;
+  SignedTask task = 2;
+}
+
+// TaskState follows the task state machine in data-model.md.
+enum TaskState {
+  TASK_STATE_UNSPECIFIED = 0;
+  TASK_STATE_DISPATCHED = 1;
+  TASK_STATE_REJECTED = 2;
+  TASK_STATE_EXPIRED = 3;
+  TASK_STATE_DECLINED = 4;
+  TASK_STATE_APPROVED = 5;
+  TASK_STATE_FAILED = 6;
+  TASK_STATE_RUNNING = 7;
+  TASK_STATE_CHECKPOINTED = 8;
+  TASK_STATE_MERGING = 9;
+  TASK_STATE_MERGED = 10;
+  TASK_STATE_CANCELLED = 11;
+}
+
+// TaskStatus reports a task's new state to the room.
+message TaskStatus {
+  string room_id = 1;
+  string task_id = 2;
+  TaskState state = 3;
+  // Short human-readable reason, for example why verification failed.
+  string detail = 4;
+}
+
+// TaskDispatched records a delivered task in the room log.
+message TaskDispatched {
+  SignedTask task = 1;
+}
+
+// TaskStatusChanged records a task's new state in the room log.
+message TaskStatusChanged {
+  TaskStatus status = 1;
+}

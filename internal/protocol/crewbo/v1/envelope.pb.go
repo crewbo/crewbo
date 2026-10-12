@@ -116,6 +116,8 @@ type Envelope struct {
 	//	*Envelope_ClaimRequest
 	//	*Envelope_ClaimRelease
 	//	*Envelope_ClaimRenew
+	//	*Envelope_DispatchTask
+	//	*Envelope_TaskStatus
 	//	*Envelope_Event
 	Body          isEnvelope_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
@@ -229,6 +231,24 @@ func (x *Envelope) GetClaimRenew() *ClaimRenew {
 	return nil
 }
 
+func (x *Envelope) GetDispatchTask() *DispatchTask {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_DispatchTask); ok {
+			return x.DispatchTask
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetTaskStatus() *TaskStatus {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_TaskStatus); ok {
+			return x.TaskStatus
+		}
+	}
+	return nil
+}
+
 func (x *Envelope) GetEvent() *Event {
 	if x != nil {
 		if x, ok := x.Body.(*Envelope_Event); ok {
@@ -270,6 +290,14 @@ type Envelope_ClaimRenew struct {
 	ClaimRenew *ClaimRenew `protobuf:"bytes,22,opt,name=claim_renew,json=claimRenew,proto3,oneof"`
 }
 
+type Envelope_DispatchTask struct {
+	DispatchTask *DispatchTask `protobuf:"bytes,40,opt,name=dispatch_task,json=dispatchTask,proto3,oneof"`
+}
+
+type Envelope_TaskStatus struct {
+	TaskStatus *TaskStatus `protobuf:"bytes,41,opt,name=task_status,json=taskStatus,proto3,oneof"`
+}
+
 type Envelope_Event struct {
 	Event *Event `protobuf:"bytes,60,opt,name=event,proto3,oneof"`
 }
@@ -287,6 +315,10 @@ func (*Envelope_ClaimRequest) isEnvelope_Body() {}
 func (*Envelope_ClaimRelease) isEnvelope_Body() {}
 
 func (*Envelope_ClaimRenew) isEnvelope_Body() {}
+
+func (*Envelope_DispatchTask) isEnvelope_Body() {}
+
+func (*Envelope_TaskStatus) isEnvelope_Body() {}
 
 func (*Envelope_Event) isEnvelope_Body() {}
 
@@ -670,7 +702,7 @@ var File_crewbo_v1_envelope_proto protoreflect.FileDescriptor
 
 const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"\n" +
-	"\x18crewbo/v1/envelope.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\x1a\x15crewbo/v1/event.proto\"\xae\x03\n" +
+	"\x18crewbo/v1/envelope.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\x1a\x15crewbo/v1/event.proto\x1a\x14crewbo/v1/task.proto\"\xa8\x04\n" +
 	"\bEnvelope\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
 	"\x05hello\x18\n" +
@@ -681,7 +713,10 @@ const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"\rclaim_request\x18\x14 \x01(\v2\x17.crewbo.v1.ClaimRequestH\x00R\fclaimRequest\x12>\n" +
 	"\rclaim_release\x18\x15 \x01(\v2\x17.crewbo.v1.ClaimReleaseH\x00R\fclaimRelease\x128\n" +
 	"\vclaim_renew\x18\x16 \x01(\v2\x15.crewbo.v1.ClaimRenewH\x00R\n" +
-	"claimRenew\x12(\n" +
+	"claimRenew\x12>\n" +
+	"\rdispatch_task\x18( \x01(\v2\x17.crewbo.v1.DispatchTaskH\x00R\fdispatchTask\x128\n" +
+	"\vtask_status\x18) \x01(\v2\x15.crewbo.v1.TaskStatusH\x00R\n" +
+	"taskStatus\x12(\n" +
 	"\x05event\x18< \x01(\v2\x10.crewbo.v1.EventH\x00R\x05eventB\x06\n" +
 	"\x04body\"\xa8\x01\n" +
 	"\x05Hello\x12)\n" +
@@ -748,8 +783,10 @@ var file_crewbo_v1_envelope_proto_goTypes = []any{
 	(*ClaimRequest)(nil), // 8: crewbo.v1.ClaimRequest
 	(*ClaimRelease)(nil), // 9: crewbo.v1.ClaimRelease
 	(*ClaimRenew)(nil),   // 10: crewbo.v1.ClaimRenew
-	(*Event)(nil),        // 11: crewbo.v1.Event
-	(*Claim)(nil),        // 12: crewbo.v1.Claim
+	(*DispatchTask)(nil), // 11: crewbo.v1.DispatchTask
+	(*TaskStatus)(nil),   // 12: crewbo.v1.TaskStatus
+	(*Event)(nil),        // 13: crewbo.v1.Event
+	(*Claim)(nil),        // 14: crewbo.v1.Claim
 }
 var file_crewbo_v1_envelope_proto_depIdxs = []int32{
 	2,  // 0: crewbo.v1.Envelope.hello:type_name -> crewbo.v1.Hello
@@ -759,17 +796,19 @@ var file_crewbo_v1_envelope_proto_depIdxs = []int32{
 	8,  // 4: crewbo.v1.Envelope.claim_request:type_name -> crewbo.v1.ClaimRequest
 	9,  // 5: crewbo.v1.Envelope.claim_release:type_name -> crewbo.v1.ClaimRelease
 	10, // 6: crewbo.v1.Envelope.claim_renew:type_name -> crewbo.v1.ClaimRenew
-	11, // 7: crewbo.v1.Envelope.event:type_name -> crewbo.v1.Event
-	3,  // 8: crewbo.v1.Hello.rooms:type_name -> crewbo.v1.RoomCursor
-	5,  // 9: crewbo.v1.Welcome.snapshots:type_name -> crewbo.v1.RoomSnapshot
-	12, // 10: crewbo.v1.RoomSnapshot.claims:type_name -> crewbo.v1.Claim
-	0,  // 11: crewbo.v1.Error.code:type_name -> crewbo.v1.ErrorCode
-	12, // 12: crewbo.v1.Error.blocking_claims:type_name -> crewbo.v1.Claim
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	11, // 7: crewbo.v1.Envelope.dispatch_task:type_name -> crewbo.v1.DispatchTask
+	12, // 8: crewbo.v1.Envelope.task_status:type_name -> crewbo.v1.TaskStatus
+	13, // 9: crewbo.v1.Envelope.event:type_name -> crewbo.v1.Event
+	3,  // 10: crewbo.v1.Hello.rooms:type_name -> crewbo.v1.RoomCursor
+	5,  // 11: crewbo.v1.Welcome.snapshots:type_name -> crewbo.v1.RoomSnapshot
+	14, // 12: crewbo.v1.RoomSnapshot.claims:type_name -> crewbo.v1.Claim
+	0,  // 13: crewbo.v1.Error.code:type_name -> crewbo.v1.ErrorCode
+	14, // 14: crewbo.v1.Error.blocking_claims:type_name -> crewbo.v1.Claim
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_crewbo_v1_envelope_proto_init() }
@@ -779,6 +818,7 @@ func file_crewbo_v1_envelope_proto_init() {
 	}
 	file_crewbo_v1_claims_proto_init()
 	file_crewbo_v1_event_proto_init()
+	file_crewbo_v1_task_proto_init()
 	file_crewbo_v1_envelope_proto_msgTypes[0].OneofWrappers = []any{
 		(*Envelope_Hello)(nil),
 		(*Envelope_Welcome)(nil),
@@ -787,6 +827,8 @@ func file_crewbo_v1_envelope_proto_init() {
 		(*Envelope_ClaimRequest)(nil),
 		(*Envelope_ClaimRelease)(nil),
 		(*Envelope_ClaimRenew)(nil),
+		(*Envelope_DispatchTask)(nil),
+		(*Envelope_TaskStatus)(nil),
 		(*Envelope_Event)(nil),
 	}
 	type x struct{}
