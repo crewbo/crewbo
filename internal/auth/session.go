@@ -15,6 +15,8 @@ type Session struct {
 	SessionToken  string `json:"session_token"`
 	GitHubLogin   string `json:"github_login"`
 	ExpiresUnixMs int64  `json:"expires_unix_ms"`
+	// DeviceKeyID is this device's registered key (keys.Key.ID).
+	DeviceKeyID string `json:"device_key_id,omitempty"`
 }
 
 // ErrNoSession means nobody has signed in on this machine.

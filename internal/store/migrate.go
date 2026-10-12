@@ -56,6 +56,17 @@ var Server = Schema{
 		created_unix_ms INTEGER NOT NULL,
 		expires_unix_ms INTEGER NOT NULL
 	) WITHOUT ROWID;`,
+	// 3: device public keys registered by members (ADR 0006). key_id is
+	// derived from public_key by the server, never taken from the client.
+	`CREATE TABLE device_keys (
+		key_id          TEXT    PRIMARY KEY,
+		github_user_id  INTEGER NOT NULL,
+		public_key      BLOB    NOT NULL CHECK (length(public_key) = 32),
+		name            TEXT    NOT NULL,
+		os              TEXT    NOT NULL,
+		created_unix_ms INTEGER NOT NULL,
+		revoked_unix_ms INTEGER
+	) WITHOUT ROWID;`,
 }
 
 // migrate applies pending migrations, each in its own transaction together
