@@ -24,6 +24,11 @@ message ClaimRequest {
   string session_id = 2;
   repeated string patterns = 3;
   string task_id = 4;
+  // One client-chosen id per pattern, so a request resent after a lost
+  // reply is recognised instead of granted twice.
+  repeated string claim_ids = 5;
+  // Requested lease length; the server applies its own default and cap.
+  int64 lease_seconds = 6;
 }
 
 // ClaimRelease gives up claims before their lease ends.
