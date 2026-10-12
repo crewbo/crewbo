@@ -95,3 +95,14 @@ func TestRepoKey(t *testing.T) {
 		t.Errorf("RepoKey(%q) = %q", target, RepoKey(target))
 	}
 }
+
+func TestIsTerminalSession(t *testing.T) {
+	for id, want := range map[string]bool{
+		"terminal": true, "ed25519:8d9e/terminal": true,
+		"ed25519:8d9e/agent-1": false, "agent-terminal": false, "": false,
+	} {
+		if got := IsTerminalSession(id); got != want {
+			t.Errorf("IsTerminalSession(%q) = %v", id, got)
+		}
+	}
+}

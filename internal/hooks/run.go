@@ -150,7 +150,7 @@ func denyReason(resp daemon.Response) string {
 	until := ""
 	if c := resp.BlockedBy; c != nil {
 		switch {
-		case c.Holder.SessionID == daemon.TerminalSession && c.Holder.MemberID != "":
+		case daemon.IsTerminalSession(c.Holder.SessionID) && c.Holder.MemberID != "":
 			holder = c.Holder.MemberID + " (from a terminal)"
 		case c.Holder.MemberID != "":
 			holder = c.Holder.MemberID + "'s agent"
