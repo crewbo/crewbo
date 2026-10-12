@@ -119,13 +119,14 @@ func (s *Server) Run(ctx context.Context, cfg Config, ready func(net.Addr)) erro
 	return err
 }
 
-// Handler routes /healthz, /v1/auth/session and /v1/ws.
+// Handler routes /healthz, /v1/auth/session, /v1/devices and /v1/ws.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok\n"))
 	})
 	mux.HandleFunc("POST /v1/auth/session", s.serveSession)
+	mux.HandleFunc("POST /v1/devices", s.serveDevice)
 	mux.HandleFunc("GET /v1/ws", s.serveWS)
 	return mux
 }

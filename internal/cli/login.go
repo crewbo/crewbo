@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -11,10 +12,13 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/crewbo/crewbo/internal/auth"
+	"github.com/crewbo/crewbo/internal/keys"
 	"github.com/crewbo/crewbo/internal/server"
 )
 
@@ -50,11 +54,22 @@ func runLogin(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	if err != nil {
 		return write(stderr, ExitError, "crewbo: %v\n", err)
 	}
+	key, err := keys.Load(keys.OSKeyring{}, p.Data, keys.Timeout)
+	if err != nil {
+		return write(stderr, ExitError, "crewbo: device key: %v\n", err)
+	}
+	if s.DeviceKeyID, err = registerDevice(ctx, &http.Client{Timeout: 30 * time.Second}, base, s.SessionToken, key); err != nil {
+		return write(stderr, ExitError, "crewbo: register this device: %v\n", err)
+	}
 	if err := auth.SaveSession(auth.SessionPath(p.Config), s); err != nil {
 		return write(stderr, ExitError, "crewbo: save session: %v\n", err)
 	}
-	return write(stdout, ExitOK, "Signed in to %s as %s. The session is valid until %s.\n",
+	_ = write(stdout, ExitOK, "Signed in to %s as %s. The session is valid until %s.\n",
 		s.Server, s.GitHubLogin, time.UnixMilli(s.ExpiresUnixMs).Format("2006-01-02 15:04"))
+	if key.Source == keys.SourceFile {
+		_ = write(stdout, ExitOK, "No system keychain answered, so this device's key is kept in %s, readable only by you.\n", key.Path)
+	}
+	return write(stdout, ExitOK, "This device's key %s is registered.\n", s.DeviceKeyID)
 }
 
 // checkServerURL accepts https, and http only on loopback or with
@@ -110,4 +125,42 @@ func login(ctx context.Context, flow *auth.DeviceFlow, c *http.Client, base stri
 		return auth.Session{}, errors.New("the sync server sent an unexpected answer; is --server a Crewbo server?")
 	}
 	return auth.Session{Server: base, SessionToken: r.SessionToken, GitHubLogin: r.GitHubLogin, ExpiresUnixMs: r.ExpiresUnixMs}, nil
+}
+
+// registerDevice registers key with the server for the signed-in member,
+// signing keys.RegistrationMessage to prove it holds the private key.
+func registerDevice(ctx context.Context, c *http.Client, base, sessionToken string, key keys.Key) (string, error) {
+	name, _ := os.Hostname()
+	if name == "" || len(name) > 64 {
+		name = "device"
+	}
+	body, err := json.Marshal(server.DeviceRequest{
+		PublicKey: key.Public(),
+		Signature: ed25519.Sign(key.Private, keys.RegistrationMessage(sessionToken)),
+		Name:      name,
+		OS:        runtime.GOOS,
+	})
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/v1/devices", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+sessionToken)
+	resp, err := c.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("could not reach the sync server at %s: %w", base, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return "", fmt.Errorf("the sync server refused the key: %s: %s", resp.Status, strings.TrimSpace(string(msg)))
+	}
+	var r server.DeviceResponse
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<10)).Decode(&r); err != nil || r.KeyID != key.ID() {
+		return "", errors.New("the sync server sent an unexpected answer to the key registration")
+	}
+	return r.KeyID, nil
 }

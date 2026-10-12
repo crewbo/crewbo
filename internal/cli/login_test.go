@@ -3,15 +3,22 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/crewbo/crewbo/internal/auth"
+	"github.com/crewbo/crewbo/internal/keys"
 	"github.com/crewbo/crewbo/internal/server"
+	"github.com/crewbo/crewbo/internal/store"
 )
 
 func TestCheckServerURL(t *testing.T) {
@@ -89,5 +96,28 @@ func TestLoginUsage(t *testing.T) {
 		if code := Run(context.Background(), args, nil, &out, &errOut, BuildInfo{}); code != ExitUsage {
 			t.Errorf("%v: exit %d %q", args, code, errOut.String())
 		}
+	}
+}
+
+func TestRegisterDeviceAgainstServer(t *testing.T) {
+	ctx := context.Background()
+	db, err := store.Open(ctx, filepath.Join(t.TempDir(), "server.db"), store.Server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	token, _, err := server.NewSessions(db.SQL(), time.Now).Create(ctx, auth.User{ID: 9, Login: "RM1338"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(server.New(slog.New(slog.NewTextHandler(io.Discard, nil)), db.SQL()).Handler())
+	defer ts.Close()
+	_, priv, _ := ed25519.GenerateKey(rand.Reader)
+	key := keys.Key{Private: priv, Source: keys.SourceKeychain}
+	if id, err := registerDevice(ctx, ts.Client(), ts.URL, token, key); err != nil || id != key.ID() {
+		t.Fatalf("registerDevice = %q, %v", id, err)
+	}
+	if _, err := registerDevice(ctx, ts.Client(), ts.URL, "cbs_expired", key); err == nil || !strings.Contains(err.Error(), "401") {
+		t.Errorf("unknown session: %v", err)
 	}
 }

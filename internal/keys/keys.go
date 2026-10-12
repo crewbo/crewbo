@@ -70,6 +70,13 @@ func (k Key) Public() ed25519.PublicKey { return k.Private.Public().(ed25519.Pub
 // SHA-256 of the public key, in hex.
 func (k Key) ID() string { return KeyID(k.Public()) }
 
+// RegistrationMessage is what a device signs to prove it holds its key
+// when registering it with a sync server. It includes the caller's session
+// token, so a signature cannot be replayed by another member.
+func RegistrationMessage(sessionToken string) []byte {
+	return []byte("crewbo-register-device-v1\n" + sessionToken)
+}
+
 // KeyID returns the fingerprint of a public key; see Key.ID.
 func KeyID(pub ed25519.PublicKey) string {
 	sum := sha256.Sum256(pub)
