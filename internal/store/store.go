@@ -30,23 +30,24 @@ type DB struct {
 }
 
 // Open opens or creates the database at path, checks its integrity, and
-// applies pending migrations. Pragmas are passed in the DSN so they apply to
+// applies schema's pending migrations. Pragmas are passed in the DSN so they apply to
 // every connection (modernc.org/sqlite: "_pragma" query parameters).
-func Open(ctx context.Context, path string) (*DB, error) {
+func Open(ctx context.Context, path string, schema Schema) (*DB, error) {
 	dsn := path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
 	sqldb, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
-	// One connection: the daemon's owner goroutine is the only writer, and a
-	// single connection rules out SQLITE_BUSY between our own connections.
+	// One connection: each database has a single writer (the daemon's owner
+	// goroutine, the server's room goroutines in turn), and a single
+	// connection rules out SQLITE_BUSY between our own connections.
 	sqldb.SetMaxOpenConns(1)
 	db := &DB{sql: sqldb}
 	if err := db.check(ctx); err != nil {
 		_ = sqldb.Close()
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
-	if err := db.migrate(ctx); err != nil {
+	if err := db.migrate(ctx, schema); err != nil {
 		_ = sqldb.Close()
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
