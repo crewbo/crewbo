@@ -93,4 +93,7 @@ enum ErrorCode {
   ERROR_CODE_TOO_LARGE = 6;
   // The daemon's protocol_version is too old for this server.
   ERROR_CODE_UPGRADE_REQUIRED = 7;
+  // The member is not in a room named in the request (for example a Hello
+  // cursor for a room they left).
+  ERROR_CODE_NOT_MEMBER = 8;
 }
