@@ -45,6 +45,7 @@ type Config struct {
 type Server struct {
 	log      *slog.Logger
 	sessions *Sessions
+	rooms    *Rooms
 	// lookupUser asks GitHub whose token it is; tests replace it.
 	lookupUser func(ctx context.Context, githubToken string) (auth.User, error)
 	// HelloWait is how long a new connection may take to send Hello.
@@ -63,6 +64,7 @@ func New(log *slog.Logger, db *sql.DB) *Server {
 	return &Server{
 		log:      log,
 		sessions: NewSessions(db, time.Now),
+		rooms:    NewRooms(db, time.Now),
 		lookupUser: func(ctx context.Context, token string) (auth.User, error) {
 			return auth.LookupUser(ctx, github, auth.APIURL, token)
 		},
@@ -119,7 +121,7 @@ func (s *Server) Run(ctx context.Context, cfg Config, ready func(net.Addr)) erro
 	return err
 }
 
-// Handler routes /healthz, /v1/auth/session, /v1/devices and /v1/ws.
+// Handler routes /healthz, /v1/auth/session, /v1/devices, /v1/rooms... and /v1/ws.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -127,6 +129,11 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("POST /v1/auth/session", s.serveSession)
 	mux.HandleFunc("POST /v1/devices", s.serveDevice)
+	mux.HandleFunc("POST /v1/rooms", s.serveCreateRoom)
+	mux.HandleFunc("GET /v1/rooms", s.serveListRooms)
+	mux.HandleFunc("POST /v1/rooms/join", s.serveJoin)
+	mux.HandleFunc("POST /v1/rooms/{id}/invites", s.serveInvite)
+	mux.HandleFunc("POST /v1/rooms/{id}/leave", s.serveLeave)
 	mux.HandleFunc("GET /v1/ws", s.serveWS)
 	return mux
 }

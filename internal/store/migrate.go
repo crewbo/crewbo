@@ -67,6 +67,29 @@ var Server = Schema{
 		created_unix_ms INTEGER NOT NULL,
 		revoked_unix_ms INTEGER
 	) WITHOUT ROWID;`,
+	// 4: room membership and invites (data-model.md). A member is a GitHub
+	// account in a room; leaving sets left_unix_ms. The partial indexes
+	// allow one active membership per account per room and one active lead
+	// per room. Invite codes are stored only as SHA-256 hashes.
+	`CREATE TABLE members (
+		room_id        TEXT    NOT NULL REFERENCES rooms (id),
+		github_user_id INTEGER NOT NULL,
+		github_login   TEXT    NOT NULL,
+		role           TEXT    NOT NULL CHECK (role IN ('lead', 'member')),
+		joined_unix_ms INTEGER NOT NULL,
+		left_unix_ms   INTEGER
+	);
+	CREATE UNIQUE INDEX members_active ON members (room_id, github_user_id) WHERE left_unix_ms IS NULL;
+	CREATE UNIQUE INDEX members_one_lead ON members (room_id) WHERE role = 'lead' AND left_unix_ms IS NULL;
+	CREATE TABLE invites (
+		code_hash       BLOB    PRIMARY KEY,
+		room_id         TEXT    NOT NULL REFERENCES rooms (id),
+		created_by      INTEGER NOT NULL,
+		created_unix_ms INTEGER NOT NULL,
+		expires_unix_ms INTEGER NOT NULL,
+		max_uses        INTEGER NOT NULL CHECK (max_uses >= 1),
+		uses            INTEGER NOT NULL DEFAULT 0 CHECK (uses <= max_uses)
+	) WITHOUT ROWID;`,
 }
 
 // migrate applies pending migrations, each in its own transaction together
