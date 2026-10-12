@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -317,3 +318,67 @@ func TestPostShellViolationReachesAgent(t *testing.T) {
 // the hook then fails open by design (TestByteOrderMarkIsStripped on
 // ubuntu-latest, PR #87; the adapter tests had the same fix in #71).
 const testTimeout = 5 * time.Second
+
+// fakeDaemon listens on the daemon socket, reads one request line after the
+// hello, and then hangs (answer false) or hangs up (answer true).
+func fakeDaemon(t *testing.T, hangUp bool) platform.Paths {
+	t.Helper()
+	root, err := os.MkdirTemp("", "cbfd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	p := platform.Paths{Data: filepath.Join(root, "d"), Config: filepath.Join(root, "c"), Runtime: filepath.Join(root, "r")}
+	if err := p.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(p.Runtime, daemon.TokenName), []byte("tok"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ln, err := platform.Listen(p.SocketPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	t.Cleanup(func() { _ = ln.Close(); <-done })
+	go func() {
+		defer close(done)
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer func() { _ = c.Close() }()
+		r := bufio.NewReader(c)
+		_, _ = r.ReadBytes('\n') // hello
+		_, _ = r.ReadBytes('\n') // the request
+		if !hangUp {
+			_, _ = r.ReadBytes('\n') // wait until the hook gives up and closes
+		}
+	}()
+	return p
+}
+
+// The warning says what went wrong: a daemon too slow to answer, or one
+// that failed some other way (a CI failure hid the latter behind "did not
+// answer in time", #100).
+func TestWarningNamesTheFailure(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	in := payload(t, Event{Session: "s", Cwd: repo, Paths: []string{"a.go"}})
+	for name, tc := range map[string]struct {
+		hangUp bool
+		want   string
+	}{
+		"slow daemon":   {false, "did not answer in time"},
+		"hung up on us": {true, "could not check this action: read response: EOF"},
+	} {
+		p := fakeDaemon(t, tc.hangUp)
+		var out bytes.Buffer
+		Run(context.Background(), fakeAdapter{}, PreEdit, strings.NewReader(in), &out, Deps{Paths: p, Timeout: 200 * time.Millisecond})
+		if !strings.Contains(out.String(), tc.want) {
+			t.Errorf("%s: output %q, want %q", name, out.String(), tc.want)
+		}
+	}
+}
