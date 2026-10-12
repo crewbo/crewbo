@@ -395,6 +395,8 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 			resp = d.createTask(ctx, req)
 		case req.Method == MethodTaskList:
 			resp = d.listTasks(ctx, req)
+		case req.Method == MethodTaskApprove || req.Method == MethodTaskDecline:
+			resp = d.answerTask(ctx, req)
 		case d.shared(req):
 			resp = d.sharedClaim(ctx, req)
 		default:

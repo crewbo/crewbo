@@ -117,3 +117,40 @@ func TestDispatchWithARevokedKey(t *testing.T) {
 		t.Errorf("revoked key: %v", r)
 	}
 }
+
+func statusEnv(id, room, task string, state crewbov1.TaskState, detail string) *crewbov1.Envelope {
+	return &crewbov1.Envelope{Id: id, Body: &crewbov1.Envelope_TaskStatus{TaskStatus: &crewbov1.TaskStatus{RoomId: room, TaskId: task, State: state, Detail: detail}}}
+}
+
+// A member's task status is recorded with the member as actor; malformed
+// ones are refused.
+func TestTaskStatusIsRecorded(t *testing.T) {
+	d := newDispatchRoom(t)
+	lead := d.cr.connect(t, testToken, d.leadID)
+	mate := d.cr.connect(t, d.cr.tokenB, d.mateID)
+	r := request(t, mate, statusEnv("s1", d.cr.room, "task-1", crewbov1.TaskState_TASK_STATE_DECLINED, "not today"))
+	if r.GetAck().GetSeq() == 0 {
+		t.Fatalf("status: %v", r)
+	}
+	ev := nextEvent(t, lead)
+	st := ev.GetTaskStatusChanged().GetStatus()
+	if st.GetTaskId() != "task-1" || st.GetState() != crewbov1.TaskState_TASK_STATE_DECLINED || st.GetDetail() != "not today" || ev.GetActorMemberId() == "tester" || ev.GetActorMemberId() == "" {
+		t.Fatalf("lead received %v (actor %q)", st, ev.GetActorMemberId())
+	}
+	long := string(make([]byte, maxDetail+1))
+	for name, env := range map[string]*crewbov1.Envelope{
+		"no task id":    statusEnv("x1", d.cr.room, "", crewbov1.TaskState_TASK_STATE_APPROVED, ""),
+		"long task id":  statusEnv("x2", d.cr.room, string(make([]byte, maxTaskID+1)), crewbov1.TaskState_TASK_STATE_APPROVED, ""),
+		"no state":      statusEnv("x3", d.cr.room, "t", crewbov1.TaskState_TASK_STATE_UNSPECIFIED, ""),
+		"dispatched":    statusEnv("x4", d.cr.room, "t", crewbov1.TaskState_TASK_STATE_DISPATCHED, ""),
+		"unknown state": statusEnv("x5", d.cr.room, "t", crewbov1.TaskState(99), ""),
+		"long detail":   statusEnv("x6", d.cr.room, "t", crewbov1.TaskState_TASK_STATE_DECLINED, long),
+	} {
+		if r := request(t, mate, env); r.GetError().GetCode() != crewbov1.ErrorCode_ERROR_CODE_INVALID {
+			t.Errorf("%s: %v", name, r)
+		}
+	}
+	if r := request(t, mate, statusEnv("x7", "r_other", "t", crewbov1.TaskState_TASK_STATE_DECLINED, "")); r.GetError().GetCode() != crewbov1.ErrorCode_ERROR_CODE_NOT_MEMBER {
+		t.Errorf("another room: %v", r)
+	}
+}
