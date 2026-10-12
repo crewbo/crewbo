@@ -28,6 +28,26 @@ var Daemon = Schema{
 	);`,
 }
 
+// Server is the schema of the sync server's database (`crewbo serve`).
+var Server = Schema{
+	// 1: rooms and their append-only event logs (data-model.md). next_seq
+	// only increases; (room_id, seq) is unique and gap-free because the
+	// event insert and the next_seq bump share one transaction. payload is
+	// the binary Protobuf crewbo.v1.Event.
+	`CREATE TABLE rooms (
+		id              TEXT    PRIMARY KEY,
+		name            TEXT    NOT NULL,
+		created_unix_ms INTEGER NOT NULL,
+		next_seq        INTEGER NOT NULL DEFAULT 1 CHECK (next_seq >= 1)
+	);
+	CREATE TABLE events (
+		room_id TEXT    NOT NULL REFERENCES rooms (id),
+		seq     INTEGER NOT NULL CHECK (seq >= 1),
+		payload BLOB    NOT NULL,
+		PRIMARY KEY (room_id, seq)
+	) WITHOUT ROWID;`,
+}
+
 // migrate applies pending migrations, each in its own transaction together
 // with the user_version bump, so a crash never leaves a half-applied step.
 func (db *DB) migrate(ctx context.Context, migrations Schema) error {
