@@ -4,13 +4,19 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHooksInstallUninstall(t *testing.T) {
 	isolate(t)
+	// No real claude or codex: their output must not decide this test, and
+	// a claude behind a version manager can stall without network access.
+	t.Setenv("PATH", t.TempDir())
 	dir := t.TempDir()
 	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(dir, "claude"))
 	t.Setenv("CODEX_HOME", filepath.Join(dir, "codex"))
@@ -70,6 +76,33 @@ func TestHooksInstallUninstall(t *testing.T) {
 		if code, _, _ := run(args...); code != ExitUsage {
 			t.Errorf("hooks %v: exit %d, want usage", args, code)
 		}
+	}
+}
+
+// A claude that hangs and leaves a child holding stdout must not hang
+// `crewbo hooks install` (seen with a mise shim and no network).
+func TestClaudeVersionDoesNotHang(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a POSIX shell script as the fake claude")
+	}
+	sleep, err := exec.LookPath("sleep") // before PATH is narrowed below
+	if err != nil {
+		t.Skip("no sleep binary")
+	}
+	dir := t.TempDir()
+	script := "#!/bin/sh\n" + sleep + " 30 &\n" + sleep + " 30\n"
+	if err := os.WriteFile(filepath.Join(dir, "claude"), []byte(script), 0o700); err != nil { //nolint:gosec // test script must be executable
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	if _, ok := claudeVersion(ctx); ok {
+		t.Error("parsed a version from a hung claude")
+	}
+	if d := time.Since(start); d > 5*time.Second {
+		t.Errorf("claudeVersion took %v after its deadline", d)
 	}
 }
 
