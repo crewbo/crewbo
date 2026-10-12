@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
+
 	"github.com/crewbo/crewbo/internal/auth"
 	"github.com/crewbo/crewbo/internal/platform"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
@@ -278,5 +280,53 @@ func TestWSURL(t *testing.T) {
 		if got := wsURL(in); got != want {
 			t.Errorf("wsURL(%q) = %q", in, got)
 		}
+	}
+}
+
+// A server that stops answering without closing the connection, as when
+// Wi-Fi turns off, is noticed through the daemon's own pings (#85).
+func TestSyncNoticesASilentServer(t *testing.T) {
+	silent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer func() { _ = c.CloseNow() }()
+		if _, err := readEnv(r.Context(), c); err != nil {
+			return
+		}
+		welcome := &crewbov1.Envelope{Body: &crewbov1.Envelope_Welcome{Welcome: &crewbov1.Welcome{ProtocolVersion: 1, ServerTimeUnixMs: time.Now().UnixMilli()}}}
+		if writeEnv(r.Context(), c, welcome) != nil {
+			return
+		}
+		<-r.Context().Done() // never read again, so pings go unanswered
+	}))
+	defer silent.Close()
+	dir := t.TempDir()
+	p := platform.Paths{Data: filepath.Join(dir, "d"), Config: filepath.Join(dir, "c"), Runtime: filepath.Join(dir, "r")}
+	if err := auth.SaveSession(auth.SessionPath(p.Config), auth.Session{Server: silent.URL, SessionToken: "cbs_x", GitHubLogin: "RM1338"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := auth.SaveBindings(auth.BindingsPath(p.Config), []auth.Binding{{Repo: "/r", Server: silent.URL, RoomID: "r", Name: "crewbo"}}); err != nil {
+		t.Fatal(err)
+	}
+	ddb, err := openDB(context.Background(), filepath.Join(dir, "daemon.db"), quietLog())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ddb.Close() }()
+	sy := newSyncer(p, ddb.SQL(), quietLog(), func(auth.Binding, *crewbov1.Event, roomstate.Clock) {}, func(auth.Binding, []string, string) {})
+	sy.minBackoff, sy.maxBackoff, sy.reloadEvery = time.Hour, time.Hour, time.Hour // stay offline once noticed
+	sy.pingEvery, sy.pongWait = 50*time.Millisecond, 100*time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); sy.Run(ctx) }()
+	defer func() { cancel(); <-done }()
+
+	eventually(t, "the connection", func() bool { return strings.HasPrefix(sy.State(), "connected") })
+	start := time.Now()
+	eventually(t, "the silent server to be noticed", func() bool { return strings.HasPrefix(sy.State(), "offline") })
+	if d := time.Since(start); d > 2*time.Second {
+		t.Errorf("noticed after %v with a 50 ms ping and 100 ms pong deadline", d)
 	}
 }
