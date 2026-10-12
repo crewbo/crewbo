@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `crewbo login --server URL` signs in with GitHub (device flow: open github.com/login/device and enter the code shown) and saves a 7-day Crewbo session for that sync server. `crewbo serve` now issues these sessions, requires one on every daemon connection, and keeps its data in `server.db` (`--data DIR`).
 - `crewbo serve [--addr HOST:PORT] [--tls-cert FILE --tls-key FILE] [--insecure-lan]` runs the sync server skeleton: `/healthz` and the daemon WebSocket at `/v1/ws` (Hello and Welcome only; rooms and claims follow). Plain HTTP is allowed only on loopback unless `--insecure-lan` is given.
 - `crewbo version` prints the version and commit; `crewbo help` prints usage.
 - `crewbo daemon` runs the per-user daemon in the foreground and stops cleanly on Ctrl+C (and SIGTERM on Linux and macOS).
