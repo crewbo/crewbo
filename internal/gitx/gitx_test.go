@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -177,5 +178,24 @@ func TestWorktree(t *testing.T) {
 	}
 	if _, err := os.Stat(wt); !os.IsNotExist(err) {
 		t.Errorf("worktree directory still exists: %v", err)
+	}
+}
+
+func TestHead(t *testing.T) {
+	dir := repo(t)
+	ctx := context.Background()
+	h, err := New("").Head(ctx, dir)
+	if err != nil || len(h) < 40 || strings.TrimLeft(h, "0123456789abcdef") != "" {
+		t.Fatalf("Head = %q, %v", h, err)
+	}
+	branch(t, dir, "feature", map[string]string{"x.txt": "x\n"})
+	gitT(t, dir, "switch", "-q", "feature")
+	if h2, err := New("").Head(ctx, dir); err != nil || h2 == h {
+		t.Errorf("Head after switching branch = %q, %v (was %q)", h2, err, h)
+	}
+	empty := t.TempDir()
+	gitT(t, empty, "init", "-q")
+	if _, err := New("").Head(ctx, empty); err == nil {
+		t.Error("Head of a repository with no commits succeeded")
 	}
 }

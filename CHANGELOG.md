@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `crewbo task create --to LOGIN [--path PATH]... [--for DURATION] (TEXT | --file FILE)` lets a room lead send a signed task to a teammate's agent. Approving and running tasks follow in the next releases.
 - In a repository that is in a room, `crewbo claim add` and `crewbo claim release` go through the sync server: a teammate's claim blocks your agents' edits on their machine and yours, and you are told who holds a file. Claims made offline are kept locally, shared on reconnect, and dropped (with a note in `crewbo status`) if someone else took the file meanwhile.
 - The daemon connects to the sync server for repositories in a room (after `crewbo login` and `crewbo room create` or `join`), catches up after a server restart or time offline, and keeps working locally when it cannot connect. `crewbo status` shows the sync state.
 - `crewbo room create | invite | join | leave | status`, run inside a git repository, put that repository in a room on the sync server: the creator is the lead, invites are codes valid 24 h for up to 9 people by default, and a room holds at most 10 members.
