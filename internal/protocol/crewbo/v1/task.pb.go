@@ -37,6 +37,8 @@ const (
 	TaskState_TASK_STATE_MERGING      TaskState = 9
 	TaskState_TASK_STATE_MERGED       TaskState = 10
 	TaskState_TASK_STATE_CANCELLED    TaskState = 11
+	// The agent exited cleanly. Until checkpoints (M5-01), the end of a run.
+	TaskState_TASK_STATE_FINISHED TaskState = 12
 )
 
 // Enum value maps for TaskState.
@@ -54,6 +56,7 @@ var (
 		9:  "TASK_STATE_MERGING",
 		10: "TASK_STATE_MERGED",
 		11: "TASK_STATE_CANCELLED",
+		12: "TASK_STATE_FINISHED",
 	}
 	TaskState_value = map[string]int32{
 		"TASK_STATE_UNSPECIFIED":  0,
@@ -68,6 +71,7 @@ var (
 		"TASK_STATE_MERGING":      9,
 		"TASK_STATE_MERGED":       10,
 		"TASK_STATE_CANCELLED":    11,
+		"TASK_STATE_FINISHED":     12,
 	}
 )
 
@@ -537,7 +541,7 @@ const file_crewbo_v1_task_proto_rawDesc = "" +
 	"\x0eTaskDispatched\x12)\n" +
 	"\x04task\x18\x01 \x01(\v2\x15.crewbo.v1.SignedTaskR\x04task\"B\n" +
 	"\x11TaskStatusChanged\x12-\n" +
-	"\x06status\x18\x01 \x01(\v2\x15.crewbo.v1.TaskStatusR\x06status*\xba\x02\n" +
+	"\x06status\x18\x01 \x01(\v2\x15.crewbo.v1.TaskStatusR\x06status*\xd3\x02\n" +
 	"\tTaskState\x12\x1a\n" +
 	"\x16TASK_STATE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TASK_STATE_DISPATCHED\x10\x01\x12\x17\n" +
@@ -551,7 +555,8 @@ const file_crewbo_v1_task_proto_rawDesc = "" +
 	"\x12TASK_STATE_MERGING\x10\t\x12\x15\n" +
 	"\x11TASK_STATE_MERGED\x10\n" +
 	"\x12\x18\n" +
-	"\x14TASK_STATE_CANCELLED\x10\vB?Z=github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1b\x06proto3"
+	"\x14TASK_STATE_CANCELLED\x10\v\x12\x17\n" +
+	"\x13TASK_STATE_FINISHED\x10\fB?Z=github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1b\x06proto3"
 
 var (
 	file_crewbo_v1_task_proto_rawDescOnce sync.Once

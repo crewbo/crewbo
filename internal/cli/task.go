@@ -28,7 +28,8 @@ Only the room lead can send tasks. --path names the files or globs the task
 may change (repeat it); --for is how long the teammate has to approve
 (default 24h, at most 7 days); --file - reads the text from stdin.
 
-list shows the tasks sent to you; show prints one in full. approve shows
+list shows the tasks sent to you and, for a lead, the tasks you sent with
+the state their assignee reported; show prints one in full. approve shows
 the full task and asks you to type yes (only in an interactive terminal),
 then runs your agent on it in a new git worktree, with the task's paths
 claimed for it: Claude Code by default, or Codex with --agent codex (not
@@ -234,7 +235,11 @@ func listLine(t daemon.Task, now time.Time) string {
 	if more {
 		first += " ..."
 	}
-	return fmt.Sprintf("%s  %-10s  from %s, %s  %s", t.ID, t.State, t.Author, until(t.Expires, now), visible(first))
+	who := "from " + t.Author
+	if t.Sent {
+		who = "to " + t.Assignee
+	}
+	return fmt.Sprintf("%s  %-10s  %s, %s  %s", t.ID, t.State, who, until(t.Expires, now), visible(first))
 }
 
 // until describes an expiry relative to now.
@@ -252,8 +257,12 @@ func printTask(w io.Writer, t daemon.Task, now time.Time) {
 	if len(t.OwnedPaths) > 0 {
 		owned = strings.Join(t.OwnedPaths, ", ")
 	}
-	_, _ = fmt.Fprintf(w, "Task:     %s\nFrom:     %s (room lead)\nState:    %s\nBase:     %s\nPaths:    %s\nCreated:  %s\nExpiry:   %s\n",
-		t.ID, t.Author, t.State, t.BaseCommit, visible(owned), t.Created.Format(time.DateTime), until(t.Expires, now))
+	who := "From:     " + t.Author + " (room lead)"
+	if t.Sent {
+		who = "To:       " + t.Assignee + " (sent by you)"
+	}
+	_, _ = fmt.Fprintf(w, "Task:     %s\n%s\nState:    %s\nBase:     %s\nPaths:    %s\nCreated:  %s\nExpiry:   %s\n",
+		t.ID, who, t.State, t.BaseCommit, visible(owned), t.Created.Format(time.DateTime), until(t.Expires, now))
 	if t.Detail != "" {
 		_, _ = fmt.Fprintf(w, "Reason:   %s\n", visible(t.Detail))
 	}

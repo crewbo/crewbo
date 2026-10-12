@@ -179,8 +179,9 @@ func TestTeammateOfflineAtDispatchReceivesTheTask(t *testing.T) {
 		len(got.OwnedPaths) != 1 || got.OwnedPaths[0] != "internal/daemon/sync.go" || got.BaseCommit == "" {
 		t.Errorf("received %+v", got)
 	}
-	if got := f.a.tasks(); len(got) != 0 {
-		t.Errorf("the lead lists a task addressed to someone else: %+v", got)
+	// The lead lists it as sent, not as theirs to answer.
+	if got := f.a.tasks(); len(got) != 1 || !got[0].Sent || got[0].Assignee != "gavriel953" || got[0].State != "dispatched" || got[0].ID != sent.TaskID {
+		t.Errorf("the lead's list: %+v", got)
 	}
 
 	// After a restart the room replays from seq 0; the first task must not
@@ -365,6 +366,7 @@ func TestTeammateApprovesOrDeclines(t *testing.T) {
 	if states[one.TaskID] != "finished/" || states[two.TaskID] != "declined/busy with the release" {
 		t.Errorf("states = %v", states)
 	}
+	eventually(t, "all four statuses in the log", func() bool { return len(f.statuses()) == 4 })
 	got := map[string][]crewbov1.TaskState{}
 	for _, ev := range f.statuses() {
 		st := ev.GetTaskStatusChanged().GetStatus()
@@ -373,7 +375,7 @@ func TestTeammateApprovesOrDeclines(t *testing.T) {
 			t.Errorf("status actor %q", ev.GetActorMemberId())
 		}
 	}
-	if !slices.Equal(got[one.TaskID], []crewbov1.TaskState{crewbov1.TaskState_TASK_STATE_APPROVED, crewbov1.TaskState_TASK_STATE_RUNNING}) ||
+	if !slices.Equal(got[one.TaskID], []crewbov1.TaskState{crewbov1.TaskState_TASK_STATE_APPROVED, crewbov1.TaskState_TASK_STATE_RUNNING, crewbov1.TaskState_TASK_STATE_FINISHED}) ||
 		!slices.Equal(got[two.TaskID], []crewbov1.TaskState{crewbov1.TaskState_TASK_STATE_DECLINED}) {
 		t.Errorf("statuses in the log = %v", got)
 	}
@@ -387,15 +389,25 @@ func TestTeammateApprovesOrDeclines(t *testing.T) {
 		"decline an approved":  {f.b, MethodTaskDecline, one.TaskID, "already finished"},
 		"approve a declined":   {f.b, MethodTaskApprove, two.TaskID, "already declined"},
 		"unknown task":         {f.b, MethodTaskApprove, "nope", "no task nope"},
-		"the lead's own sends": {f.a, MethodTaskApprove, one.TaskID, "no task"},
+		"the lead's own sends": {f.a, MethodTaskApprove, one.TaskID, "only its assignee can answer it"},
 	} {
 		if _, err := tc.m.answer(tc.method, tc.task, ""); err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: %v, want %q", name, err, tc.want)
 		}
 	}
-	if n := len(f.statuses()); n != 3 {
+	if n := len(f.statuses()); n != 4 {
 		t.Errorf("refused answers reached the room: %d statuses", n)
 	}
+	// The lead follows both: the state and reason the assignee reported.
+	eventually(t, "the lead to see both answers", func() bool {
+		lead := map[string]string{}
+		for _, task := range f.a.tasks() {
+			if task.Sent {
+				lead[task.ID] = task.State + "/" + task.Detail
+			}
+		}
+		return lead[one.TaskID] == "finished/" && lead[two.TaskID] == "declined/busy with the release"
+	})
 }
 
 func TestUnansweredTaskExpires(t *testing.T) {
@@ -419,4 +431,34 @@ func TestUnansweredTaskExpires(t *testing.T) {
 		s := f.statuses()
 		return len(s) == 1 && s[0].GetTaskStatusChanged().GetStatus().GetState() == crewbov1.TaskState_TASK_STATE_EXPIRED
 	})
+	eventually(t, "the lead to see it expire", func() bool {
+		for _, task := range f.a.tasks() {
+			if task.ID == sent.TaskID {
+				return task.Sent && task.State == "expired"
+			}
+		}
+		return false
+	})
+}
+
+// A task addressed to someone else is listed only by the member who sent
+// it; a lead may also send a task to themselves.
+func TestOnlyTheSenderFollowsATask(t *testing.T) {
+	f := newCrossFixture(t)
+	self, err := f.a.task("RM1338", "Note to self.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the lead to receive their own task", func() bool { return f.a.taskState(self.TaskID).State == "dispatched" })
+	if lt := f.a.taskState(self.TaskID); lt.Sent {
+		t.Errorf("a task to oneself is listed as sent: %+v", lt)
+	}
+	marker, err := f.a.task("gavriel953", "Marker.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the teammate to get the later task", func() bool { return f.b.taskState(marker.TaskID).ID != "" })
+	if bt := f.b.taskState(self.TaskID); bt.ID != "" {
+		t.Errorf("the teammate lists the lead's task to themselves: %+v", bt)
+	}
 }

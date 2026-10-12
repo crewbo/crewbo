@@ -109,12 +109,12 @@ func (d *Daemon) keyring() keys.Keyring {
 // Stored task states (store.Daemon migration 2).
 const (
 	taskPending    = "pending" // received, not verified yet
-	taskDispatched = "dispatched"
-	taskRejected   = "rejected"
-	taskOther      = "other" // addressed to another member
-	taskApproved   = "approved"
-	taskDeclined   = "declined"
-	taskExpired    = "expired"
+	taskOther      = "other"   // addressed to another member (a task id when this member sent it)
+	taskDispatched = dispatch.StateDispatched
+	taskRejected   = dispatch.StateRejected
+	taskApproved   = dispatch.StateApproved
+	taskDeclined   = dispatch.StateDeclined
+	taskExpired    = dispatch.StateExpired
 )
 
 // Task verification bounds: the room keys request, and the wait before
@@ -210,7 +210,7 @@ func (d *Daemon) verifyPending(ctx context.Context, roomKeys map[string]server.R
 		return n > 0
 	}
 	for _, p := range pending {
-		verify := func(fetch bool) (*crewbov1.TaskBody, error) {
+		verify := func(fetch bool, me string) (*crewbov1.TaskBody, error) {
 			rk, ok := roomKeys[p.room]
 			if fetch || !ok {
 				var err error
@@ -219,7 +219,7 @@ func (d *Daemon) verifyPending(ctx context.Context, roomKeys map[string]server.R
 				}
 				roomKeys[p.room] = rk
 			}
-			c := dispatch.Check{RoomID: p.room, Lead: rk.LeadLogin, Me: sess.GitHubLogin, Now: d.cfg.Now(), Seen: seen, Keys: map[string]dispatch.Key{}}
+			c := dispatch.Check{RoomID: p.room, Lead: rk.LeadLogin, Me: me, Now: d.cfg.Now(), Seen: seen, Keys: map[string]dispatch.Key{}}
 			for _, m := range rk.Members {
 				for _, k := range m.Keys {
 					c.Keys[k.KeyID] = dispatch.Key{Member: m.Login, Public: k.PublicKey, Revoked: k.Revoked}
@@ -230,10 +230,21 @@ func (d *Daemon) verifyPending(ctx context.Context, roomKeys map[string]server.R
 		var body *crewbov1.TaskBody
 		err := dispatch.ErrMalformed
 		if p.st != nil {
-			body, err = verify(false)
+			body, err = verify(false, sess.GitHubLogin)
 			// Cached keys may predate a new device, a revocation or a new lead.
 			if errors.Is(err, dispatch.ErrUnknownKey) || errors.Is(err, dispatch.ErrNotLead) || errors.Is(err, dispatch.ErrRevokedKey) {
-				body, err = verify(true)
+				body, err = verify(true, sess.GitHubLogin)
+			}
+		}
+		sent := false
+		if errors.Is(err, dispatch.ErrNotForYou) {
+			// A task this member sent is verified in full for its assignee,
+			// so the lead can follow it (crewbo task list).
+			b := &crewbov1.TaskBody{}
+			if proto.Unmarshal(p.st.GetBody(), b) == nil && b.GetAuthorMemberId() == sess.GitHubLogin {
+				if vb, verr := verify(false, b.GetAssigneeMemberId()); verr == nil {
+					body, sent = vb, true
+				}
 			}
 		}
 		var fetchErr *keysError
@@ -242,6 +253,8 @@ func (d *Daemon) verifyPending(ctx context.Context, roomKeys map[string]server.R
 		}
 		state, detail, taskID, expires := taskDispatched, "", any(nil), any(nil)
 		switch {
+		case sent:
+			state, taskID, expires = taskOther, body.GetTaskId(), body.GetExpiresUnixMs()
 		case errors.Is(err, dispatch.ErrNotForYou):
 			state = taskOther
 		case err != nil:
@@ -309,7 +322,8 @@ func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
 	if d.sync == nil {
 		return Response{ID: req.ID, Error: "task_list: the daemon is not ready"}
 	}
-	rows, err := d.sync.db.QueryContext(ctx, `SELECT room_id, signed, state, detail, received_unix_ms FROM tasks WHERE state NOT IN (?, ?) ORDER BY received_unix_ms DESC`, taskPending, taskOther)
+	rows, err := d.sync.db.QueryContext(ctx, `SELECT room_id, signed, state, detail, received_unix_ms FROM tasks
+		WHERE state NOT IN (?, ?) OR (state = ? AND task_id IS NOT NULL) ORDER BY received_unix_ms DESC`, taskPending, taskOther, taskOther)
 	if err != nil {
 		return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
 	}
@@ -332,10 +346,25 @@ func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
 			t.ID, t.Author, t.Text, t.OwnedPaths, t.BaseCommit = body.GetTaskId(), body.GetAuthorMemberId(), body.GetText(), body.GetOwnedPaths(), body.GetBaseCommit()
 			t.Created, t.Expires = time.UnixMilli(body.GetCreatedUnixMs()), time.UnixMilli(body.GetExpiresUnixMs())
 		}
+		if t.State == taskOther {
+			t.Sent, t.Assignee = true, sentTo(signed)
+		}
 		resp.Tasks = append(resp.Tasks, t)
 	}
 	if err := rows.Err(); err != nil {
 		return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
+	}
+	_ = rows.Close() // the store has one connection: close before the next query
+	for i, t := range resp.Tasks {
+		if !t.Sent {
+			continue
+		}
+		// Sent by this member: the state its assignee reported.
+		sts, err := d.taskStatuses(ctx, t.Room, t.ID)
+		if err != nil {
+			return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
+		}
+		resp.Tasks[i].State, resp.Tasks[i].Detail = dispatch.Fold(t.Assignee, sts)
 	}
 	return resp
 }
@@ -411,6 +440,8 @@ func (d *Daemon) answerTask(ctx context.Context, req Request) Response {
 			return fail("%s: %v", req.Method, err)
 		case now == taskDispatched:
 			return fail("task %s has expired", req.Task)
+		case now == taskOther:
+			return fail("you sent task %s; only its assignee can answer it", req.Task)
 		default:
 			return fail("task %s is already %s", req.Task, now)
 		}
@@ -450,4 +481,44 @@ const maxReason = 512
 func (d *Daemon) sendStatus(ctx context.Context, room, taskID string, state crewbov1.TaskState, detail string, wait time.Duration) (*crewbov1.Envelope, error) {
 	env := &crewbov1.Envelope{Id: newEnvelopeID(), Body: &crewbov1.Envelope_TaskStatus{TaskStatus: &crewbov1.TaskStatus{RoomId: room, TaskId: taskID, State: state, Detail: detail}}}
 	return d.sync.submit(ctx, env, wait)
+}
+
+// sentTo returns the assignee of a stored signed task.
+func sentTo(signed []byte) string {
+	st, body := &crewbov1.SignedTask{}, &crewbov1.TaskBody{}
+	if proto.Unmarshal(signed, st) != nil || proto.Unmarshal(st.GetBody(), body) != nil {
+		return ""
+	}
+	return body.GetAssigneeMemberId()
+}
+
+// recordStatus keeps a task status from the room log. It runs on the
+// syncer goroutine; a replayed event is ignored.
+func (d *Daemon) recordStatus(ctx context.Context, b auth.Binding, ev *crewbov1.Event) error {
+	st := ev.GetTaskStatusChanged().GetStatus()
+	state := dispatch.StateOf(st.GetState())
+	if state == "" {
+		return nil // a state this build does not know
+	}
+	_, err := d.sync.db.ExecContext(ctx, `INSERT INTO task_status (room_id, seq, task_id, actor, state, detail) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		b.RoomID, ev.GetSeq(), st.GetTaskId(), ev.GetActorMemberId(), state, truncate(st.GetDetail(), maxReason))
+	return err
+}
+
+// taskStatuses returns a task's statuses in log order.
+func (d *Daemon) taskStatuses(ctx context.Context, room, taskID string) ([]dispatch.Status, error) {
+	rows, err := d.sync.db.QueryContext(ctx, `SELECT actor, state, detail FROM task_status WHERE room_id = ? AND task_id = ? ORDER BY seq`, room, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []dispatch.Status
+	for rows.Next() {
+		var s dispatch.Status
+		if err := rows.Scan(&s.Actor, &s.State, &s.Detail); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
 }

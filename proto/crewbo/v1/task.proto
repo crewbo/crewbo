@@ -57,6 +57,8 @@ enum TaskState {
   TASK_STATE_MERGING = 9;
   TASK_STATE_MERGED = 10;
   TASK_STATE_CANCELLED = 11;
+  // The agent exited cleanly. Until checkpoints (M5-01), the end of a run.
+  TASK_STATE_FINISHED = 12;
 }
 
 // TaskStatus reports a task's new state to the room.
