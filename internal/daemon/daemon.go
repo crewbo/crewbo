@@ -26,6 +26,7 @@ import (
 	"github.com/crewbo/crewbo/internal/platform"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
 	"github.com/crewbo/crewbo/internal/roomstate"
+	"github.com/crewbo/crewbo/internal/server"
 	"github.com/crewbo/crewbo/internal/store"
 )
 
@@ -67,6 +68,10 @@ type Daemon struct {
 	sync    *syncer     // set by Run before the owner starts; safe for concurrent use
 	funcs   chan func() // work for the owner goroutine from the syncer
 	refused int         // claims the server refused after the fact
+
+	// roomKeys caches each room's lead and device keys for verifying
+	// tasks. Only the syncer goroutine uses it.
+	roomKeys map[string]server.RoomKeys
 }
 
 type call struct {
@@ -82,7 +87,7 @@ func New(cfg Config) *Daemon {
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
+	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, roomKeys: map[string]server.RoomKeys{}, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
 	for repo, set := range cfg.Claims {
 		d.claims[RepoKey(repo)] = set
 	}
@@ -119,7 +124,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	defer func() { _ = db.Close() }()
 	d.sync = newSyncer(d.cfg.Paths, db.SQL(), d.cfg.Log,
-		func(b auth.Binding, ev *crewbov1.Event, clock roomstate.Clock) { d.applyEvent(ctx, b, ev, clock) },
+		func(b auth.Binding, ev *crewbov1.Event, clock roomstate.Clock) error {
+			return d.applyEvent(ctx, b, ev, clock)
+		},
 		func(b auth.Binding, ids []string, reason string) { d.claimRefused(ctx, b, ids, reason) })
 	if d.cfg.syncFast {
 		d.sync.minBackoff, d.sync.maxBackoff, d.sync.reloadEvery = 20*time.Millisecond, 100*time.Millisecond, 20*time.Millisecond
@@ -383,6 +390,8 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 		switch {
 		case req.Method == MethodTaskCreate:
 			resp = d.createTask(ctx, req)
+		case req.Method == MethodTaskList:
+			resp = d.listTasks(ctx, req)
 		case d.shared(req):
 			resp = d.sharedClaim(ctx, req)
 		default:

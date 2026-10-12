@@ -29,9 +29,14 @@ func (d *Daemon) onOwner(ctx context.Context, f func()) error {
 	return nil
 }
 
-// applyEvent records a room event in the bound repository's claims.
-func (d *Daemon) applyEvent(ctx context.Context, b auth.Binding, ev *crewbov1.Event, clock roomstate.Clock) {
-	_ = d.onOwner(ctx, func() {
+// applyEvent records a room event: a dispatched task is verified and
+// stored here, on the syncer goroutine, because that needs the network;
+// anything else goes to the bound repository's claims on the owner.
+func (d *Daemon) applyEvent(ctx context.Context, b auth.Binding, ev *crewbov1.Event, clock roomstate.Clock) error {
+	if st := ev.GetTaskDispatched().GetTask(); st != nil {
+		return d.receiveTask(ctx, b, st)
+	}
+	return d.onOwner(ctx, func() {
 		roomstate.Apply(d.set(b.Repo), ev, clock, d.cfg.Now())
 	})
 }

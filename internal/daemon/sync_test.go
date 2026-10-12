@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -96,10 +97,11 @@ func newSyncFixture(t *testing.T) *syncFixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = ddb.Close() })
-	f.sy = newSyncer(f.paths, ddb.SQL(), quietLog(), func(_ auth.Binding, ev *crewbov1.Event, _ roomstate.Clock) {
+	f.sy = newSyncer(f.paths, ddb.SQL(), quietLog(), func(_ auth.Binding, ev *crewbov1.Event, _ roomstate.Clock) error {
 		f.mu.Lock()
 		f.seqs = append(f.seqs, ev.GetSeq())
 		f.mu.Unlock()
+		return nil
 	}, func(auth.Binding, []string, string) {})
 	f.sy.minBackoff, f.sy.maxBackoff, f.sy.reloadEvery = 20*time.Millisecond, 100*time.Millisecond, 20*time.Millisecond
 	return f
@@ -211,6 +213,30 @@ func TestSyncReplaysAcrossRestartsAndOutages(t *testing.T) {
 	eventually(t, "no-room state", func() bool { return strings.Contains(f.sy.State(), "no repository is in a room") })
 }
 
+// An event the daemon could not apply (the room's keys were unreachable)
+// is not skipped: the syncer reconnects and the server replays it.
+func TestSyncRetriesAnEventItCouldNotApply(t *testing.T) {
+	f := newSyncFixture(t)
+	failures := 2
+	f.sy.apply = func(_ auth.Binding, ev *crewbov1.Event, _ roomstate.Clock) error {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		if ev.GetSeq() == 2 && failures > 0 {
+			failures--
+			return errors.New("keys unreachable")
+		}
+		f.seqs = append(f.seqs, ev.GetSeq())
+		return nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); f.sy.Run(ctx) }()
+	defer func() { cancel(); <-done }()
+	f.appendEvents(3)
+	f.signIn()
+	eventually(t, "events 1 to 3, event 2 after two retries", func() bool { return seqsAre(f.applied(), 1, 3) })
+}
+
 // A refused session waits for a new sign-in instead of retrying.
 func TestSyncRefusedWaitsForANewSession(t *testing.T) {
 	f := newSyncFixture(t)
@@ -315,7 +341,7 @@ func TestSyncNoticesASilentServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = ddb.Close() }()
-	sy := newSyncer(p, ddb.SQL(), quietLog(), func(auth.Binding, *crewbov1.Event, roomstate.Clock) {}, func(auth.Binding, []string, string) {})
+	sy := newSyncer(p, ddb.SQL(), quietLog(), func(auth.Binding, *crewbov1.Event, roomstate.Clock) error { return nil }, func(auth.Binding, []string, string) {})
 	sy.minBackoff, sy.maxBackoff, sy.reloadEvery = time.Hour, time.Hour, time.Hour // stay offline once noticed
 	sy.pingEvery, sy.pongWait = 50*time.Millisecond, 100*time.Millisecond
 	ctx, cancel := context.WithCancel(context.Background())

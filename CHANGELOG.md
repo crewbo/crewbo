@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A teammate's daemon now receives tasks sent to them, including ones sent while they were offline, and checks each one against the room lead's registered signing key before keeping it. Tasks that fail the check are kept as rejected, with the reason, and none of their content is trusted. Listing, approving and running tasks follow in the next releases.
 - `crewbo task create --to LOGIN [--path PATH]... [--for DURATION] (TEXT | --file FILE)` lets a room lead send a signed task to a teammate's agent. Approving and running tasks follow in the next releases.
 - In a repository that is in a room, `crewbo claim add` and `crewbo claim release` go through the sync server: a teammate's claim blocks your agents' edits on their machine and yours, and you are told who holds a file. Claims made offline are kept locally, shared on reconnect, and dropped (with a note in `crewbo status`) if someone else took the file meanwhile.
 - The daemon connects to the sync server for repositories in a room (after `crewbo login` and `crewbo room create` or `join`), catches up after a server restart or time offline, and keeps working locally when it cannot connect. `crewbo status` shows the sync state.
