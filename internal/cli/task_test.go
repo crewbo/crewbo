@@ -138,21 +138,23 @@ func TestTaskCommandsForTheAssignee(t *testing.T) {
 	if code, out, errOut := task(t, []string{"approve", first}, strings.NewReader("yes\n")); code != ExitError || out != "" || !strings.Contains(errOut, "interactive terminal") {
 		t.Errorf("approve from a pipe = %d %q %q", code, out, errOut)
 	}
-	for name, tc := range map[string]struct {
+	// In order: the second decline must follow the first.
+	for _, tc := range []struct {
+		name string
 		args []string
 		code int
 		want string
 	}{
-		"ambiguous id":        {[]string{"show", "0"}, ExitError, "matches 2 tasks"},
-		"unknown id":          {[]string{"decline", "zzz"}, ExitError, "no task zzz"},
-		"reason when showing": {[]string{"show", first, "--reason", "x"}, ExitUsage, "Usage:"},
-		"no id":               {[]string{"decline"}, ExitUsage, "Usage:"},
-		"unknown subcommand":  {[]string{"frobnicate"}, ExitUsage, "Usage:"},
-		"decline with reason": {[]string{"decline", first, "--reason", "on holiday"}, ExitOK, "Task " + first + " declined. The lead has been told."},
-		"decline again":       {[]string{"decline", first}, ExitError, "already declined"},
+		{"ambiguous id", []string{"show", "0"}, ExitError, "matches 2 tasks"},
+		{"unknown id", []string{"decline", "zzz"}, ExitError, "no task zzz"},
+		{"reason when showing", []string{"show", first, "--reason", "x"}, ExitUsage, "Usage:"},
+		{"no id", []string{"decline"}, ExitUsage, "Usage:"},
+		{"unknown subcommand", []string{"frobnicate"}, ExitUsage, "Usage:"},
+		{"decline with reason", []string{"decline", first, "--reason", "on holiday"}, ExitOK, "Task " + first + " declined. The lead has been told."},
+		{"decline again", []string{"decline", first}, ExitError, "already declined"},
 	} {
 		if code, out, errOut := task(t, tc.args, nil); code != tc.code || !strings.Contains(out+errOut, tc.want) {
-			t.Errorf("%s: %d %q %q; want %d and %q", name, code, out, errOut, tc.code, tc.want)
+			t.Errorf("%s: %d %q %q; want %d and %q", tc.name, code, out, errOut, tc.code, tc.want)
 		}
 	}
 	if _, out, _ := task(t, []string{"show", first}, nil); !strings.Contains(out, "State:    declined") || !strings.Contains(out, "Reason:   on holiday") {
