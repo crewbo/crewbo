@@ -1,10 +1,8 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"crypto/ed25519"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -102,26 +100,11 @@ func login(ctx context.Context, flow *auth.DeviceFlow, c *http.Client, base stri
 	if err != nil {
 		return auth.Session{}, err
 	}
-	body, err := json.Marshal(server.SessionRequest{GitHubToken: githubToken})
-	if err != nil {
-		return auth.Session{}, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/v1/auth/session", bytes.NewReader(body))
-	if err != nil {
-		return auth.Session{}, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.Do(req)
-	if err != nil {
-		return auth.Session{}, fmt.Errorf("could not reach the sync server at %s: %w", base, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return auth.Session{}, fmt.Errorf("the sync server refused the sign-in: %s: %s", resp.Status, strings.TrimSpace(string(msg)))
-	}
 	var r server.SessionResponse
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<10)).Decode(&r); err != nil || r.SessionToken == "" {
+	if err := callServer(ctx, c, base, "", http.MethodPost, "/v1/auth/session", server.SessionRequest{GitHubToken: githubToken}, &r); err != nil {
+		return auth.Session{}, fmt.Errorf("the sync server refused the sign-in: %w", err)
+	}
+	if r.SessionToken == "" {
 		return auth.Session{}, errors.New("the sync server sent an unexpected answer; is --server a Crewbo server?")
 	}
 	return auth.Session{Server: base, SessionToken: r.SessionToken, GitHubLogin: r.GitHubLogin, ExpiresUnixMs: r.ExpiresUnixMs}, nil
@@ -134,32 +117,17 @@ func registerDevice(ctx context.Context, c *http.Client, base, sessionToken stri
 	if name == "" || len(name) > 64 {
 		name = "device"
 	}
-	body, err := json.Marshal(server.DeviceRequest{
+	req := server.DeviceRequest{
 		PublicKey: key.Public(),
 		Signature: ed25519.Sign(key.Private, keys.RegistrationMessage(sessionToken)),
 		Name:      name,
 		OS:        runtime.GOOS,
-	})
-	if err != nil {
-		return "", err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/v1/devices", bytes.NewReader(body))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+sessionToken)
-	resp, err := c.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("could not reach the sync server at %s: %w", base, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return "", fmt.Errorf("the sync server refused the key: %s: %s", resp.Status, strings.TrimSpace(string(msg)))
 	}
 	var r server.DeviceResponse
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<10)).Decode(&r); err != nil || r.KeyID != key.ID() {
+	if err := callServer(ctx, c, base, sessionToken, http.MethodPost, "/v1/devices", req, &r); err != nil {
+		return "", fmt.Errorf("the sync server refused the key: %w", err)
+	}
+	if r.KeyID != key.ID() {
 		return "", errors.New("the sync server sent an unexpected answer to the key registration")
 	}
 	return r.KeyID, nil
