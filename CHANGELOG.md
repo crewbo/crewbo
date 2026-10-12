@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- When the hook could not get an answer from the daemon for any reason, it always said the daemon "did not answer in time". It now says that only for real timeouts and names the actual failure otherwise.
 - The daemon took minutes to notice a silently lost network (for example Wi-Fi turned off) and kept showing "connected". It now pings the sync server and shows "offline, retrying" within about 30 seconds.
 - A claim a teammate made from their terminal was described as their agent's ("gavriel953's agent") in hook messages, `crewbo claim list` and the MCP tools once shared through a room. It now says "(from a terminal)" again.
 - `crewbo hooks install` could hang forever when `claude --version` stalled and left a child process holding its output (for example a version-manager shim without network access). It now gives up after the 5 s timeout plus 1 s.

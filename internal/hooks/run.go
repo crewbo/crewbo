@@ -117,8 +117,15 @@ func decide(ctx context.Context, a Adapter, kind Kind, in io.Reader, d Deps) Res
 		req.Method, req.Event = daemon.MethodEvent, string(ev.Kind)
 	}
 	resp, err := c.Call(ctx, req)
-	if err != nil {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, os.ErrDeadlineExceeded):
+		// The client sets the context deadline on the socket, so a slow
+		// daemon shows up as the socket's deadline error.
 		return Result{Warning: "the Crewbo daemon did not answer in time"}
+	case err != nil:
+		// Name the failure: "did not answer in time" for every error hid a
+		// fast failure in CI (#100) and would mislead a member too.
+		return Result{Warning: fmt.Sprintf("the Crewbo daemon could not check this action: %v", err)}
 	}
 	if req.Method == daemon.MethodDecide && !resp.Allow {
 		return Result{Deny: true, Reason: denyReason(resp)}
