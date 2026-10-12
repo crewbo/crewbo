@@ -144,8 +144,12 @@ func runStatus(ctx context.Context, stdout, stderr io.Writer) int {
 	if st.Violations > 0 {
 		violations = fmt.Sprintf(", %d claim violations recorded (see the daemon log)", st.Violations)
 	}
-	return write(stdout, ExitOK, "crewbo daemon running: version %s, pid %d, up %s, %d active claims, %d agent sessions%s\n",
-		st.Version, st.PID, time.Since(st.Started).Round(time.Second), st.ActiveClaims, st.Sessions, violations)
+	sync := ""
+	if st.Sync != "" {
+		sync = "\nsync: " + st.Sync
+	}
+	return write(stdout, ExitOK, "crewbo daemon running: version %s, pid %d, up %s, %d active claims, %d agent sessions%s%s\n",
+		st.Version, st.PID, time.Since(st.Started).Round(time.Second), st.ActiveClaims, st.Sessions, violations, sync)
 }
 
 // adapterFor returns the hook adapter for an agent name.

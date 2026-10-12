@@ -107,6 +107,8 @@ type Status struct {
 	ActiveClaims int       `json:"active_claims"`
 	Sessions     int       `json:"sessions"`
 	Violations   int       `json:"violations"`
+	// Sync describes the connection to the sync server.
+	Sync string `json:"sync,omitempty"`
 }
 
 // Session is an agent session the daemon has heard from.
