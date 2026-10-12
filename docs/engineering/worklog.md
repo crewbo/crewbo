@@ -135,3 +135,14 @@ Done:
 
 Next:
 - Gate C for M4 (lead dispatch).
+
+## 2026-10-12 (end of session: M4 started)
+
+Done:
+- M3 closed (milestones M2 and M3 closed). Follow-ups #86, #87, #89, #101 merged.
+- Gate C for M4 approved; issues #91 to #97 created.
+- M4-01 (#91) done: #98 (task proto, dispatch Sign/Verify), #99 (room keys endpoint).
+- M4-02 (#92) partly done: #100 (server admits tasks from the lead), #102 (`crewbo task create`).
+
+Next:
+- M4-02 receiving side (verify and store incoming tasks), then M4-03 approval CLI. Details in handoff.md "Next steps".
