@@ -3,8 +3,6 @@ package server
 import (
 	"crypto/ed25519"
 	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
 	"strings"
 	"unicode/utf8"
@@ -31,22 +29,13 @@ type DeviceResponse struct {
 // GitHub account. Registering the same key again is accepted; a key
 // already registered to someone else is refused.
 func (s *Server) serveDevice(w http.ResponseWriter, r *http.Request) {
-	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	u, ok := s.authenticate(w, r)
 	if !ok {
-		http.Error(w, "missing session; run crewbo login", http.StatusUnauthorized)
 		return
 	}
-	u, err := s.sessions.Lookup(r.Context(), token)
-	if err != nil {
-		if !errors.Is(err, ErrUnauthenticated) {
-			s.log.Error("devices: session lookup", "err", err)
-		}
-		http.Error(w, "session unknown or expired; run crewbo login", http.StatusUnauthorized)
-		return
-	}
+	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	var req DeviceRequest
-	if err := json.NewDecoder(io.LimitReader(r.Body, 4<<10)).Decode(&req); err != nil {
-		http.Error(w, "body must be JSON", http.StatusBadRequest)
+	if !decode(w, r, &req) {
 		return
 	}
 	switch {
