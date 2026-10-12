@@ -110,7 +110,9 @@ func newTestServer(t *testing.T) *Server {
 	if _, err := db.SQL().ExecContext(t.Context(), `INSERT INTO sessions VALUES (?, 1, 'tester', 0, ?)`, hashToken(testToken), time.Now().Add(time.Hour).UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	return New(quiet(), db.SQL())
+	s := New(quiet(), db.SQL())
+	t.Cleanup(s.Close)
+	return s
 }
 
 func TestHealthz(t *testing.T) {
