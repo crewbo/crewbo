@@ -187,7 +187,7 @@ sequenceDiagram
   participant G as System git
   participant R as Git remote
   participant S as Sync server
-  actor L as Lead
+  actor L as Member or lead
 
   A->>H: Stop
   H->>D: stop(session)
@@ -208,6 +208,16 @@ sequenceDiagram
   else error
     D->>D: log, retry at next checkpoint
   end
-  L->>D: crewbo task merge <task>
-  D->>G: serial merge queue: re-run merge-tree against current main head, merge, push
+  L->>D: crewbo task merge <task> (the assignee, or only the lead in lead-only rooms)
+  D->>G: re-run merge-tree against current main and the other active task branches
+  alt conflict with main, or with an active branch and no lead override
+    D-->>L: refuse, naming the conflicting files and tasks
+  else clean
+    D->>R: merge and push main
+    opt push rejected because main moved
+      D->>R: fetch, re-check, retry
+    end
+  end
 ```
+
+Merging follows ADR 0014: by default the task's assignee merges their own work through this check, and the remote serialises merges; a lead-only room refuses merges from anyone but the lead. Self-started tasks (`crewbo task start`) go through the same flow.
