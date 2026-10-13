@@ -95,7 +95,9 @@ func (f *DeviceFlow) Start(ctx context.Context) (Code, error) {
 
 // Poll waits for the member to approve c and returns the GitHub token. It
 // never polls faster than GitHub's interval, and gives up when the code
-// expires.
+// expires. A poll that fails on the network (timeout, dropped connection)
+// is tried again at the next interval: one lost request must not end a
+// sign-in the member may be approving right now.
 func (f *DeviceFlow) Poll(ctx context.Context, c Code) (string, error) {
 	interval := time.Duration(c.Interval) * time.Second
 	if interval <= 0 {
@@ -111,10 +113,17 @@ func (f *DeviceFlow) Poll(ctx context.Context, c Code) (string, error) {
 		"device_code": {c.DeviceCode},
 		"grant_type":  {"urn:ietf:params:oauth:grant-type:device_code"},
 	}
+	var netErr error // the last poll lost on the network
+	expired := func() error {
+		if netErr != nil {
+			return fmt.Errorf("%w (the last request to GitHub failed: %w)", ErrExpired, netErr)
+		}
+		return ErrExpired
+	}
 	for {
 		if err := f.Wait(ctx, interval); err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				return "", ErrExpired
+				return "", expired()
 			}
 			return "", err
 		}
@@ -124,7 +133,12 @@ func (f *DeviceFlow) Poll(ctx context.Context, c Code) (string, error) {
 		var e oauthError
 		if err := f.post(ctx, "/login/oauth/access_token", form, &tok, &e); err != nil {
 			if ctx.Err() != nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return "", ErrExpired
+				return "", expired()
+			}
+			var transport *url.Error // http.Client.Do failed: no answer arrived
+			if errors.As(err, &transport) && ctx.Err() == nil {
+				netErr = err
+				continue
 			}
 			return "", err
 		}

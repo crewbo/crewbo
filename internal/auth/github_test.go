@@ -39,6 +39,10 @@ func (g *fakeGitHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		reply := g.replies[min(g.polls, len(g.replies)-1)]
 		g.polls++
 		g.mu.Unlock()
+		if reply == "HANG" { // longer than the client waits
+			time.Sleep(300 * time.Millisecond)
+			return
+		}
 		if strings.HasPrefix(reply, "HTTP ") {
 			http.Error(w, reply, http.StatusInternalServerError)
 			return
@@ -164,5 +168,31 @@ func TestLookupUser(t *testing.T) {
 		if _, err := LookupUser(ctx, srv.Client(), srv.URL, tok); err == nil || errors.Is(err, ErrBadToken) {
 			t.Errorf("%s = %v", tok, err)
 		}
+	}
+}
+
+// A poll lost on the network (here: the client times out) is retried at
+// the next interval instead of ending the sign-in.
+func TestDeviceFlowRetriesLostPolls(t *testing.T) {
+	f, waits := flow(t, "HANG", `{"error":"authorization_pending"}`, "HANG", `{"access_token":"gho_x"}`)
+	f.HTTP.Timeout = 100 * time.Millisecond
+	tok, err := f.Poll(context.Background(), Code{DeviceCode: "dc", Interval: 1})
+	if err != nil || tok != "gho_x" || len(*waits) != 4 {
+		t.Fatalf("Poll = %q, %v after %d polls", tok, err, len(*waits))
+	}
+	// If the code expires while GitHub cannot be reached, the error says so.
+	f, _ = flow(t, "HANG")
+	f.HTTP.Timeout = 100 * time.Millisecond
+	f.Wait = func(ctx context.Context, _ time.Duration) error { // poll often until the code expires
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(50 * time.Millisecond):
+			return nil
+		}
+	}
+	_, err = f.Poll(context.Background(), Code{DeviceCode: "dc", ExpiresIn: 1, Interval: 1})
+	if !errors.Is(err, ErrExpired) || !strings.Contains(err.Error(), "the last request to GitHub failed") {
+		t.Errorf("expiry while unreachable: %v", err)
 	}
 }
