@@ -78,7 +78,9 @@ Each version starts only when the gate before it is passed. Gate numbers are tar
 | v3 Teams (Mar to Jun 2027) | Paid hosted Team tier with PPP pricing for India; lead policies; agent activity analytics and conflict reports; roles and permissions; rooms up to 50; Postgres and horizontally scaled server; Slack, Linear and GitHub Issues integrations; optional ACP host mode | SSO, SCIM, audit export (v4); on-prem licence (v4) | 10 paying teams |
 | v4 Enterprise (Jul to Dec 2027) | SAML SSO and SCIM; audit log export; licensed on-prem and air-gapped deployment; data residency; claim schema published as an open spec; interop with GitHub Agent HQ and Conductor workspaces | Anything on the permanent list | First enterprise contract or pilot |
 
-**Permanent non-goals:** building our own coding agent or model; forking an IDE or editor; hosting or proxying customer code (code moves only through the team's git remote); running agents in our own cloud sandboxes; proxying model inference or reselling tokens.
+**Permanent non-goals:** building our own coding agent or model; hosting or proxying customer code (code moves only through the team's git remote); running agents in our own cloud sandboxes; proxying model inference or reselling tokens.
+
+**Long term, not before v3:** a Crewbo IDE (ADR 0012, accepted). v1 and v2 stay an extension inside the editors teams already use; the IDE is revisited after the v2 exit gate, with evidence that the extension surface blocks a needed feature.
 
 ## v1 scope: core flows
 
@@ -117,7 +119,7 @@ Every laptop runs the same `crewbo` binary. Hooks, daemon, MCP server and the sy
 
 | Area | Decision | Rejected | Evidence | Overturned if |
 | --- | --- | --- | --- | --- |
-| Claims | Leased advisory file and glob claims (about 5 min, renewed on each hook event) plus an append-only shared event log | Hard locks; awareness only | Locks plus shared state cut duplicate work from 64% to 0% in a simulated study (arXiv 2606.19616); leases bound the wait when a holder crashes (Gray and Cheriton); Git LFS hard locks need force-unlock and are skipped silently | Real LLM agents ignore claims despite hooks |
+| Claims | Leased advisory file and glob claims (about 5 min, renewed on each hook event) plus an append-only shared event log | Hard locks; awareness only | Locks plus shared state cut duplicate work from 78% to 0% in a simulated study (arXiv 2606.19616); leases bound the wait when a holder crashes (Gray and Cheriton); Git LFS hard locks need force-unlock and are skipped silently | Real LLM agents ignore claims despite hooks |
 | Enforcement | Hooks block edits to claimed files; MCP is only the query surface | Relying on MCP or rules files | MCP 2026-07-28 removed server-initiated requests; rules files followed only 55 to 82% of the time | n/a |
 | Git | One short-lived branch per task; checkpoint refs under `refs/crewbo/`; daemon's own serial merge queue | One shared branch; long-lived branches; GitHub merge queue as primary | GitHub recommends at most 6 pushes per minute per repo; merge queue is org-repo only | GitHub rejects custom ref pushes |
 | Dispatch security | Verbatim approval gate, Ed25519-signed tasks, fresh worktree, teammate's own permissions | Auto-execute | Lethal trifecta: no reliable prompt-injection defence exists, so mitigation must be structural | n/a |
