@@ -210,7 +210,7 @@ sequenceDiagram
   end
   L->>D: crewbo task merge <task> (the assignee, or only the lead in lead-only rooms)
   D->>G: re-run merge-tree against current main and the other active task branches
-  alt conflict with main, or with an active branch and no lead override
+  alt conflict with main, or with another task's checkpoint not confirmed with --despite (ADR 0015)
     D-->>L: refuse, naming the conflicting files and tasks
   else clean
     D->>R: merge and push main

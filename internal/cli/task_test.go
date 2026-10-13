@@ -152,6 +152,8 @@ func TestTaskCommandsForTheAssignee(t *testing.T) {
 		{"no id", []string{"decline"}, ExitUsage, "Usage:"},
 		{"API key when declining", []string{"decline", first, "--use-api-key"}, ExitUsage, "Usage:"},
 		{"agent when showing", []string{"show", first, "--agent", "codex"}, ExitUsage, "Usage:"},
+		{"merge without an id", []string{"merge"}, ExitUsage, "Usage:"},
+		{"merge a task not yet run", []string{"merge", first}, ExitError, "only a checkpointed task can be merged"},
 		{"unknown subcommand", []string{"frobnicate"}, ExitUsage, "Usage:"},
 		{"decline with reason", []string{"decline", first, "--reason", "on holiday"}, ExitOK, "Task " + first + " declined. The lead has been told."},
 		{"decline again", []string{"decline", first}, ExitError, "already declined"},

@@ -24,6 +24,7 @@ const taskUsage = `Usage:
   crewbo task show ID
   crewbo task approve ID [--agent claude-code|codex] [--use-api-key]
   crewbo task decline ID [--reason TEXT]
+  crewbo task merge ID [--despite OTHER-ID]...
 
 create sends a signed task to a teammate's agent in this repository's room.
 Only the room lead can send tasks. --path names the files or globs the task
@@ -39,6 +40,11 @@ on Windows yet). API key variables (ANTHROPIC_API_KEY for Claude Code,
 OPENAI_API_KEY and CODEX_API_KEY for Codex) are removed from the agent's
 environment so it uses your plan; --use-api-key keeps them. decline tells the lead, with an optional reason. ID may be
 any unique start of a task id.
+
+merge puts a checkpointed task of yours into the remote's main branch. It
+is refused when the task conflicts with main, or with another task's
+checkpoint; after talking to that task's owner, --despite OTHER-ID merges
+anyway, and they update their task.
 `
 
 // paths is a repeatable --path flag.
@@ -72,6 +78,8 @@ func runTask(ctx context.Context, args []string, stdin io.Reader, stdout, stderr
 		return ExitOK
 	case "show", "approve", "decline":
 		return taskAnswer(ctx, args, stdin, stdout, stderr)
+	case "merge":
+		return taskMerge(ctx, args, stdout, stderr)
 	}
 	return write(stderr, ExitUsage, "%s", taskUsage)
 }
@@ -306,4 +314,41 @@ func confirm(stdin io.Reader, stdout io.Writer) bool {
 	_, _ = fmt.Fprint(stdout, "\nApprove this task? Type yes to approve: ")
 	line, _ := bufio.NewReader(stdin).ReadString('\n')
 	return strings.TrimSpace(line) == "yes"
+}
+
+// taskMerge runs crewbo task merge.
+func taskMerge(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("task merge", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	var despite pathList
+	fs.Var(&despite, "despite", "merge although this task's checkpoint conflicts (repeatable)")
+	rest, err := parseInterspersed(fs, args[1:])
+	if err != nil {
+		return ExitUsage
+	}
+	if len(rest) != 1 {
+		return write(stderr, ExitUsage, "%s", taskUsage)
+	}
+	tasks, code := listTasks(ctx, stderr)
+	if code != ExitOK {
+		return code
+	}
+	t, err := resolveTask(tasks, rest[0])
+	if err != nil {
+		return write(stderr, ExitError, "crewbo: %v\n", err)
+	}
+	var others []string
+	for _, d := range despite {
+		o, err := resolveTask(tasks, d)
+		if err != nil {
+			others = append(others, d) // a task this member does not list (another member's own)
+			continue
+		}
+		others = append(others, o.ID)
+	}
+	resp, code := callTaskDaemon(ctx, daemon.Request{Method: daemon.MethodTaskMerge, Task: t.ID, Despite: others}, stderr)
+	if code != ExitOK {
+		return code
+	}
+	return write(stdout, ExitOK, "Task %s: %s\n", t.ID, resp.Note)
 }

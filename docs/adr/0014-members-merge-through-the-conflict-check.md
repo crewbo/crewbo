@@ -1,6 +1,6 @@
 # 0014. Members merge their own work through the conflict check; every piece of work is a task
 
-- Status: Accepted (Ronel, 2026-10-13)
+- Status: Accepted (Ronel, 2026-10-13); the rule on conflicts with another task's checkpoint is superseded by ADR 0015 (merge after confirming with `--despite`)
 - Date: 2026-10-13
 - Decision owner: Ronel Abraham Mathew
 - Supersedes: the merge rule in ADR 0005 ("Merges go through the daemon's own serial merge queue on the lead's machine"). The rest of ADR 0005 stands.

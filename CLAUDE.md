@@ -20,7 +20,7 @@ Source precedence: Ronel's explicit instructions > PRD > accepted ADRs > `docs/r
 - M1 (protocol and daemon skeleton) and M2 (Claude Code and Codex hook adapters) complete on 2026-10-11 (PRs #20 to #54).
 - M3 (sync server and auth) complete on 2026-10-12; two-machine check passed (`docs/research/m3-two-machine-check.md`).
 - M4 (lead dispatch) complete on 2026-10-13 (PRs #98 to #114); two-machine check passed (`docs/research/m4-two-machine-check.md`). ADR 0012 (Crewbo IDE, long term) accepted.
-- Next: **Gate C for M5** (checkpoints, conflict warnings, extension v0, dashboard v0). No M5 code until Ronel approves the issue list.
+- M5 in progress: Gate C approved 2026-10-13 (PR #116; issues #117 to #126). ADR 0014 and ADR 0015 (merging) accepted.
 - **Start every session with `docs/engineering/handoff.md`** (state, habits, open items), then the latest `worklog.md` entry.
 
 ## Commands

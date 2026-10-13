@@ -276,7 +276,7 @@ func TestApprovedTaskRunsWithCodex(t *testing.T) {
 func (m *machine) remoteFor(t *testing.T, identity bool) string {
 	t.Helper()
 	bare := t.TempDir()
-	gitOut(t, bare, "init", "-q", "--bare")
+	gitOut(t, bare, "init", "-q", "--bare", "-b", "main")
 	m.useRemote(t, bare, identity)
 	return bare
 }
@@ -537,5 +537,92 @@ func TestCleanCheckpointsSendNoWarning(t *testing.T) {
 	}
 	if c := f.b.taskState(ids[1]).Conflicts; len(c) != 0 {
 		t.Errorf("conflicts listed: %v", c)
+	}
+}
+
+// M5-04: the assignee merges their checkpointed task into main through the
+// conflict check (ADR 0014): a conflict with main or with another task's
+// checkpoint is refused; a clean merge is pushed as a merge commit; a
+// merged task no longer counts in later conflict checks.
+func TestMemberMergesTheirTask(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	f := newCrossFixture(t)
+	dir := fakeClaude(t)
+	touch(t, filepath.Join(dir, "write"), "agent work\n")
+	touch(t, filepath.Join(dir, "write-unique"), "")
+	f.b.fetchFrom(f.a)
+	bare := f.a.remoteFor(t, true)
+	f.b.useRemote(t, bare, true)
+	gitOut(t, f.a.repo, "push", "-q", "origin", "HEAD:refs/heads/main") // the team's main
+	base := gitOut(t, bare, "rev-parse", "main")
+	run := func(text string) string {
+		t.Helper()
+		sent, err := f.a.task("gavriel953", text, nil, time.Hour)
+		if err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "the task", func() bool { return f.b.taskState(sent.TaskID).State == "dispatched" })
+		if _, err := f.b.approve(sent.TaskID, false); err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "its checkpoint in the room", func() bool { return f.a.taskState(sent.TaskID).State == "checkpointed" })
+		return sent.TaskID
+	}
+	merge := func(id string, despite ...string) (Response, error) {
+		return f.b.call(Request{Method: MethodTaskMerge, Task: id, Despite: despite})
+	}
+
+	one := run("First version of agent.txt.")
+	two := run("Second version of agent.txt.") // conflicts with one
+	// Two unmerged tasks conflict: each merge is refused until the member
+	// confirms, so whoever goes first decides (ADR 0015).
+	if _, err := merge(two); err == nil || !strings.Contains(err.Error(), "conflicts with task "+one+" on agent.txt") ||
+		!strings.Contains(err.Error(), "crewbo task merge "+two+" --despite "+one) {
+		t.Errorf("merging over another task's checkpoint: %v", err)
+	}
+	if _, err := merge(one); err == nil || !strings.Contains(err.Error(), "--despite "+two) {
+		t.Errorf("merging the other one without confirming: %v", err)
+	}
+	if _, err := merge(one, "some-other-task"); err == nil || !strings.Contains(err.Error(), "--despite "+two) {
+		t.Errorf("confirming an unrelated task let the merge through: %v", err)
+	}
+	if _, err := f.a.call(Request{Method: MethodTaskMerge, Task: one}); err == nil || !strings.Contains(err.Error(), "its assignee merges it") {
+		t.Errorf("the lead merging a sent task: %v", err)
+	}
+	resp, err := merge(one, two)
+	if err != nil || !strings.HasPrefix(resp.Note, "Merged into main as ") {
+		t.Fatalf("merge: %+v %v", resp, err)
+	}
+	merged := gitOut(t, bare, "rev-parse", "main")
+	checkpoint := gitOut(t, bare, "rev-parse", "refs/crewbo/gavriel953/"+one)
+	if parents := gitOut(t, bare, "rev-list", "--parents", "-n", "1", merged); parents != merged+" "+base+" "+checkpoint {
+		t.Errorf("main is %q, want a merge of %s and %s", parents, base, checkpoint)
+	}
+	if author := gitOut(t, bare, "log", "-1", "--format=%an", merged); author != "Gavriel" {
+		t.Errorf("merge author %q", author)
+	}
+	if st := f.b.taskState(one); st.State != "merged" || st.Detail != "refs/heads/main at "+merged[:12] {
+		t.Errorf("after merge: %s %q", st.State, st.Detail)
+	}
+	eventually(t, "the lead to see it merged", func() bool { return f.a.taskState(one).State == "merged" })
+	if _, err := merge(one); err == nil || !strings.Contains(err.Error(), "only a checkpointed task can be merged") {
+		t.Errorf("merging twice: %v", err)
+	}
+	// main now has one's agent.txt, so two conflicts with main, and no
+	// confirmation gets past that.
+	if _, err := merge(two, one); err == nil || !strings.Contains(err.Error(), "conflicts with main on agent.txt") {
+		t.Errorf("merging over main: %v", err)
+	}
+	if st := f.b.taskState(two).State; st != "checkpointed" {
+		t.Errorf("a refused merge changed the state to %s", st)
+	}
+	// A merged task no longer counts: a third conflicting checkpoint is
+	// compared with two only.
+	warningsBefore := len(f.warnings())
+	three := run("Third version of agent.txt.")
+	eventually(t, "the third check", func() bool { return len(f.warnings()) == warningsBefore+1 })
+	if w := f.warnings()[len(f.warnings())-1].GetConflictWarning(); w.GetTaskId() != three || w.GetOtherTaskId() != two {
+		t.Errorf("the third task was compared with %s, want %s only", w.GetOtherTaskId(), two)
 	}
 }
