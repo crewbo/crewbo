@@ -20,6 +20,7 @@ import (
 
 const taskUsage = `Usage:
   crewbo task create --to LOGIN [--path PATH]... [--for DURATION] (TEXT... | --file FILE)
+  crewbo task start [--path PATH]... (TEXT... | --file FILE)
   crewbo task list
   crewbo task show ID
   crewbo task approve ID [--agent claude-code|codex] [--use-api-key]
@@ -30,6 +31,11 @@ create sends a signed task to a teammate's agent in this repository's room.
 Only the room lead can send tasks. --path names the files or globs the task
 may change (repeat it); --for is how long the teammate has to approve
 (default 24h, at most 7 days); --file - reads the text from stdin.
+
+start gives you a task of your own, with no lead or approval: a new git
+worktree on its own branch, with --path claimed for it. Work there with
+any agent; Crewbo checkpoints your work for the room and checks it
+against your teammates' tasks.
 
 list shows the tasks sent to you and, for a lead, the tasks you sent with
 the state their assignee reported; show prints one in full. approve shows
@@ -58,7 +64,7 @@ func runTask(ctx context.Context, args []string, stdin io.Reader, stdout, stderr
 		return write(stderr, ExitUsage, "%s", taskUsage)
 	}
 	switch args[0] {
-	case "create":
+	case "create", "start":
 		return taskCreate(ctx, args, stdin, stdout, stderr)
 	case "list":
 		if len(args) != 1 {
@@ -132,8 +138,11 @@ func taskAnswer(ctx context.Context, args []string, stdin io.Reader, stdout, std
 	return write(stdout, ExitOK, "Task %s %s. %s\n", t.ID, map[string]string{"approve": "approved", "decline": "declined"}[args[0]], resp.Note)
 }
 
+// taskCreate runs task create (for a teammate) and task start (for
+// yourself).
 func taskCreate(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("task create", flag.ContinueOnError)
+	own := args[0] == "start"
+	fs := flag.NewFlagSet("task "+args[0], flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	to := fs.String("to", "", "the teammate's GitHub login")
 	ttl := fs.Duration("for", 0, "how long the teammate has to approve (default 24h)")
@@ -159,7 +168,7 @@ func taskCreate(ctx context.Context, args []string, stdin io.Reader, stdout, std
 		}
 		text = string(b)
 	}
-	if *to == "" || strings.TrimSpace(text) == "" || (*file != "" && len(rest) > 0) {
+	if (*to == "") != own || (own && *ttl != 0) || strings.TrimSpace(text) == "" || (*file != "" && len(rest) > 0) {
 		return write(stderr, ExitUsage, "%s", taskUsage)
 	}
 	cwd, err := os.Getwd()
@@ -178,8 +187,12 @@ func taskCreate(ctx context.Context, args []string, stdin io.Reader, stdout, std
 		}
 		patterns = append(patterns, pat)
 	}
+	method := daemon.MethodTaskCreate
+	if own {
+		method = daemon.MethodTaskStart
+	}
 	resp, code := callTaskDaemon(ctx, daemon.Request{
-		Method: daemon.MethodTaskCreate, Repo: root, Assignee: *to, Text: text,
+		Method: method, Repo: root, Assignee: *to, Text: text,
 		Patterns: patterns, TTLSeconds: int64(ttl.Seconds()),
 	}, stderr)
 	if code != ExitOK {

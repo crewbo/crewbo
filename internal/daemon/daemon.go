@@ -148,6 +148,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if d.cfg.syncFast {
 		retry = 50 * time.Millisecond
 	}
+	d.restoreOwnTasks(ctx)
 	verifyDone := make(chan struct{})
 	go func() { defer close(verifyDone); d.verifyTasks(ctx, retry) }()
 	go func() { <-ctx.Done(); _ = ln.Close() }()
@@ -466,6 +467,8 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 			resp = d.answerTask(ctx, req)
 		case req.Method == MethodTaskMerge:
 			resp = d.mergeTask(ctx, req)
+		case req.Method == MethodTaskStart:
+			resp = d.startOwnTask(ctx, req)
 		case d.shared(req):
 			resp = d.sharedClaim(ctx, req)
 		default:

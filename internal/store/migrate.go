@@ -106,6 +106,11 @@ var Daemon = Schema{
 		paths           TEXT    NOT NULL,
 		PRIMARY KEY (room_id, seq)
 	) WITHOUT ROWID;`,
+	// 7: tasks a member started themselves (ADR 0014, M5-07): own marks
+	// them, and session is the agent session that holds their claims, so
+	// a restarted daemon still knows the task's worktree is that session.
+	`ALTER TABLE tasks ADD COLUMN own INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE tasks ADD COLUMN session TEXT NOT NULL DEFAULT '';`,
 }
 
 // Server is the schema of the sync server's database (`crewbo serve`).

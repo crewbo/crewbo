@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `crewbo task start [--path PATH]... TEXT` gives you a task of your own, with no lead or approval: a new git worktree on branch `crewbo/<task id>` at your current commit, with the paths claimed for whatever agent you open there (for up to 8 hours). The room sees it running. Checkpoints and merging for these tasks follow.
 - `crewbo room set --merge lead-only|members` (lead only) chooses who may run `crewbo task merge` in a room: each member for their own tasks (the default), or only the lead. `crewbo room status` shows it. It is a Crewbo rule, not a lock: plain `git push` still works unless the repository protects its main branch.
 - A lead can also run `crewbo task merge ID` on a task they sent, once its assignee's work is checkpointed: the lead's machine fetches the checkpoint and merges it as the lead, and everyone, the assignee included, sees it merged.
 - `crewbo task merge ID` puts your checkpointed task into the remote's main branch as a merge commit, without touching your working copy. It is refused when the task conflicts with main, or with another task's checkpoint; after talking to that task's owner, `--despite OTHER-ID` merges anyway. If someone else pushed to main meanwhile, Crewbo checks again and retries.
