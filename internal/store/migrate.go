@@ -91,6 +91,21 @@ var Daemon = Schema{
 		PRIMARY KEY (room_id, seq)
 	) WITHOUT ROWID;
 	CREATE INDEX task_status_task ON task_status (room_id, task_id, seq);`,
+	// 6: checkpoint refs on task statuses, and the room's conflict
+	// warnings (M5-02): paths only, as a JSON array.
+	`ALTER TABLE task_status ADD COLUMN ref TEXT NOT NULL DEFAULT '';
+	ALTER TABLE task_status ADD COLUMN commit_id TEXT NOT NULL DEFAULT '';
+	CREATE TABLE conflict_warning (
+		room_id         TEXT    NOT NULL,
+		seq             INTEGER NOT NULL,
+		task_id         TEXT    NOT NULL,
+		other_task_id   TEXT    NOT NULL,
+		actor           TEXT    NOT NULL,
+		commit_id       TEXT    NOT NULL DEFAULT '',
+		other_commit_id TEXT    NOT NULL DEFAULT '',
+		paths           TEXT    NOT NULL,
+		PRIMARY KEY (room_id, seq)
+	) WITHOUT ROWID;`,
 }
 
 // Server is the schema of the sync server's database (`crewbo serve`).

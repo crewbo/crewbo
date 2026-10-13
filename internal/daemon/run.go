@@ -221,8 +221,8 @@ func (d *Daemon) startRun(ctx context.Context, r *taskRun) (string, error) {
 		case err != nil:
 			d.finishRun(ctx, r, taskFailed, agentName(r.agent)+" "+err.Error())
 		default:
-			state, detail := d.checkpoint(ctx, r, wt)
-			d.finishRun(ctx, r, state, detail)
+			cp := d.checkpoint(ctx, r, wt)
+			d.finishRunAt(ctx, r, cp)
 		}
 	}()
 	return fmt.Sprintf("%s is working in %s (log: %s).", agentName(r.agent), wt, logPath), nil
@@ -278,13 +278,22 @@ func (d *Daemon) superviseRun(ctx context.Context, r *taskRun, cmd *exec.Cmd, se
 // with a detail) and tells the room. It survives a stopping daemon so the
 // outcome is kept and sent on the next start.
 func (d *Daemon) finishRun(ctx context.Context, r *taskRun, state, detail string) {
+	d.finishRunAt(ctx, r, runEnd{state: state, detail: detail})
+}
+
+// runEnd is how a run ended; ref and commit are set for a checkpoint.
+type runEnd struct{ state, detail, ref, commit string }
+
+func (d *Daemon) finishRunAt(ctx context.Context, r *taskRun, end runEnd) {
+	state, detail := end.state, end.detail
 	ctx = context.WithoutCancel(ctx)
 	id := r.body.GetTaskId()
 	if !d.setTaskState(ctx, id, state, detail) {
 		return
 	}
 	d.cfg.Log.Info("task run ended", "task_id", id, "state", state, "detail", detail)
-	if _, err := d.sendStatus(ctx, r.b.RoomID, id, dispatch.Wire(state), truncate(detail, maxReason), 0); err != nil && !errors.Is(err, errNotSent) {
+	st := &crewbov1.TaskStatus{RoomId: r.b.RoomID, TaskId: id, State: dispatch.Wire(state), Detail: truncate(detail, maxReason), Ref: end.ref, Commit: end.commit}
+	if _, err := d.sync.submit(ctx, &crewbov1.Envelope{Id: newEnvelopeID(), Body: &crewbov1.Envelope_TaskStatus{TaskStatus: st}}, 0); err != nil && !errors.Is(err, errNotSent) {
 		d.cfg.Log.Warn("task status not queued", "task_id", id, "err", err)
 	}
 }
@@ -331,20 +340,20 @@ const checkpointTimeout = 2 * time.Minute
 // checkpointed with the ref, or finished when there was nothing to commit
 // or the checkpoint failed (the detail says why; the work stays in the
 // worktree).
-func (d *Daemon) checkpoint(ctx context.Context, r *taskRun, wt string) (state, detail string) {
+func (d *Daemon) checkpoint(ctx context.Context, r *taskRun, wt string) runEnd {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), checkpointTimeout)
 	defer cancel()
 	id := r.body.GetTaskId()
 	g := gitx.New("")
-	kept := func(format string, a ...any) (string, string) {
-		return taskFinished, fmt.Sprintf(format, a...) + "; the work is kept in " + wt
+	kept := func(format string, a ...any) runEnd {
+		return runEnd{state: taskFinished, detail: fmt.Sprintf(format, a...) + "; the work is kept in " + wt}
 	}
 	commit, err := g.CommitAll(ctx, wt, "Checkpoint of Crewbo task "+id)
 	if err != nil {
 		return kept("no checkpoint: %v", err)
 	}
 	if commit == "" {
-		return taskFinished, "" // the agent changed nothing
+		return runEnd{state: taskFinished} // the agent changed nothing
 	}
 	remote, err := g.PushRemote(ctx, r.b.Repo)
 	if err != nil {
@@ -360,7 +369,7 @@ func (d *Daemon) checkpoint(ctx context.Context, r *taskRun, wt string) (state, 
 		}
 	}
 	d.cfg.Log.Info("task checkpointed", "task_id", id, "ref", ref, "commit", short(commit))
-	return dispatch.StateCheckpointed, ref + " at " + short(commit)
+	return runEnd{state: dispatch.StateCheckpointed, detail: ref + " at " + short(commit), ref: ref, commit: commit}
 }
 
 func short(commit string) string { return commit[:min(12, len(commit))] }

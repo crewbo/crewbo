@@ -22,6 +22,7 @@ message Event {
     ClaimsExpired claims_expired = 13;
     TaskDispatched task_dispatched = 20;
     TaskStatusChanged task_status_changed = 21;
+    ConflictWarning conflict_warning = 22;
   }
 }
 

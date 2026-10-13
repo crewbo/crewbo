@@ -238,3 +238,23 @@ func TestInteractiveNeedsATerminal(t *testing.T) {
 		t.Errorf("approve from /dev/null = %d %q %q", code, out, errOut)
 	}
 }
+
+func TestConflictsAreShown(t *testing.T) {
+	now := time.Date(2026, 10, 13, 12, 0, 0, 0, time.Local)
+	task := daemon.Task{
+		ID: "01a13502-0780-71ac", State: "checkpointed", Author: "RM1338", Text: "t", Expires: now.Add(time.Hour),
+		Conflicts: []daemon.Conflict{{Task: "01a134f4-8a17", Paths: []string{"src/a.go", "README.md"}}},
+	}
+	if got := listLine(task, now); !strings.HasSuffix(got, "[conflicts with 1 task(s); crewbo task show 01a13502-0780]") {
+		t.Errorf("list line %q", got)
+	}
+	var b strings.Builder
+	printTask(&b, task, now)
+	if !strings.Contains(b.String(), "Conflict: with task 01a134f4-8a17 on src/a.go, README.md\n") {
+		t.Errorf("show %q", b.String())
+	}
+	task.Conflicts = nil
+	if got := listLine(task, now); strings.Contains(got, "conflicts") {
+		t.Errorf("no conflicts but %q", got)
+	}
+}

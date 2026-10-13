@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -318,6 +319,16 @@ func TestCleanRunIsCheckpointed(t *testing.T) {
 	if parent := gitOut(t, bare, "rev-parse", ref+"^"); parent != gitOut(t, f.a.repo, "rev-parse", "HEAD") {
 		t.Errorf("the checkpoint does not sit on the task's base commit")
 	}
+	// The room log carries the ref and commit for other machines (M5-02).
+	eventually(t, "the CHECKPOINTED status with its ref", func() bool {
+		for _, ev := range f.statuses() {
+			st := ev.GetTaskStatusChanged().GetStatus()
+			if st.GetState() == crewbov1.TaskState_TASK_STATE_CHECKPOINTED {
+				return st.GetRef() == ref && st.GetCommit() == commit
+			}
+		}
+		return false
+	})
 	eventually(t, "the lead to see the checkpoint", func() bool {
 		lt := f.a.taskState(sent.TaskID)
 		return lt.State == "checkpointed" && lt.Detail == ref+" at "+commit[:12]
@@ -385,5 +396,38 @@ func TestCheckpointFallsBackToAWipBranch(t *testing.T) {
 	}
 	if got := gitOut(t, bare, "show", ref+":agent.txt"); got != "work" {
 		t.Errorf("agent.txt on the wip branch = %q", got)
+	}
+}
+
+// M5-02: conflict warnings in the room log reach every member's task list:
+// the latest warning per pair of tasks counts, and one with no paths means
+// the pair merges cleanly again.
+func TestConflictWarningsAreListed(t *testing.T) {
+	f := newCrossFixture(t)
+	sent, err := f.a.task("gavriel953", "Work on the parser.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the task", func() bool { return f.b.taskState(sent.TaskID).State == "dispatched" })
+	roomID := f.checkFor("gavriel953").RoomID
+	log := server.NewLog(f.db.SQL())
+	for _, w := range []*crewbov1.ConflictWarning{
+		{TaskId: sent.TaskID, OtherTaskId: "task-x", Paths: []string{"src/a.go"}},
+		{TaskId: "task-y", OtherTaskId: sent.TaskID, Paths: []string{"src/b.go", "src/c.go"}},
+		{TaskId: sent.TaskID, OtherTaskId: "task-x"}, // x now merges cleanly
+	} {
+		w.RoomId = roomID
+		ev := &crewbov1.Event{ActorMemberId: "gavriel953", Body: &crewbov1.Event_ConflictWarning{ConflictWarning: w}}
+		if _, err := log.Append(context.Background(), roomID, ev, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.a.restart() // replay the log, including the warnings written above
+	f.b.restart()
+	want := []Conflict{{Task: "task-y", Paths: []string{"src/b.go", "src/c.go"}}}
+	for _, m := range []*machine{f.a, f.b} {
+		eventually(t, "the conflict on "+m.paths.Data, func() bool {
+			return reflect.DeepEqual(m.taskState(sent.TaskID).Conflicts, want)
+		})
 	}
 }

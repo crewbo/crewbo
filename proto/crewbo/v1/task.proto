@@ -69,6 +69,27 @@ message TaskStatus {
   TaskState state = 3;
   // Short human-readable reason, for example why verification failed.
   string detail = 4;
+  // With CHECKPOINTED: the ref pushed to the team's remote (for example
+  // refs/crewbo/<member>/<task id>) and the commit it points at.
+  string ref = 5;
+  string commit = 6;
+}
+
+// ConflictWarning reports how two tasks' checkpoints merge (M5-02): the
+// paths git merge-tree found conflicting between them, or none when a pair
+// warned about earlier now merges cleanly. Only paths leave a machine,
+// never file contents.
+message ConflictWarning {
+  string room_id = 1;
+  // The task whose checkpoint was checked, and the commit checked.
+  string task_id = 2;
+  string commit = 3;
+  // The other task and the commit of its latest checkpoint.
+  string other_task_id = 4;
+  string other_commit = 5;
+  // Conflicting paths, repository-relative; empty means the pair merges
+  // cleanly again.
+  repeated string paths = 6;
 }
 
 // TaskDispatched records a delivered task in the room log.

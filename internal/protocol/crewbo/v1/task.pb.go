@@ -353,7 +353,11 @@ type TaskStatus struct {
 	TaskId string                 `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	State  TaskState              `protobuf:"varint,3,opt,name=state,proto3,enum=crewbo.v1.TaskState" json:"state,omitempty"`
 	// Short human-readable reason, for example why verification failed.
-	Detail        string `protobuf:"bytes,4,opt,name=detail,proto3" json:"detail,omitempty"`
+	Detail string `protobuf:"bytes,4,opt,name=detail,proto3" json:"detail,omitempty"`
+	// With CHECKPOINTED: the ref pushed to the team's remote (for example
+	// refs/crewbo/<member>/<task id>) and the commit it points at.
+	Ref           string `protobuf:"bytes,5,opt,name=ref,proto3" json:"ref,omitempty"`
+	Commit        string `protobuf:"bytes,6,opt,name=commit,proto3" json:"commit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -416,6 +420,112 @@ func (x *TaskStatus) GetDetail() string {
 	return ""
 }
 
+func (x *TaskStatus) GetRef() string {
+	if x != nil {
+		return x.Ref
+	}
+	return ""
+}
+
+func (x *TaskStatus) GetCommit() string {
+	if x != nil {
+		return x.Commit
+	}
+	return ""
+}
+
+// ConflictWarning reports how two tasks' checkpoints merge (M5-02): the
+// paths git merge-tree found conflicting between them, or none when a pair
+// warned about earlier now merges cleanly. Only paths leave a machine,
+// never file contents.
+type ConflictWarning struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	RoomId string                 `protobuf:"bytes,1,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
+	// The task whose checkpoint was checked, and the commit checked.
+	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Commit string `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
+	// The other task and the commit of its latest checkpoint.
+	OtherTaskId string `protobuf:"bytes,4,opt,name=other_task_id,json=otherTaskId,proto3" json:"other_task_id,omitempty"`
+	OtherCommit string `protobuf:"bytes,5,opt,name=other_commit,json=otherCommit,proto3" json:"other_commit,omitempty"`
+	// Conflicting paths, repository-relative; empty means the pair merges
+	// cleanly again.
+	Paths         []string `protobuf:"bytes,6,rep,name=paths,proto3" json:"paths,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConflictWarning) Reset() {
+	*x = ConflictWarning{}
+	mi := &file_crewbo_v1_task_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConflictWarning) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConflictWarning) ProtoMessage() {}
+
+func (x *ConflictWarning) ProtoReflect() protoreflect.Message {
+	mi := &file_crewbo_v1_task_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConflictWarning.ProtoReflect.Descriptor instead.
+func (*ConflictWarning) Descriptor() ([]byte, []int) {
+	return file_crewbo_v1_task_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ConflictWarning) GetRoomId() string {
+	if x != nil {
+		return x.RoomId
+	}
+	return ""
+}
+
+func (x *ConflictWarning) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *ConflictWarning) GetCommit() string {
+	if x != nil {
+		return x.Commit
+	}
+	return ""
+}
+
+func (x *ConflictWarning) GetOtherTaskId() string {
+	if x != nil {
+		return x.OtherTaskId
+	}
+	return ""
+}
+
+func (x *ConflictWarning) GetOtherCommit() string {
+	if x != nil {
+		return x.OtherCommit
+	}
+	return ""
+}
+
+func (x *ConflictWarning) GetPaths() []string {
+	if x != nil {
+		return x.Paths
+	}
+	return nil
+}
+
 // TaskDispatched records a delivered task in the room log.
 type TaskDispatched struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -426,7 +536,7 @@ type TaskDispatched struct {
 
 func (x *TaskDispatched) Reset() {
 	*x = TaskDispatched{}
-	mi := &file_crewbo_v1_task_proto_msgTypes[4]
+	mi := &file_crewbo_v1_task_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -438,7 +548,7 @@ func (x *TaskDispatched) String() string {
 func (*TaskDispatched) ProtoMessage() {}
 
 func (x *TaskDispatched) ProtoReflect() protoreflect.Message {
-	mi := &file_crewbo_v1_task_proto_msgTypes[4]
+	mi := &file_crewbo_v1_task_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -451,7 +561,7 @@ func (x *TaskDispatched) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskDispatched.ProtoReflect.Descriptor instead.
 func (*TaskDispatched) Descriptor() ([]byte, []int) {
-	return file_crewbo_v1_task_proto_rawDescGZIP(), []int{4}
+	return file_crewbo_v1_task_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *TaskDispatched) GetTask() *SignedTask {
@@ -471,7 +581,7 @@ type TaskStatusChanged struct {
 
 func (x *TaskStatusChanged) Reset() {
 	*x = TaskStatusChanged{}
-	mi := &file_crewbo_v1_task_proto_msgTypes[5]
+	mi := &file_crewbo_v1_task_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -483,7 +593,7 @@ func (x *TaskStatusChanged) String() string {
 func (*TaskStatusChanged) ProtoMessage() {}
 
 func (x *TaskStatusChanged) ProtoReflect() protoreflect.Message {
-	mi := &file_crewbo_v1_task_proto_msgTypes[5]
+	mi := &file_crewbo_v1_task_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -496,7 +606,7 @@ func (x *TaskStatusChanged) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskStatusChanged.ProtoReflect.Descriptor instead.
 func (*TaskStatusChanged) Descriptor() ([]byte, []int) {
-	return file_crewbo_v1_task_proto_rawDescGZIP(), []int{5}
+	return file_crewbo_v1_task_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *TaskStatusChanged) GetStatus() *TaskStatus {
@@ -532,13 +642,22 @@ const file_crewbo_v1_task_proto_rawDesc = "" +
 	"\x06key_id\x18\x03 \x01(\tR\x05keyId\"R\n" +
 	"\fDispatchTask\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12)\n" +
-	"\x04task\x18\x02 \x01(\v2\x15.crewbo.v1.SignedTaskR\x04task\"\x82\x01\n" +
+	"\x04task\x18\x02 \x01(\v2\x15.crewbo.v1.SignedTaskR\x04task\"\xac\x01\n" +
 	"\n" +
 	"TaskStatus\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12*\n" +
 	"\x05state\x18\x03 \x01(\x0e2\x14.crewbo.v1.TaskStateR\x05state\x12\x16\n" +
-	"\x06detail\x18\x04 \x01(\tR\x06detail\";\n" +
+	"\x06detail\x18\x04 \x01(\tR\x06detail\x12\x10\n" +
+	"\x03ref\x18\x05 \x01(\tR\x03ref\x12\x16\n" +
+	"\x06commit\x18\x06 \x01(\tR\x06commit\"\xb8\x01\n" +
+	"\x0fConflictWarning\x12\x17\n" +
+	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x16\n" +
+	"\x06commit\x18\x03 \x01(\tR\x06commit\x12\"\n" +
+	"\rother_task_id\x18\x04 \x01(\tR\votherTaskId\x12!\n" +
+	"\fother_commit\x18\x05 \x01(\tR\votherCommit\x12\x14\n" +
+	"\x05paths\x18\x06 \x03(\tR\x05paths\";\n" +
 	"\x0eTaskDispatched\x12)\n" +
 	"\x04task\x18\x01 \x01(\v2\x15.crewbo.v1.SignedTaskR\x04task\"B\n" +
 	"\x11TaskStatusChanged\x12-\n" +
@@ -572,15 +691,16 @@ func file_crewbo_v1_task_proto_rawDescGZIP() []byte {
 }
 
 var file_crewbo_v1_task_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_crewbo_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_crewbo_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_crewbo_v1_task_proto_goTypes = []any{
 	(TaskState)(0),            // 0: crewbo.v1.TaskState
 	(*TaskBody)(nil),          // 1: crewbo.v1.TaskBody
 	(*SignedTask)(nil),        // 2: crewbo.v1.SignedTask
 	(*DispatchTask)(nil),      // 3: crewbo.v1.DispatchTask
 	(*TaskStatus)(nil),        // 4: crewbo.v1.TaskStatus
-	(*TaskDispatched)(nil),    // 5: crewbo.v1.TaskDispatched
-	(*TaskStatusChanged)(nil), // 6: crewbo.v1.TaskStatusChanged
+	(*ConflictWarning)(nil),   // 5: crewbo.v1.ConflictWarning
+	(*TaskDispatched)(nil),    // 6: crewbo.v1.TaskDispatched
+	(*TaskStatusChanged)(nil), // 7: crewbo.v1.TaskStatusChanged
 }
 var file_crewbo_v1_task_proto_depIdxs = []int32{
 	2, // 0: crewbo.v1.DispatchTask.task:type_name -> crewbo.v1.SignedTask
@@ -605,7 +725,7 @@ func file_crewbo_v1_task_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_crewbo_v1_task_proto_rawDesc), len(file_crewbo_v1_task_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

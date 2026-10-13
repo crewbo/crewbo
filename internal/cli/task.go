@@ -241,7 +241,11 @@ func listLine(t daemon.Task, now time.Time) string {
 	if t.Sent {
 		who = "to " + t.Assignee
 	}
-	return fmt.Sprintf("%s  %-10s  %s, %s  %s", t.ID, t.State, who, until(t.Expires, now), visible(first))
+	line := fmt.Sprintf("%s  %-10s  %s, %s  %s", t.ID, t.State, who, until(t.Expires, now), visible(first))
+	if n := len(t.Conflicts); n > 0 {
+		line += fmt.Sprintf("  [conflicts with %d task(s); crewbo task show %s]", n, t.ID[:min(13, len(t.ID))])
+	}
+	return line
 }
 
 // until describes an expiry relative to now.
@@ -267,6 +271,9 @@ func printTask(w io.Writer, t daemon.Task, now time.Time) {
 		t.ID, who, t.State, t.BaseCommit, visible(owned), t.Created.Format(time.DateTime), until(t.Expires, now))
 	if t.Detail != "" {
 		_, _ = fmt.Fprintf(w, "Reason:   %s\n", visible(t.Detail))
+	}
+	for _, c := range t.Conflicts {
+		_, _ = fmt.Fprintf(w, "Conflict: with task %s on %s\n", c.Task, visible(strings.Join(c.Paths, ", ")))
 	}
 	_, _ = fmt.Fprintf(w, "\n----- task text -----\n%s\n----- end of task text -----\n", visible(t.Text))
 }

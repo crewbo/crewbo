@@ -161,10 +161,20 @@ type Task struct {
 	State      string    `json:"state"` // a dispatch.State* name
 	// Sent marks a task this member sent; State is then what its Assignee
 	// reported.
-	Sent     bool      `json:"sent,omitempty"`
-	Assignee string    `json:"assignee,omitempty"`
-	Detail   string    `json:"detail,omitempty"`
-	Received time.Time `json:"received"`
+	Sent     bool   `json:"sent,omitempty"`
+	Assignee string `json:"assignee,omitempty"`
+	// Conflicts lists the other tasks this task's latest checkpoint
+	// conflicts with, from the room's conflict warnings (M5-02).
+	Conflicts []Conflict `json:"conflicts,omitempty"`
+	Detail    string     `json:"detail,omitempty"`
+	Received  time.Time  `json:"received"`
+}
+
+// Conflict is another task whose checkpoint conflicts with a task's, and
+// the conflicting paths.
+type Conflict struct {
+	Task  string   `json:"task"`
+	Paths []string `json:"paths"`
 }
 
 // Session is an agent session the daemon has heard from.

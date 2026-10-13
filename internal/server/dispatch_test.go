@@ -154,3 +154,57 @@ func TestTaskStatusIsRecorded(t *testing.T) {
 		t.Errorf("another room: %v", r)
 	}
 }
+
+func warningEnv(id, room string, w *crewbov1.ConflictWarning) *crewbov1.Envelope {
+	w.RoomId = room
+	return &crewbov1.Envelope{Id: id, Body: &crewbov1.Envelope_ConflictWarning{ConflictWarning: w}}
+}
+
+// A conflict warning from a member reaches the room with the member as
+// actor; malformed ones are refused. Checkpoint refs ride on statuses.
+func TestConflictWarningIsRecorded(t *testing.T) {
+	d := newDispatchRoom(t)
+	lead := d.cr.connect(t, testToken, d.leadID)
+	mate := d.cr.connect(t, d.cr.tokenB, d.mateID)
+	w := &crewbov1.ConflictWarning{TaskId: "t1", Commit: "c1", OtherTaskId: "t2", OtherCommit: "c2", Paths: []string{"src/a.go", "README.md"}}
+	if r := request(t, mate, warningEnv("w1", d.cr.room, w)); r.GetAck().GetSeq() == 0 {
+		t.Fatalf("warning: %v", r)
+	}
+	ev := nextEvent(t, lead)
+	got := ev.GetConflictWarning()
+	if got.GetTaskId() != "t1" || got.GetOtherTaskId() != "t2" || len(got.GetPaths()) != 2 || got.GetPaths()[1] != "README.md" || ev.GetActorMemberId() == "tester" {
+		t.Fatalf("lead received %v (actor %q)", got, ev.GetActorMemberId())
+	}
+	long := string(make([]byte, maxPath+1))
+	many := make([]string, maxPatterns+1)
+	for i := range many {
+		many[i] = "p"
+	}
+	for name, bad := range map[string]*crewbov1.ConflictWarning{
+		"no task":        {OtherTaskId: "t2"},
+		"no other task":  {TaskId: "t1"},
+		"long commit":    {TaskId: "t1", OtherTaskId: "t2", Commit: string(make([]byte, maxCommit+1))},
+		"empty path":     {TaskId: "t1", OtherTaskId: "t2", Paths: []string{""}},
+		"long path":      {TaskId: "t1", OtherTaskId: "t2", Paths: []string{long}},
+		"too many paths": {TaskId: "t1", OtherTaskId: "t2", Paths: many},
+	} {
+		if r := request(t, mate, warningEnv("x", d.cr.room, bad)); r.GetError().GetCode() != crewbov1.ErrorCode_ERROR_CODE_INVALID {
+			t.Errorf("%s: %v", name, r)
+		}
+	}
+	if r := request(t, mate, warningEnv("x", "r_other", &crewbov1.ConflictWarning{TaskId: "t1", OtherTaskId: "t2"})); r.GetError().GetCode() != crewbov1.ErrorCode_ERROR_CODE_NOT_MEMBER {
+		t.Errorf("another room: %v", r)
+	}
+	st := statusEnv("s", d.cr.room, "t1", crewbov1.TaskState_TASK_STATE_CHECKPOINTED, "")
+	st.GetTaskStatus().Ref, st.GetTaskStatus().Commit = "refs/crewbo/m/t1", "abc"
+	if r := request(t, mate, st); r.GetAck().GetSeq() == 0 {
+		t.Fatalf("checkpoint status: %v", r)
+	}
+	if got := nextEvent(t, lead).GetTaskStatusChanged().GetStatus(); got.GetRef() != "refs/crewbo/m/t1" || got.GetCommit() != "abc" {
+		t.Errorf("status lost its ref: %v", got)
+	}
+	st.GetTaskStatus().Ref = string(make([]byte, maxRef+1))
+	if r := request(t, mate, st); r.GetError().GetCode() != crewbov1.ErrorCode_ERROR_CODE_INVALID {
+		t.Errorf("long ref: %v", r)
+	}
+}
