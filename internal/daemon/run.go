@@ -148,7 +148,7 @@ func (d *Daemon) prepareRun(ctx context.Context, req Request) (*taskRun, error) 
 func (d *Daemon) startRun(ctx context.Context, r *taskRun) (string, error) {
 	id := r.body.GetTaskId()
 	failed := func(err error) (string, error) {
-		d.finishRun(ctx, r, err.Error())
+		d.finishRun(ctx, r, taskFailed, err.Error())
 		return "", err
 	}
 	wt := filepath.Join(d.cfg.Paths.Data, "worktrees", id)
@@ -213,16 +213,17 @@ func (d *Daemon) startRun(ctx context.Context, r *taskRun) (string, error) {
 		err := d.superviseRun(ctx, r, cmd, session, len(claimIDs) > 0)
 		d.setRun(wt, "")
 		release()
-		detail := ""
 		switch {
 		case ctx.Err() != nil:
-			detail = "stopped because the Crewbo daemon stopped"
+			d.finishRun(ctx, r, taskFailed, "stopped because the Crewbo daemon stopped")
 		case err != nil && r.agent == dispatch.AgentCodex && codexFailure(logPath) != "":
-			detail = "Codex: " + codexFailure(logPath)
+			d.finishRun(ctx, r, taskFailed, "Codex: "+codexFailure(logPath))
 		case err != nil:
-			detail = agentName(r.agent) + " " + err.Error()
+			d.finishRun(ctx, r, taskFailed, agentName(r.agent)+" "+err.Error())
+		default:
+			state, detail := d.checkpoint(ctx, r, wt)
+			d.finishRun(ctx, r, state, detail)
 		}
-		d.finishRun(ctx, r, detail)
 	}()
 	return fmt.Sprintf("%s is working in %s (log: %s).", agentName(r.agent), wt, logPath), nil
 }
@@ -273,21 +274,17 @@ func (d *Daemon) superviseRun(ctx context.Context, r *taskRun, cmd *exec.Cmd, se
 	}
 }
 
-// finishRun records how a run ended, finished with no failure, otherwise
-// failed with the reason, and tells the room. It survives a stopping
-// daemon so the outcome is kept and sent on the next start.
-func (d *Daemon) finishRun(ctx context.Context, r *taskRun, failure string) {
+// finishRun records how a run ended (checkpointed, finished or failed,
+// with a detail) and tells the room. It survives a stopping daemon so the
+// outcome is kept and sent on the next start.
+func (d *Daemon) finishRun(ctx context.Context, r *taskRun, state, detail string) {
 	ctx = context.WithoutCancel(ctx)
 	id := r.body.GetTaskId()
-	state := taskFinished
-	if failure != "" {
-		state = taskFailed
-	}
-	if !d.setTaskState(ctx, id, state, failure) {
+	if !d.setTaskState(ctx, id, state, detail) {
 		return
 	}
-	d.cfg.Log.Info("task run ended", "task_id", id, "state", state, "reason", failure)
-	if _, err := d.sendStatus(ctx, r.b.RoomID, id, dispatch.Wire(state), truncate(failure, maxReason), 0); err != nil && !errors.Is(err, errNotSent) {
+	d.cfg.Log.Info("task run ended", "task_id", id, "state", state, "detail", detail)
+	if _, err := d.sendStatus(ctx, r.b.RoomID, id, dispatch.Wire(state), truncate(detail, maxReason), 0); err != nil && !errors.Is(err, errNotSent) {
 		d.cfg.Log.Warn("task status not queued", "task_id", id, "err", err)
 	}
 }
@@ -323,3 +320,47 @@ func truncate(s string, n int) string {
 	}
 	return strings.ToValidUTF8(s[:n], "")
 }
+
+// checkpointTimeout bounds committing and pushing a checkpoint.
+const checkpointTimeout = 2 * time.Minute
+
+// checkpoint commits what the agent left in the worktree, as the member's
+// own git identity, and pushes it to refs/crewbo/<member>/<task id> on the
+// repository's remote, or to the branch wip/<member>/<task id> if the
+// remote refuses that ref (ADR 0005). It returns the run's end state:
+// checkpointed with the ref, or finished when there was nothing to commit
+// or the checkpoint failed (the detail says why; the work stays in the
+// worktree).
+func (d *Daemon) checkpoint(ctx context.Context, r *taskRun, wt string) (state, detail string) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), checkpointTimeout)
+	defer cancel()
+	id := r.body.GetTaskId()
+	g := gitx.New("")
+	kept := func(format string, a ...any) (string, string) {
+		return taskFinished, fmt.Sprintf(format, a...) + "; the work is kept in " + wt
+	}
+	commit, err := g.CommitAll(ctx, wt, "Checkpoint of Crewbo task "+id)
+	if err != nil {
+		return kept("no checkpoint: %v", err)
+	}
+	if commit == "" {
+		return taskFinished, "" // the agent changed nothing
+	}
+	remote, err := g.PushRemote(ctx, r.b.Repo)
+	if err != nil {
+		return kept("committed %s, not pushed: %v", short(commit), err)
+	}
+	login := d.sync.session().GitHubLogin
+	ref := "refs/crewbo/" + login + "/" + id
+	if err := g.Push(ctx, r.b.Repo, remote, commit, ref); err != nil {
+		d.cfg.Log.Warn("checkpoint ref refused; pushing a wip branch instead", "task_id", id, "err", err)
+		ref = "refs/heads/wip/" + login + "/" + id
+		if err := g.Push(ctx, r.b.Repo, remote, commit, ref); err != nil {
+			return kept("committed %s, push to %s failed: %v", short(commit), remote, err)
+		}
+	}
+	d.cfg.Log.Info("task checkpointed", "task_id", id, "ref", ref, "commit", short(commit))
+	return dispatch.StateCheckpointed, ref + " at " + short(commit)
+}
+
+func short(commit string) string { return commit[:min(12, len(commit))] }

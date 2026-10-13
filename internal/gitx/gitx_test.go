@@ -217,3 +217,55 @@ func TestHasCommit(t *testing.T) {
 		t.Errorf("option-like commit: %v", err)
 	}
 }
+
+func TestCheckpointCommitAndPush(t *testing.T) {
+	// Only the repository's own config counts here, not the machine's.
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	dir := repo(t)
+	ctx := context.Background()
+	g := New("")
+
+	write(t, dir, "new.txt", "agent work\n")
+	if _, err := g.CommitAll(ctx, dir, "checkpoint"); !errors.Is(err, ErrNoIdentity) {
+		t.Fatalf("commit without an identity: %v", err)
+	}
+	gitT(t, dir, "config", "user.name", "Member")
+	gitT(t, dir, "config", "user.email", "member@example.com")
+	commit, err := g.CommitAll(ctx, dir, "checkpoint")
+	if err != nil || commit == "" {
+		t.Fatalf("CommitAll = %q, %v", commit, err)
+	}
+	if again, err := g.CommitAll(ctx, dir, "checkpoint"); err != nil || again != "" {
+		t.Errorf("nothing to commit: %q, %v", again, err)
+	}
+
+	if _, err := g.PushRemote(ctx, dir); !errors.Is(err, ErrNoRemote) {
+		t.Errorf("no remote: %v", err)
+	}
+	bare := t.TempDir()
+	gitT(t, bare, "init", "-q", "--bare")
+	gitT(t, dir, "remote", "add", "upstream", bare)
+	if r, err := g.PushRemote(ctx, dir); err != nil || r != "upstream" {
+		t.Errorf("the only remote: %q, %v", r, err)
+	}
+	gitT(t, dir, "remote", "add", "other", bare)
+	if _, err := g.PushRemote(ctx, dir); !errors.Is(err, ErrNoRemote) {
+		t.Errorf("several remotes without origin: %v", err)
+	}
+	gitT(t, dir, "remote", "add", "origin", bare)
+	remote, err := g.PushRemote(ctx, dir)
+	if err != nil || remote != "origin" {
+		t.Fatalf("origin among several: %q, %v", remote, err)
+	}
+	if err := g.Push(ctx, dir, remote, commit, "refs/crewbo/member/task-1"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("git", "-C", bare, "rev-parse", "refs/crewbo/member/task-1").Output() //nolint:gosec // test
+	if err != nil || strings.TrimSpace(string(out)) != commit {
+		t.Errorf("ref on the remote = %q, %v; want %s", out, err, commit)
+	}
+	if err := g.Push(ctx, dir, "--upload-pack=x", commit, "refs/crewbo/m/t"); !errors.Is(err, ErrBadRef) {
+		t.Errorf("option-like remote: %v", err)
+	}
+}
