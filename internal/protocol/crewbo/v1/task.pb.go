@@ -37,7 +37,8 @@ const (
 	TaskState_TASK_STATE_MERGING      TaskState = 9
 	TaskState_TASK_STATE_MERGED       TaskState = 10
 	TaskState_TASK_STATE_CANCELLED    TaskState = 11
-	// The agent exited cleanly. Until checkpoints (M5-01), the end of a run.
+	// The agent exited cleanly with nothing to checkpoint, or its checkpoint
+	// could not be pushed (the detail says why).
 	TaskState_TASK_STATE_FINISHED TaskState = 12
 )
 
