@@ -372,7 +372,8 @@ func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
 		if err != nil {
 			return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
 		}
-		resp.Tasks[i].State, resp.Tasks[i].Detail = dispatch.Fold(t.Assignee, sts)
+		last := dispatch.Fold(t.Assignee, t.Author, sts)
+		resp.Tasks[i].State, resp.Tasks[i].Detail = last.State, last.Detail
 	}
 	return resp
 }
@@ -508,9 +509,29 @@ func (d *Daemon) recordStatus(ctx context.Context, b auth.Binding, ev *crewbov1.
 	if state == "" {
 		return nil // a state this build does not know
 	}
-	_, err := d.sync.db.ExecContext(ctx, `INSERT INTO task_status (room_id, seq, task_id, actor, state, detail, ref, commit_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		b.RoomID, ev.GetSeq(), st.GetTaskId(), ev.GetActorMemberId(), state, truncate(st.GetDetail(), maxReason), st.GetRef(), st.GetCommit())
-	return err
+	if _, err := d.sync.db.ExecContext(ctx, `INSERT INTO task_status (room_id, seq, task_id, actor, state, detail, ref, commit_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		b.RoomID, ev.GetSeq(), st.GetTaskId(), ev.GetActorMemberId(), state, truncate(st.GetDetail(), maxReason), st.GetRef(), st.GetCommit()); err != nil {
+		return err
+	}
+	// The lead who sent one of this member's tasks may merge it: follow
+	// that on the task's own row (a replay of the same status moves nothing).
+	if state == dispatch.StateMerging || state == dispatch.StateMerged {
+		var signed []byte
+		err := d.sync.db.QueryRowContext(ctx, `SELECT signed FROM tasks WHERE task_id = ? AND state != ?`, st.GetTaskId(), taskOther).Scan(&signed)
+		if err == nil && taskAuthor(signed) == ev.GetActorMemberId() {
+			d.setTaskState(ctx, st.GetTaskId(), state, truncate(st.GetDetail(), maxReason))
+		}
+	}
+	return nil
+}
+
+// taskAuthor returns the author of a stored signed task.
+func taskAuthor(signed []byte) string {
+	st, body := &crewbov1.SignedTask{}, &crewbov1.TaskBody{}
+	if proto.Unmarshal(signed, st) != nil || proto.Unmarshal(st.GetBody(), body) != nil {
+		return ""
+	}
+	return body.GetAuthorMemberId()
 }
 
 // recordWarning keeps a conflict warning from the room log. It runs on the
@@ -569,7 +590,7 @@ func (d *Daemon) taskConflicts(ctx context.Context, room, taskID string) ([]Conf
 
 // taskStatuses returns a task's statuses in log order.
 func (d *Daemon) taskStatuses(ctx context.Context, room, taskID string) ([]dispatch.Status, error) {
-	rows, err := d.sync.db.QueryContext(ctx, `SELECT actor, state, detail FROM task_status WHERE room_id = ? AND task_id = ? ORDER BY seq`, room, taskID)
+	rows, err := d.sync.db.QueryContext(ctx, `SELECT actor, state, detail, ref, commit_id FROM task_status WHERE room_id = ? AND task_id = ? ORDER BY seq`, room, taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -577,7 +598,7 @@ func (d *Daemon) taskStatuses(ctx context.Context, room, taskID string) ([]dispa
 	var out []dispatch.Status
 	for rows.Next() {
 		var s dispatch.Status
-		if err := rows.Scan(&s.Actor, &s.State, &s.Detail); err != nil {
+		if err := rows.Scan(&s.Actor, &s.State, &s.Detail, &s.Ref, &s.Commit); err != nil {
 			return nil, err
 		}
 		out = append(out, s)

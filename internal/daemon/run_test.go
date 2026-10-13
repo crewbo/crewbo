@@ -587,9 +587,6 @@ func TestMemberMergesTheirTask(t *testing.T) {
 	if _, err := merge(one, "some-other-task"); err == nil || !strings.Contains(err.Error(), "--despite "+two) {
 		t.Errorf("confirming an unrelated task let the merge through: %v", err)
 	}
-	if _, err := f.a.call(Request{Method: MethodTaskMerge, Task: one}); err == nil || !strings.Contains(err.Error(), "its assignee merges it") {
-		t.Errorf("the lead merging a sent task: %v", err)
-	}
 	resp, err := merge(one, two)
 	if err != nil || !strings.HasPrefix(resp.Note, "Merged into main as ") {
 		t.Fatalf("merge: %+v %v", resp, err)
@@ -624,5 +621,69 @@ func TestMemberMergesTheirTask(t *testing.T) {
 	eventually(t, "the third check", func() bool { return len(f.warnings()) == warningsBefore+1 })
 	if w := f.warnings()[len(f.warnings())-1].GetConflictWarning(); w.GetTaskId() != three || w.GetOtherTaskId() != two {
 		t.Errorf("the third task was compared with %s, want %s only", w.GetOtherTaskId(), two)
+	}
+}
+
+// The lead may merge a task they sent once its assignee checkpointed it
+// (ADR 0014): the lead's machine fetches the checkpoint, merges it as the
+// lead, and every member, the assignee included, sees it merged.
+func TestLeadMergesASentTask(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	f := newCrossFixture(t)
+	dir := fakeClaude(t)
+	touch(t, filepath.Join(dir, "write"), "agent work\n")
+	f.b.fetchFrom(f.a)
+	bare := f.a.remoteFor(t, true)
+	gitOut(t, f.a.repo, "config", "user.name", "Ronel")
+	f.b.useRemote(t, bare, true)
+	gitOut(t, f.a.repo, "push", "-q", "origin", "HEAD:refs/heads/main")
+	sent, err := f.a.task("gavriel953", "Write agent.txt.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the lead to list the sent task", func() bool { return f.a.taskState(sent.TaskID).Sent })
+	if _, err := f.a.call(Request{Method: MethodTaskMerge, Task: sent.TaskID}); err == nil || !strings.Contains(err.Error(), "is dispatched; only a checkpointed task can be merged") {
+		t.Errorf("merging before a checkpoint: %v", err)
+	}
+	eventually(t, "the task", func() bool { return f.b.taskState(sent.TaskID).State == "dispatched" })
+	if _, err := f.b.approve(sent.TaskID, false); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the checkpoint on the lead's machine", func() bool { return f.a.taskState(sent.TaskID).State == "checkpointed" })
+	// Merge statuses from anyone but the task's lead are ignored, on the
+	// assignee's own row too.
+	roomID := f.checkFor("gavriel953").RoomID
+	for _, st := range []crewbov1.TaskState{crewbov1.TaskState_TASK_STATE_MERGING, crewbov1.TaskState_TASK_STATE_MERGED} {
+		ev := &crewbov1.Event{ActorMemberId: "mallory", Body: &crewbov1.Event_TaskStatusChanged{TaskStatusChanged: &crewbov1.TaskStatusChanged{
+			Status: &crewbov1.TaskStatus{RoomId: roomID, TaskId: sent.TaskID, State: st},
+		}}}
+		if _, err := server.NewLog(f.db.SQL()).Append(context.Background(), roomID, ev, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	marker, err := f.a.task("gavriel953", "Marker.", nil, time.Hour) // a live event after them makes B replay the gap
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the marker", func() bool { return f.b.taskState(marker.TaskID).ID != "" })
+	if st := f.b.taskState(sent.TaskID).State; st != "checkpointed" {
+		t.Errorf("a forged merge moved the assignee's task to %s", st)
+	}
+	resp, err := f.a.call(Request{Method: MethodTaskMerge, Task: sent.TaskID})
+	if err != nil || !strings.HasPrefix(resp.Note, "Merged into main as ") {
+		t.Fatalf("lead merge: %+v %v", resp, err)
+	}
+	merged := gitOut(t, bare, "rev-parse", "main")
+	if author := gitOut(t, bare, "log", "-1", "--format=%an", merged); author != "Ronel" {
+		t.Errorf("merge author %q, want the lead", author)
+	}
+	if got := gitOut(t, bare, "show", "main:agent.txt"); got != "agent work" {
+		t.Errorf("agent.txt on main = %q", got)
+	}
+	eventually(t, "the lead's list to say merged", func() bool { return f.a.taskState(sent.TaskID).State == "merged" })
+	eventually(t, "the assignee's own task to say merged", func() bool { return f.b.taskState(sent.TaskID).State == "merged" })
+	if _, err := f.b.call(Request{Method: MethodTaskMerge, Task: sent.TaskID}); err == nil || !strings.Contains(err.Error(), "only a checkpointed task can be merged") {
+		t.Errorf("the assignee merging it again: %v", err)
 	}
 }

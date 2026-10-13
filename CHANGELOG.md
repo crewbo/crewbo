@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A lead can also run `crewbo task merge ID` on a task they sent, once its assignee's work is checkpointed: the lead's machine fetches the checkpoint and merges it as the lead, and everyone, the assignee included, sees it merged.
 - `crewbo task merge ID` puts your checkpointed task into the remote's main branch as a merge commit, without touching your working copy. It is refused when the task conflicts with main, or with another task's checkpoint; after talking to that task's owner, `--despite OTHER-ID` merges anyway. If someone else pushed to main meanwhile, Crewbo checks again and retries.
 - Conflict warnings across machines: after a task's work is checkpointed, Crewbo fetches the latest checkpoint of every other task in the room and checks them with `git merge-tree`. Conflicting pairs are announced to the whole room; `crewbo task list` flags the affected tasks and `crewbo task show` names the other task and the files, so they can be sorted out before anyone merges.
 - When a task's agent finishes cleanly, Crewbo commits its work on the task branch as you (your git `user.name` and `user.email`) and pushes it to `refs/crewbo/<you>/<task id>` on the repository's remote, or to the branch `wip/<you>/<task id>` if the remote refuses that ref. The task is then checkpointed and the lead sees where. If nothing changed it stays finished; if the commit or push fails, it says why and the work stays in the worktree.
