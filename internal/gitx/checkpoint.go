@@ -71,3 +71,13 @@ func (g *Git) Push(ctx context.Context, repo, remote, commit, ref string) error 
 	_, err := g.run(ctx, repo, "push", "--quiet", "--no-verify", remote, commit+":"+ref)
 	return err
 }
+
+// Fetch fetches ref from remote so its commits are available locally
+// (for MergeTree); it updates no local branch.
+func (g *Git) Fetch(ctx context.Context, repo, remote, ref string) error {
+	if err := checkRefs(remote, ref); err != nil {
+		return err
+	}
+	_, err := g.run(ctx, repo, "fetch", "--quiet", "--no-tags", remote, ref)
+	return err
+}

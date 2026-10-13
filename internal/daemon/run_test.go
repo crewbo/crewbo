@@ -277,12 +277,18 @@ func (m *machine) remoteFor(t *testing.T, identity bool) string {
 	t.Helper()
 	bare := t.TempDir()
 	gitOut(t, bare, "init", "-q", "--bare")
+	m.useRemote(t, bare, identity)
+	return bare
+}
+
+// useRemote makes bare m's origin, with a git identity when asked.
+func (m *machine) useRemote(t *testing.T, bare string, identity bool) {
+	t.Helper()
 	gitOut(t, m.repo, "remote", "add", "origin", bare)
 	if identity {
 		gitOut(t, m.repo, "config", "user.name", "Gavriel")
 		gitOut(t, m.repo, "config", "user.email", "gavriel@example.com")
 	}
-	return bare
 }
 
 // M5-01: a run that ends cleanly with changes is committed as the member
@@ -429,5 +435,107 @@ func TestConflictWarningsAreListed(t *testing.T) {
 		eventually(t, "the conflict on "+m.paths.Data, func() bool {
 			return reflect.DeepEqual(m.taskState(sent.TaskID).Conflicts, want)
 		})
+	}
+}
+
+// M5-02: when a checkpoint conflicts with another task's latest checkpoint,
+// the room is warned with the conflicting paths, and every member sees it.
+func TestConflictingCheckpointsAreWarned(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	f := newCrossFixture(t)
+	dir := fakeClaude(t)
+	touch(t, filepath.Join(dir, "write"), "agent work\n")
+	touch(t, filepath.Join(dir, "write-unique"), "")
+	f.b.fetchFrom(f.a)
+	// One shared remote, as the team's GitHub repository: the lead's
+	// checkpoint reaches the teammate's machine only through it.
+	bare := f.a.remoteFor(t, true)
+	f.b.useRemote(t, bare, true)
+	run := func(on *machine, to, text string) string {
+		t.Helper()
+		sent, err := f.a.task(to, text, nil, time.Hour)
+		if err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "the task", func() bool { return on.taskState(sent.TaskID).State == "dispatched" })
+		if _, err := on.approve(sent.TaskID, false); err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "its checkpoint in the room", func() bool {
+			for _, ev := range f.statuses() {
+				if st := ev.GetTaskStatusChanged().GetStatus(); st.GetTaskId() == sent.TaskID && st.GetState() == crewbov1.TaskState_TASK_STATE_CHECKPOINTED {
+					return true
+				}
+			}
+			return false
+		})
+		return sent.TaskID
+	}
+	one := run(f.a, "RM1338", "First version of agent.txt.") // the lead's own task, on the lead's machine
+	if n := len(f.warnings()); n != 0 {
+		t.Errorf("a first checkpoint with nothing to compare sent %d warnings", n)
+	}
+	two := run(f.b, "gavriel953", "Second version of agent.txt.") // both add agent.txt with different contents
+	eventually(t, "the warning", func() bool { return len(f.warnings()) == 1 })
+	w := f.warnings()[0].GetConflictWarning()
+	if w.GetTaskId() != two || w.GetOtherTaskId() != one || !slices.Equal(w.GetPaths(), []string{"agent.txt"}) || w.GetCommit() == "" || w.GetOtherCommit() == "" {
+		t.Errorf("warning %v", w)
+	}
+	// The lead lists both tasks (one theirs, one sent); the teammate lists
+	// their own, and each shows the conflict with the other task.
+	eventually(t, "the conflict on the lead's machine", func() bool {
+		return reflect.DeepEqual(f.a.taskState(one).Conflicts, []Conflict{{Task: two, Paths: []string{"agent.txt"}}}) &&
+			reflect.DeepEqual(f.a.taskState(two).Conflicts, []Conflict{{Task: one, Paths: []string{"agent.txt"}}})
+	})
+	eventually(t, "the conflict on the teammate's machine", func() bool {
+		return reflect.DeepEqual(f.b.taskState(two).Conflicts, []Conflict{{Task: one, Paths: []string{"agent.txt"}}})
+	})
+}
+
+// warnings returns the conflict warnings in the room log.
+func (f *crossFixture) warnings() []*crewbov1.Event {
+	var out []*crewbov1.Event
+	for _, ev := range f.roomEvents() {
+		if ev.GetConflictWarning() != nil {
+			out = append(out, ev)
+		}
+	}
+	return out
+}
+
+// Checkpoints that merge cleanly send no warning.
+func TestCleanCheckpointsSendNoWarning(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	f := newCrossFixture(t)
+	dir := fakeClaude(t)
+	touch(t, filepath.Join(dir, "write"), "the same work\n") // identical additions merge cleanly
+	f.b.fetchFrom(f.a)
+	f.b.remoteFor(t, true)
+	var ids []string
+	for _, text := range []string{"One.", "Two."} {
+		sent, err := f.a.task("gavriel953", text, nil, time.Hour)
+		if err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "the task", func() bool { return f.b.taskState(sent.TaskID).State == "dispatched" })
+		if _, err := f.b.approve(sent.TaskID, false); err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "its checkpoint", func() bool { return f.a.taskState(sent.TaskID).State == "checkpointed" })
+		ids = append(ids, sent.TaskID)
+	}
+	// A third, later event proves the second check had time to send.
+	marker, err := f.a.task("gavriel953", "Marker.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the marker", func() bool { return f.b.taskState(marker.TaskID).ID != "" })
+	if w := f.warnings(); len(w) != 0 {
+		t.Errorf("clean checkpoints sent warnings: %v", w)
+	}
+	if c := f.b.taskState(ids[1]).Conflicts; len(c) != 0 {
+		t.Errorf("conflicts listed: %v", c)
 	}
 }

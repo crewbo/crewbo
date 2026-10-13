@@ -223,6 +223,9 @@ func (d *Daemon) startRun(ctx context.Context, r *taskRun) (string, error) {
 		default:
 			cp := d.checkpoint(ctx, r, wt)
 			d.finishRunAt(ctx, r, cp)
+			if cp.state == dispatch.StateCheckpointed {
+				d.checkConflicts(ctx, r, cp.commit)
+			}
 		}
 	}()
 	return fmt.Sprintf("%s is working in %s (log: %s).", agentName(r.agent), wt, logPath), nil
@@ -373,3 +376,75 @@ func (d *Daemon) checkpoint(ctx context.Context, r *taskRun, wt string) runEnd {
 }
 
 func short(commit string) string { return commit[:min(12, len(commit))] }
+
+// maxWarnPaths matches the server's limit on paths in a warning.
+const maxWarnPaths = 200
+
+// checkConflicts runs git merge-tree between a task's new checkpoint and
+// the latest checkpoint of every other task in the room, fetching each
+// one, and tells the room which pairs conflict and on which paths (M5-02,
+// ADR 0005). A check that cannot run is logged and skipped: it never
+// changes how the run ended.
+// ponytail: no "clean again" warning yet; a task checkpoints once until
+// runs can resume, then a re-check should clear a pair with no paths.
+func (d *Daemon) checkConflicts(ctx context.Context, r *taskRun, commit string) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), checkpointTimeout)
+	defer cancel()
+	id, room := r.body.GetTaskId(), r.b.RoomID
+	others, err := d.otherCheckpoints(ctx, room, id)
+	if err != nil {
+		d.cfg.Log.Warn("conflict check: read checkpoints", "task_id", id, "err", err)
+		return
+	}
+	g := gitx.New("")
+	remote, err := g.PushRemote(ctx, r.b.Repo)
+	if err != nil {
+		d.cfg.Log.Warn("conflict check: no remote", "task_id", id, "err", err)
+		return
+	}
+	for _, o := range others {
+		if err := g.Fetch(ctx, r.b.Repo, remote, o.ref); err != nil {
+			d.cfg.Log.Warn("conflict check: fetch", "task_id", id, "other", o.task, "err", err)
+			continue
+		}
+		res, err := g.MergeTree(ctx, r.b.Repo, commit, o.commit)
+		if err != nil {
+			d.cfg.Log.Warn("conflict check: merge-tree", "task_id", id, "other", o.task, "err", err)
+			continue
+		}
+		if res.Clean {
+			continue
+		}
+		paths := res.Conflicts[:min(len(res.Conflicts), maxWarnPaths)]
+		w := &crewbov1.ConflictWarning{RoomId: room, TaskId: id, Commit: commit, OtherTaskId: o.task, OtherCommit: o.commit, Paths: paths}
+		if _, err := d.sync.submit(ctx, &crewbov1.Envelope{Id: newEnvelopeID(), Body: &crewbov1.Envelope_ConflictWarning{ConflictWarning: w}}, 0); err != nil && !errors.Is(err, errNotSent) {
+			d.cfg.Log.Warn("conflict check: send", "task_id", id, "err", err)
+			continue
+		}
+		d.cfg.Log.Info("conflict check", "task_id", id, "other", o.task, "conflicting_paths", len(paths))
+	}
+}
+
+type checkpointRef struct{ task, ref, commit string }
+
+// otherCheckpoints returns, for every other task in the room whose latest
+// status is a checkpoint, the ref and commit it reported.
+func (d *Daemon) otherCheckpoints(ctx context.Context, room, taskID string) ([]checkpointRef, error) {
+	rows, err := d.sync.db.QueryContext(ctx, `SELECT s.task_id, s.ref, s.commit_id FROM task_status s
+		WHERE s.room_id = ? AND s.task_id != ? AND s.state = ? AND s.ref != '' AND s.commit_id != ''
+		AND s.seq = (SELECT max(seq) FROM task_status l WHERE l.room_id = s.room_id AND l.task_id = s.task_id)
+		ORDER BY s.seq`, room, taskID, dispatch.StateCheckpointed)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []checkpointRef
+	for rows.Next() {
+		var c checkpointRef
+		if err := rows.Scan(&c.task, &c.ref, &c.commit); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
