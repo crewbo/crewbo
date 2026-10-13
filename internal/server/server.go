@@ -261,6 +261,8 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 			roomID = b.DispatchTask.GetRoomId()
 		case *crewbov1.Envelope_TaskStatus:
 			roomID = b.TaskStatus.GetRoomId()
+		case *crewbov1.Envelope_ConflictWarning:
+			roomID = b.ConflictWarning.GetRoomId()
 		default:
 			// The protocol answers unknown requests with UNSUPPORTED.
 			if err := send(ctx, c, errorEnvelope(env.GetId(), crewbov1.ErrorCode_ERROR_CODE_UNSUPPORTED, "not supported by this server")); err != nil {

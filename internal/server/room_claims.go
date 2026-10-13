@@ -21,6 +21,9 @@ const (
 	renewalLease = claims.DefaultLease
 	maxTaskID    = 64
 	maxDetail    = 512
+	maxRef       = 255
+	maxCommit    = 64 // SHA-256 object ids in hex
+	maxPath      = 4096
 )
 
 // reportable reports whether a member may send state in a TaskStatus:
@@ -172,8 +175,29 @@ func (r *Room) handle(ctx context.Context, caller Caller, env *crewbov1.Envelope
 			return invalid("%v is not a state a member reports", st.GetState())
 		case len(st.GetDetail()) > maxDetail:
 			return invalid("the detail is at most %d bytes", maxDetail)
+		case len(st.GetRef()) > maxRef || len(st.GetCommit()) > maxCommit:
+			return invalid("a ref is at most %d bytes and a commit %d", maxRef, maxCommit)
 		}
 		ev = &crewbov1.Event{Body: &crewbov1.Event_TaskStatusChanged{TaskStatusChanged: &crewbov1.TaskStatusChanged{Status: st}}}
+
+	case *crewbov1.Envelope_ConflictWarning:
+		// Recorded with the sender as actor, like a task status: it holds
+		// paths and commit ids only, never file contents.
+		w := b.ConflictWarning
+		switch {
+		case w.GetTaskId() == "" || len(w.GetTaskId()) > maxTaskID || w.GetOtherTaskId() == "" || len(w.GetOtherTaskId()) > maxTaskID:
+			return invalid("task ids are 1 to %d bytes", maxTaskID)
+		case len(w.GetCommit()) > maxCommit || len(w.GetOtherCommit()) > maxCommit:
+			return invalid("a commit is at most %d bytes", maxCommit)
+		case len(w.GetPaths()) > maxPatterns:
+			return invalid("a warning names at most %d paths", maxPatterns)
+		}
+		for _, p := range w.GetPaths() {
+			if p == "" || len(p) > maxPath {
+				return invalid("paths are 1 to %d bytes", maxPath)
+			}
+		}
+		ev = &crewbov1.Event{Body: &crewbov1.Event_ConflictWarning{ConflictWarning: w}}
 
 	default:
 		return errorEnvelope(id, crewbov1.ErrorCode_ERROR_CODE_UNSUPPORTED, "not supported by this server")

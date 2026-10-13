@@ -356,6 +356,14 @@ func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
 	}
 	_ = rows.Close() // the store has one connection: close before the next query
 	for i, t := range resp.Tasks {
+		if t.ID == "" {
+			continue
+		}
+		cs, err := d.taskConflicts(ctx, t.Room, t.ID)
+		if err != nil {
+			return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
+		}
+		resp.Tasks[i].Conflicts = cs
 		if !t.Sent {
 			continue
 		}
@@ -500,9 +508,63 @@ func (d *Daemon) recordStatus(ctx context.Context, b auth.Binding, ev *crewbov1.
 	if state == "" {
 		return nil // a state this build does not know
 	}
-	_, err := d.sync.db.ExecContext(ctx, `INSERT INTO task_status (room_id, seq, task_id, actor, state, detail) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		b.RoomID, ev.GetSeq(), st.GetTaskId(), ev.GetActorMemberId(), state, truncate(st.GetDetail(), maxReason))
+	_, err := d.sync.db.ExecContext(ctx, `INSERT INTO task_status (room_id, seq, task_id, actor, state, detail, ref, commit_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		b.RoomID, ev.GetSeq(), st.GetTaskId(), ev.GetActorMemberId(), state, truncate(st.GetDetail(), maxReason), st.GetRef(), st.GetCommit())
 	return err
+}
+
+// recordWarning keeps a conflict warning from the room log. It runs on the
+// syncer goroutine; a replayed event is ignored.
+func (d *Daemon) recordWarning(ctx context.Context, b auth.Binding, ev *crewbov1.Event) error {
+	w := ev.GetConflictWarning()
+	paths, err := json.Marshal(w.GetPaths())
+	if err != nil {
+		return err
+	}
+	_, err = d.sync.db.ExecContext(ctx, `INSERT INTO conflict_warning (room_id, seq, task_id, other_task_id, actor, commit_id, other_commit_id, paths) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		b.RoomID, ev.GetSeq(), w.GetTaskId(), w.GetOtherTaskId(), ev.GetActorMemberId(), w.GetCommit(), w.GetOtherCommit(), string(paths))
+	return err
+}
+
+// taskConflicts returns a task's current conflicts: for each other task,
+// the latest warning about the pair (from either side), if it names paths.
+func (d *Daemon) taskConflicts(ctx context.Context, room, taskID string) ([]Conflict, error) {
+	rows, err := d.sync.db.QueryContext(ctx, `SELECT task_id, other_task_id, paths FROM conflict_warning
+		WHERE room_id = ? AND (task_id = ? OR other_task_id = ?) ORDER BY seq`, room, taskID, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	latest := map[string][]string{}
+	var order []string
+	for rows.Next() {
+		var a, b, raw string
+		if err := rows.Scan(&a, &b, &raw); err != nil {
+			return nil, err
+		}
+		other := b
+		if b == taskID {
+			other = a
+		}
+		var paths []string
+		if json.Unmarshal([]byte(raw), &paths) != nil {
+			continue
+		}
+		if _, seen := latest[other]; !seen {
+			order = append(order, other)
+		}
+		latest[other] = paths
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var out []Conflict
+	for _, other := range order {
+		if len(latest[other]) > 0 {
+			out = append(out, Conflict{Task: other, Paths: latest[other]})
+		}
+	}
+	return out, nil
 }
 
 // taskStatuses returns a task's statuses in log order.
