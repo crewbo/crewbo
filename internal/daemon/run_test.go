@@ -695,3 +695,70 @@ func TestLeadMergesASentTask(t *testing.T) {
 		t.Errorf("the assignee merging it again: %v", err)
 	}
 }
+
+// M5-07: a member starts a task of their own, with no lead or approval: a
+// worktree on its own branch, its paths claimed for whatever agent works
+// there, the room told it is running. A restart keeps that mapping.
+func TestMemberStartsTheirOwnTask(t *testing.T) {
+	f := newCrossFixture(t)
+	resp, err := f.b.call(Request{Method: MethodTaskStart, Repo: f.b.repo, Text: "Build the login page.", Patterns: []string{"src/auth/**"}})
+	if err != nil || resp.TaskID == "" || !strings.Contains(resp.Note, "Crewbo checkpoints your work") {
+		t.Fatalf("start: %+v %v", resp, err)
+	}
+	id := resp.TaskID
+	wt := filepath.Join(f.b.paths.Data, "worktrees", id)
+	if br := gitOut(t, wt, "branch", "--show-current"); br != "crewbo/"+id {
+		t.Errorf("branch %q", br)
+	}
+	if head := gitOut(t, wt, "rev-parse", "HEAD"); head != gitOut(t, f.b.repo, "rev-parse", "HEAD") {
+		t.Errorf("the worktree does not start at the member's current commit")
+	}
+	if own := f.b.taskState(id); own.State != "running" || own.Author != "gavriel953" || own.Text != "Build the login page." {
+		t.Errorf("listed as %+v", own)
+	}
+	eventually(t, "the lead to see the claim", func() bool { ok, _ := f.a.agentMay("src/auth/login.go"); return !ok })
+	if _, holder := f.a.agentMay("src/auth/login.go"); holder.Holder.MemberID != "gavriel953" || holder.TaskID != id {
+		t.Errorf("holder %+v", holder)
+	}
+	decide := func(session, repo string) bool {
+		t.Helper()
+		r, err := f.b.call(Request{Method: MethodDecide, Session: session, Agent: "claude-code", Repo: repo, Paths: []string{"src/auth/login.go"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r.Allow
+	}
+	if !decide("interactive-1", wt) {
+		t.Error("the member's agent in the task's worktree is blocked by its own claim")
+	}
+	if decide("interactive-1", f.b.repo) {
+		t.Error("an agent outside the worktree may edit the task's file")
+	}
+	eventually(t, "RUNNING in the room", func() bool {
+		for _, ev := range f.statuses() {
+			if st := ev.GetTaskStatusChanged().GetStatus(); st.GetTaskId() == id && st.GetState() == crewbov1.TaskState_TASK_STATE_RUNNING {
+				return ev.GetActorMemberId() == "gavriel953"
+			}
+		}
+		return false
+	})
+	f.b.restart()
+	eventually(t, "the claim after the restart", func() bool { ok, _ := f.b.agentMay("src/auth/login.go"); return !ok })
+	if !decide("interactive-2", wt) {
+		t.Error("after a restart the worktree is no longer the task's session")
+	}
+	// A claim someone else holds refuses the start, and nothing is left behind.
+	if _, err := f.a.claim("docs/**"); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the lead's claim", func() bool { ok, _ := f.b.agentMay("docs/a.md"); return !ok })
+	if _, err := f.b.call(Request{Method: MethodTaskStart, Repo: f.b.repo, Text: "Docs.", Patterns: []string{"docs/a.md"}}); err == nil || !strings.Contains(err.Error(), "claim the task's paths") {
+		t.Errorf("start over a held claim: %v", err)
+	}
+	if n := len(f.b.tasks()); n != 1 {
+		t.Errorf("a refused start left a task: %d tasks", n)
+	}
+	if branches := gitOut(t, f.b.repo, "branch", "--list", "crewbo/*"); strings.Count(branches, "crewbo/") != 1 {
+		t.Errorf("a refused start left a branch: %q", branches)
+	}
+}

@@ -29,6 +29,7 @@ const (
 	MethodTaskApprove  = "task_approve"
 	MethodTaskDecline  = "task_decline"
 	MethodTaskMerge    = "task_merge"
+	MethodTaskStart    = "task_start"
 )
 
 // TerminalSession holds claims made with `crewbo claim add`. It is not an
