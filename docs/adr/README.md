@@ -18,6 +18,7 @@ To change an accepted decision, write a new ADR that supersedes it and set the o
 | [0010](0010-monorepo-layout-and-toolchain.md) | Monorepo layout and toolchain | Accepted |
 | [0011](0011-sync-server-licence.md) | Sync server licence | Proposed |
 | [0012](0012-crewbo-ide-long-term.md) | Crewbo IDE as a long-term product | Accepted |
+| [0015](0015-merge-despite-a-conflicting-task.md) | A member may merge over another task's conflicting checkpoint after confirming | Accepted |
 | [0014](0014-members-merge-through-the-conflict-check.md) | Members merge their own work through the conflict check; every piece of work is a task | Accepted |
 | [0013](0013-antigravity-v1-stretch.md) | Antigravity adapter as a v1 stretch goal | Accepted |
 

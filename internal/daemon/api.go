@@ -28,6 +28,7 @@ const (
 	MethodTaskList     = "task_list"
 	MethodTaskApprove  = "task_approve"
 	MethodTaskDecline  = "task_decline"
+	MethodTaskMerge    = "task_merge"
 )
 
 // TerminalSession holds claims made with `crewbo claim add`. It is not an
@@ -78,6 +79,9 @@ type Request struct {
 	Task         string `json:"task,omitempty"`
 	LeaseSeconds int64  `json:"lease_seconds,omitempty"` // DefaultCLILease when 0
 	KeepAPIKey   bool   `json:"keep_api_key,omitempty"`
+	// task_merge: other tasks whose conflicting checkpoints the member
+	// confirmed merging over (ADR 0015).
+	Despite []string `json:"despite,omitempty"`
 	// claim_release: claim ids.
 	IDs []string `json:"ids,omitempty"`
 	// task_create: the teammate's GitHub login, the task text and how long

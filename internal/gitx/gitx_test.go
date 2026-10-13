@@ -284,3 +284,80 @@ func TestCheckpointCommitAndPush(t *testing.T) {
 		t.Errorf("option-like remote: %v", err)
 	}
 }
+
+// The pieces of a merge that touches no working tree: the remote's default
+// branch and where it points, merge-tree, commit-tree with two parents.
+func TestMergeWithoutAWorkingTree(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	dir := repo(t)
+	ctx := context.Background()
+	g := New("")
+	gitT(t, dir, "config", "user.name", "Member")
+	gitT(t, dir, "config", "user.email", "member@example.com")
+	bare := t.TempDir()
+	gitT(t, bare, "init", "-q", "--bare", "-b", "main")
+	gitT(t, dir, "remote", "add", "origin", bare)
+	gitT(t, dir, "push", "-q", "origin", "main")
+	branch, err := g.DefaultBranch(ctx, dir, "origin")
+	if err != nil || branch != "refs/heads/main" {
+		t.Fatalf("DefaultBranch = %q, %v", branch, err)
+	}
+	main, err := g.RemoteRef(ctx, dir, "origin", branch)
+	if err != nil || main != gitOut(t, dir, "rev-parse", "main") {
+		t.Fatalf("RemoteRef = %q, %v", main, err)
+	}
+	if _, err := g.RemoteRef(ctx, dir, "origin", "refs/heads/nope"); !errors.Is(err, ErrNoRef) {
+		t.Errorf("missing ref: %v", err)
+	}
+	branchTo(t, dir, "feature", "new.txt", "feature work\n")
+	feature := gitOut(t, dir, "rev-parse", "feature")
+	res, err := g.MergeTree(ctx, dir, main, feature)
+	if err != nil || !res.Clean {
+		t.Fatalf("merge-tree: %+v %v", res, err)
+	}
+	merged, err := g.CommitTree(ctx, dir, res.Tree, "Merge feature", main, feature)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parents := gitOut(t, dir, "rev-list", "--parents", "-n", "1", merged); parents != merged+" "+main+" "+feature {
+		t.Errorf("parents %q", parents)
+	}
+	if author := gitOut(t, dir, "log", "-1", "--format=%an", merged); author != "Member" {
+		t.Errorf("author %q", author)
+	}
+	if err := g.Push(ctx, dir, "origin", merged, branch); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := g.RemoteRef(ctx, dir, "origin", branch); got != merged {
+		t.Errorf("main on the remote = %s, want %s", got, merged)
+	}
+	// A push based on a stale main is refused by the remote.
+	branchTo(t, dir, "stale", "other.txt", "x\n")
+	stale, _ := g.CommitTree(ctx, dir, gitOut(t, dir, "rev-parse", "stale^{tree}"), "stale", main)
+	if err := g.Push(ctx, dir, "origin", stale, branch); err == nil {
+		t.Error("a push that does not include the current main was accepted")
+	}
+	if _, err := g.CommitTree(ctx, dir, res.Tree, "x", "--upload-pack=y"); !errors.Is(err, ErrBadRef) {
+		t.Errorf("option-like parent: %v", err)
+	}
+}
+
+// branchTo commits one file on a new branch from main, leaving main checked out.
+func branchTo(t *testing.T, dir, name, file, content string) {
+	t.Helper()
+	gitT(t, dir, "switch", "-q", "-c", name, "main")
+	write(t, dir, file, content)
+	gitT(t, dir, "add", file)
+	gitT(t, dir, "commit", "-q", "-m", name)
+	gitT(t, dir, "switch", "-q", "main")
+}
+
+func gitOut(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).Output() //nolint:gosec // test
+	if err != nil {
+		t.Fatalf("git %v: %v", args, err)
+	}
+	return strings.TrimSpace(string(out))
+}
