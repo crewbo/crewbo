@@ -16,9 +16,11 @@ Source precedence: Ronel's explicit instructions > PRD > accepted ADRs > `docs/r
 ## Current phase
 
 - Gate A approved 2026-10-11 (PR #1).
-- Gate B closed 2026-10-11: **go** (conditions met: 10 interviews, 9 teams mix vendors, same-repository use confirmed). Findings: `docs/research/phase0-findings.md`. Claude Code on macOS untested (U-23).
+- Gate B closed 2026-10-11: **go** (conditions met: 10 interviews, 9 teams mix vendors, same-repository use confirmed). Findings: `docs/research/phase0-findings.md`.
 - M1 (protocol and daemon skeleton) and M2 (Claude Code and Codex hook adapters) complete on 2026-10-11 (PRs #20 to #54).
-- Next: small follow-ups from the Windows M2 check, then **Gate C for M3** (sync server and auth). No M3 code until Ronel approves the issue list.
+- M3 (sync server and auth) complete on 2026-10-12; two-machine check passed (`docs/research/m3-two-machine-check.md`).
+- M4 (lead dispatch) complete on 2026-10-13 (PRs #98 to #114); two-machine check passed (`docs/research/m4-two-machine-check.md`). ADR 0012 (Crewbo IDE, long term) accepted.
+- Next: **Gate C for M5** (checkpoints, conflict warnings, extension v0, dashboard v0). No M5 code until Ronel approves the issue list.
 - **Start every session with `docs/engineering/handoff.md`** (state, habits, open items), then the latest `worklog.md` entry.
 
 ## Commands

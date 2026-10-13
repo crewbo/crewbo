@@ -86,7 +86,7 @@ flowchart TB
 | `crewbo serve` | Long-running | Rooms, membership, device keys, presence, the event log, store-and-forward of tasks. |
 | Extension, dashboard | Editor or browser session | Display state, approve tasks, request handoffs. |
 
-Local IPC is a Unix domain socket on macOS and Linux and a named pipe on Windows (see [cross-platform.md](cross-platform.md)).
+Local IPC is a Unix domain socket on every OS, including Windows (AF_UNIX, Windows 10 1803 or later), and every connection starts with a token from a user-only file (see [cross-platform.md](cross-platform.md)).
 
 ## What leaves a laptop
 
