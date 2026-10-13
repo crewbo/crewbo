@@ -269,3 +269,121 @@ func TestApprovedTaskRunsWithCodex(t *testing.T) {
 		t.Errorf("after the run: %+v %v", own, err)
 	}
 }
+
+// remoteFor gives m's clone a bare origin (standing in for GitHub) and a
+// git identity of its own, and returns the bare repository.
+func (m *machine) remoteFor(t *testing.T, identity bool) string {
+	t.Helper()
+	bare := t.TempDir()
+	gitOut(t, bare, "init", "-q", "--bare")
+	gitOut(t, m.repo, "remote", "add", "origin", bare)
+	if identity {
+		gitOut(t, m.repo, "config", "user.name", "Gavriel")
+		gitOut(t, m.repo, "config", "user.email", "gavriel@example.com")
+	}
+	return bare
+}
+
+// M5-01: a run that ends cleanly with changes is committed as the member
+// and pushed to refs/crewbo/<member>/<task id>; the lead sees it
+// checkpointed. A run with nothing to commit stays finished.
+func TestCleanRunIsCheckpointed(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull) // only the clone's own identity counts
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	f := newCrossFixture(t)
+	dir := fakeClaude(t)
+	touch(t, filepath.Join(dir, "write"), "work from the agent\n")
+	f.b.fetchFrom(f.a)
+	bare := f.b.remoteFor(t, true)
+	sent, err := f.a.task("gavriel953", "Write agent.txt.", []string{"agent.txt"}, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the task", func() bool { return f.b.taskState(sent.TaskID).State == "dispatched" })
+	if _, err := f.b.approve(sent.TaskID, false); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the checkpoint", func() bool { return f.b.taskState(sent.TaskID).State == "checkpointed" })
+	ref := "refs/crewbo/gavriel953/" + sent.TaskID
+	commit := gitOut(t, bare, "rev-parse", ref)
+	if d := f.b.taskState(sent.TaskID).Detail; d != ref+" at "+commit[:12] {
+		t.Errorf("detail %q", d)
+	}
+	if got := gitOut(t, bare, "show", ref+":agent.txt"); got != "work from the agent" {
+		t.Errorf("agent.txt in the checkpoint = %q", got)
+	}
+	if author := gitOut(t, bare, "log", "-1", "--format=%an <%ae>", ref); author != "Gavriel <gavriel@example.com>" {
+		t.Errorf("author %q", author)
+	}
+	if parent := gitOut(t, bare, "rev-parse", ref+"^"); parent != gitOut(t, f.a.repo, "rev-parse", "HEAD") {
+		t.Errorf("the checkpoint does not sit on the task's base commit")
+	}
+	eventually(t, "the lead to see the checkpoint", func() bool {
+		lt := f.a.taskState(sent.TaskID)
+		return lt.State == "checkpointed" && lt.Detail == ref+" at "+commit[:12]
+	})
+}
+
+// Without a git identity nothing is committed under an invented name: the
+// run is finished and says why, and the work stays in the worktree.
+func TestCheckpointNeedsAGitIdentity(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	f := newCrossFixture(t)
+	dir := fakeClaude(t)
+	touch(t, filepath.Join(dir, "write"), "work\n")
+	f.b.fetchFrom(f.a)
+	bare := f.b.remoteFor(t, false)
+	sent, err := f.a.task("gavriel953", "Write agent.txt.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the task", func() bool { return f.b.taskState(sent.TaskID).State == "dispatched" })
+	if _, err := f.b.approve(sent.TaskID, false); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the run to end", func() bool { return f.b.taskState(sent.TaskID).State == "finished" })
+	wt := filepath.Join(f.b.paths.Data, "worktrees", sent.TaskID)
+	if d := f.b.taskState(sent.TaskID).Detail; !strings.Contains(d, "user.name and user.email are not set") || !strings.Contains(d, "the work is kept in "+wt) {
+		t.Errorf("detail %q", d)
+	}
+	if b, err := os.ReadFile(filepath.Join(wt, "agent.txt")); err != nil || string(b) != "work\n" {
+		t.Errorf("the agent's work is gone: %q %v", b, err)
+	}
+	if refs := gitOut(t, bare, "for-each-ref"); refs != "" {
+		t.Errorf("something was pushed: %s", refs)
+	}
+}
+
+// A remote that refuses refs/crewbo/ gets the checkpoint as the branch
+// wip/<member>/<task id> instead (ADR 0005, U-06 fallback).
+func TestCheckpointFallsBackToAWipBranch(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	f := newCrossFixture(t)
+	dir := fakeClaude(t)
+	touch(t, filepath.Join(dir, "write"), "work\n")
+	f.b.fetchFrom(f.a)
+	bare := f.b.remoteFor(t, true)
+	// A server-side hook that refuses custom refs, as some hosts might.
+	hook := filepath.Join(bare, "hooks", "pre-receive")
+	if err := os.WriteFile(hook, []byte("#!/bin/sh\nwhile read old new ref; do case \"$ref\" in refs/crewbo/*) echo refused >&2; exit 1;; esac; done\n"), 0o700); err != nil { //nolint:gosec // test hook must be executable
+		t.Fatal(err)
+	}
+	sent, err := f.a.task("gavriel953", "Write agent.txt.", nil, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the task", func() bool { return f.b.taskState(sent.TaskID).State == "dispatched" })
+	if _, err := f.b.approve(sent.TaskID, false); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the checkpoint", func() bool { return f.b.taskState(sent.TaskID).State == "checkpointed" })
+	ref := "refs/heads/wip/gavriel953/" + sent.TaskID
+	if d := f.b.taskState(sent.TaskID).Detail; !strings.HasPrefix(d, ref+" at ") {
+		t.Errorf("detail %q", d)
+	}
+	if got := gitOut(t, bare, "show", ref+":agent.txt"); got != "work" {
+		t.Errorf("agent.txt on the wip branch = %q", got)
+	}
+}
