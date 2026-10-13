@@ -1,6 +1,6 @@
 # Crewbo PRD
 
-Status: v1 in progress (M1). Gate B passed 2026-10-11. As of 2026-10-11 (Antigravity added as a v1 stretch goal, ADR 0013). Owner: Ronel Abraham Mathew (@RM1338).
+Status: v1 in progress (M1 to M4 complete; M5 next). Gate B passed 2026-10-11. As of 2026-10-11 (Antigravity added as a v1 stretch goal, ADR 0013). Owner: Ronel Abraham Mathew (@RM1338).
 
 Canonical living copy: the Crewbo PRD doc on claude.ai. This file is the repo snapshot. If they disagree, ask the owner.
 
@@ -12,7 +12,7 @@ Crewbo lets every teammate run their own AI coding agent at the same time, on an
 - **Wedge:** mixed-vendor, cross-machine, cross-OS coordination that is self-hostable and keeps code off third-party servers. No shipping product does all four.
 - **Mechanism:** a local Go daemon enforces leased file claims through each agent's own hooks, shares live intent through a small sync server, and warns about cross-machine conflicts before merge.
 - **Team lead:** dispatches signed tasks to teammates' agents; each teammate approves before anything runs.
-- **Status:** planning complete. Org `github.com/crewbo` and `crewbo.dev` secured. Next step is the one-week Phase 0 spike.
+- **Status:** Phase 0 passed (Gate B) and M1 to M4 are built: claims across machines and signed lead dispatch work on Linux and macOS. Org `github.com/crewbo` and `crewbo.dev` secured. Next is M5 (conflict warnings, extension v0).
 
 ## Problem and target users
 
@@ -237,6 +237,8 @@ Phase 0 is one week of throwaway code that decides go or no-go before any produc
 - [ ] Cross-machine `git merge-tree --write-tree` warning between two laptops
 - [ ] Keyring probe on Omarchy with and without a secret service
 - [ ] Interview 10 hackathon teams: do they mix agent vendors?
+
+Results for each item: `docs/research/phase0-findings.md` (Gate B: go).
 
 **Gate:** go if hooks block reliably on at least 2 of 3 OSes and at least 3 of 10 teams mix vendors; otherwise revisit positioning before week 2.
 

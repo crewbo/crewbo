@@ -5,11 +5,11 @@ Timeline shifted 1 day earlier than the PRD at Ronel's request (decision log 202
 | Milestone | Dates (2026) | Gate |
 | --- | --- | --- |
 | Phase A: planning package | Oct 11 | Gate A |
-| M0: Phase 0 spikes | Oct 11 (finished early) | Gate B closed Oct 11: conditional go |
+| M0: Phase 0 spikes | Oct 11 (finished early) | Gate B closed Oct 11: go (conditions met) |
 | M1: protocol and daemon skeleton | Oct 11 to Oct 24 (started early, Gate C approved Oct 11; issues #10 to #19) | Gate C |
 | M2: Claude Code and Codex hook adapters | Oct 25 to Oct 31 | Gate C |
-| M3: sync server and auth | Nov 1 to Nov 7 | Gate C |
-| M4: lead dispatch | Nov 8 to Nov 14 | Gate C |
+| M3: sync server and auth | Nov 1 to Nov 7 (finished early, complete Oct 12) | Gate C |
+| M4: lead dispatch | Nov 8 to Nov 14 (finished early, complete Oct 13) | Gate C |
 | M5: conflict warnings and extension v0 | Nov 15 to Nov 21 | Gate C |
 | M6: dogfood in a real hackathon | Nov 22 to Nov 28 | |
 | Week 8 review | Dec 5 | PRD success criteria |

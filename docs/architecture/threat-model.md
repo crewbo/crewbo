@@ -52,7 +52,7 @@ flowchart LR
 
 | Threat | Example | Mitigation |
 | --- | --- | --- |
-| Spoofing | Another local user connects to the IPC socket | Unix socket in a user-only directory (0700); Windows named pipe with an ACL for the current user only |
+| Spoofing | Another local user connects to the IPC socket | Unix socket in a user-only directory (0700 on Unix, a user-only ACL on Windows), and a token from a user-only file on every connection |
 | Spoofing | Browser page on localhost calls the dashboard API | Dashboard binds to 127.0.0.1, requires a per-session token, checks `Origin` and `Host` (DNS rebinding) |
 | Tampering | Malicious dispatched task text instructs the agent to exfiltrate secrets | Verbatim approval gate; fresh worktree; teammate's own non-bypass permission mode; text never interpreted by the daemon |
 | Information disclosure | Logs contain task text or tokens | `slog` handlers never log task bodies, tokens or keys; redaction tests |
