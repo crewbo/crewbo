@@ -75,17 +75,22 @@ type Status struct {
 	Actor  string // GitHub login of the member who sent it
 	State  string
 	Detail string
+	// Ref and Commit are set on a checkpoint or a merge.
+	Ref, Commit string
 }
 
-// Fold returns a task's state as its lead sees it: from dispatched, each
-// status the assignee sent, in log order, that the state machine allows.
-// Statuses from anyone else, and impossible moves, are ignored.
-func Fold(assignee string, statuses []Status) (state, detail string) {
-	state = StateDispatched
+// Fold returns a task's state as the room sees it: from dispatched, each
+// status in log order that the state machine allows and that came from
+// the assignee, or from the task's author (the lead who sent it) for a
+// merge (data-model.md: the lead merges). Statuses from anyone else, and
+// impossible moves, are ignored. last is the status that set the state.
+func Fold(assignee, author string, statuses []Status) (last Status) {
+	last = Status{State: StateDispatched}
 	for _, s := range statuses {
-		if s.Actor == assignee && CanMove(state, s.State) {
-			state, detail = s.State, s.Detail
+		byLead := s.Actor == author && (s.State == StateMerging || s.State == StateMerged)
+		if (s.Actor == assignee || byLead) && CanMove(last.State, s.State) {
+			last = s
 		}
 	}
-	return state, detail
+	return last
 }

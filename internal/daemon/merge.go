@@ -36,15 +36,29 @@ func (d *Daemon) mergeTask(ctx context.Context, req Request) Response {
 		return fail("task_merge: the daemon is not ready")
 	}
 	var room, state string
-	err := d.sync.db.QueryRowContext(ctx, `SELECT room_id, state FROM tasks WHERE task_id = ?`, req.Task).Scan(&room, &state)
+	var signed []byte
+	err := d.sync.db.QueryRowContext(ctx, `SELECT room_id, state, signed FROM tasks WHERE task_id = ?`, req.Task).Scan(&room, &state, &signed)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return fail("no task %s", req.Task)
 	case err != nil:
 		return fail("task_merge: %v", err)
-	case state == taskOther:
-		return fail("you sent task %s; its assignee merges it", req.Task)
-	case state != dispatch.StateCheckpointed:
+	}
+	// The assignee merges from their worktree; the lead who sent the task
+	// merges the checkpoint its assignee reported (ADR 0014).
+	asLead := state == taskOther
+	var ckRef, ckCommit string
+	if asLead {
+		sts, err := d.taskStatuses(ctx, room, req.Task)
+		if err != nil {
+			return fail("task_merge: %v", err)
+		}
+		last := dispatch.Fold(sentTo(signed), taskAuthor(signed), sts)
+		if last.State != dispatch.StateCheckpointed || last.Ref == "" || last.Commit == "" {
+			return fail("task %s is %s; only a checkpointed task can be merged", req.Task, last.State)
+		}
+		ckRef, ckCommit = last.Ref, last.Commit
+	} else if state != dispatch.StateCheckpointed {
 		return fail("task %s is %s; only a checkpointed task can be merged", req.Task, state)
 	}
 	b, ok := d.sync.roomBinding(room)
@@ -52,13 +66,18 @@ func (d *Daemon) mergeTask(ctx context.Context, req Request) Response {
 		return fail("no repository on this machine is in the task's room")
 	}
 	g := gitx.New("")
-	commit, err := g.Head(ctx, filepath.Join(d.cfg.Paths.Data, "worktrees", req.Task))
-	if err != nil {
-		return fail("read the task's checkpoint: %v", err)
-	}
 	remote, err := g.PushRemote(ctx, b.Repo)
 	if err != nil {
 		return fail("%v", err)
+	}
+	var commit string
+	if asLead {
+		commit = ckCommit
+		if err := g.Fetch(ctx, b.Repo, remote, ckRef); err != nil {
+			return fail("fetch the task's checkpoint: %v", err)
+		}
+	} else if commit, err = g.Head(ctx, filepath.Join(d.cfg.Paths.Data, "worktrees", req.Task)); err != nil {
+		return fail("read the task's checkpoint: %v", err)
 	}
 	branch, err := g.DefaultBranch(ctx, b.Repo, remote)
 	if err != nil {
@@ -79,8 +98,10 @@ func (d *Daemon) mergeTask(ctx context.Context, req Request) Response {
 		return fail("%v", err)
 	}
 	short := strings.TrimPrefix(branch, "refs/heads/")
-	d.setTaskState(ctx, req.Task, dispatch.StateMerging, "")
-	d.setTaskState(ctx, req.Task, dispatch.StateMerged, branch+" at "+merged[:12])
+	if !asLead {
+		d.setTaskState(ctx, req.Task, dispatch.StateMerging, "")
+		d.setTaskState(ctx, req.Task, dispatch.StateMerged, branch+" at "+merged[:12])
+	}
 	for _, st := range []*crewbov1.TaskStatus{
 		{RoomId: room, TaskId: req.Task, State: crewbov1.TaskState_TASK_STATE_MERGING},
 		{RoomId: room, TaskId: req.Task, State: crewbov1.TaskState_TASK_STATE_MERGED, Detail: branch + " at " + merged[:12], Ref: branch, Commit: merged},

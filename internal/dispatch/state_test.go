@@ -60,17 +60,32 @@ func TestFold(t *testing.T) {
 		state, detail string
 	}{
 		"nothing yet":      {nil, "dispatched", ""},
-		"run to the end":   {[]Status{{"gav", "approved", ""}, {"gav", "running", ""}, {"gav", "finished", ""}}, "finished", ""},
-		"declined":         {[]Status{{"gav", "declined", "busy"}}, "declined", "busy"},
-		"failed run":       {[]Status{{"gav", "approved", ""}, {"gav", "failed", "exit status 1"}}, "failed", "exit status 1"},
-		"not the assignee": {[]Status{{"mallory", "declined", "x"}}, "dispatched", ""},
-		"impossible move":  {[]Status{{"gav", "running", ""}}, "dispatched", ""},
-		"after an end":     {[]Status{{"gav", "declined", "no"}, {"gav", "approved", ""}}, "declined", "no"},
-		"resent status":    {[]Status{{"gav", "approved", ""}, {"gav", "approved", ""}, {"gav", "running", ""}}, "running", ""},
+		"run to the end":   {[]Status{{Actor: "gav", State: "approved"}, {Actor: "gav", State: "running"}, {Actor: "gav", State: "finished"}}, "finished", ""},
+		"declined":         {[]Status{{Actor: "gav", State: "declined", Detail: "busy"}}, "declined", "busy"},
+		"failed run":       {[]Status{{Actor: "gav", State: "approved"}, {Actor: "gav", State: "failed", Detail: "exit status 1"}}, "failed", "exit status 1"},
+		"not the assignee": {[]Status{{Actor: "mallory", State: "declined", Detail: "x"}}, "dispatched", ""},
+		"impossible move":  {[]Status{{Actor: "gav", State: "running"}}, "dispatched", ""},
+		"after an end":     {[]Status{{Actor: "gav", State: "declined", Detail: "no"}, {Actor: "gav", State: "approved"}}, "declined", "no"},
+		"resent status":    {[]Status{{Actor: "gav", State: "approved"}, {Actor: "gav", State: "approved"}, {Actor: "gav", State: "running"}}, "running", ""},
+		"lead merges": {[]Status{
+			{Actor: "gav", State: "approved"},
+			{Actor: "gav", State: "running"},
+			{Actor: "gav", State: "checkpointed", Detail: "ref"},
+			{Actor: "lead", State: "merging"},
+			{Actor: "lead", State: "merged", Detail: "main at abc"},
+		}, "merged", "main at abc"},
+		"lead cannot run it": {[]Status{{Actor: "gav", State: "approved"}, {Actor: "lead", State: "running"}}, "approved", ""},
+		"another member cannot merge": {[]Status{
+			{Actor: "gav", State: "approved"},
+			{Actor: "gav", State: "running"},
+			{Actor: "gav", State: "checkpointed"},
+			{Actor: "mallory", State: "merging"},
+			{Actor: "mallory", State: "merged"},
+		}, "checkpointed", ""},
 	} {
-		state, detail := Fold("gav", tc.statuses)
-		if state != tc.state || detail != tc.detail {
-			t.Errorf("%s: %s %q, want %s %q", name, state, detail, tc.state, tc.detail)
+		got := Fold("gav", "lead", tc.statuses)
+		if got.State != tc.state || got.Detail != tc.detail {
+			t.Errorf("%s: %s %q, want %s %q", name, got.State, got.Detail, tc.state, tc.detail)
 		}
 	}
 }
