@@ -52,6 +52,35 @@ type RoomInfo struct {
 	Role      string `json:"role"` // the caller's role: lead or member
 	LeadLogin string `json:"lead_login"`
 	Members   int    `json:"members"`
+	// MergeMode is who may merge tasks: MergeMembers or MergeLead.
+	MergeMode string `json:"merge_mode"`
+}
+
+// Room merge modes (ADR 0014).
+const (
+	MergeMembers = "members"
+	MergeLead    = "lead"
+)
+
+// SetMergeMode changes who may merge tasks in a room. Only the lead may.
+func (rs *Rooms) SetMergeMode(ctx context.Context, u auth.User, roomID, mode string) (RoomInfo, error) {
+	if mode != MergeMembers && mode != MergeLead {
+		return RoomInfo{}, fmt.Errorf("unknown merge mode %q", mode)
+	}
+	if ok, err := rs.IsLead(ctx, roomID, u.ID); err != nil || !ok {
+		if err == nil {
+			if member, merr := rs.IsMember(ctx, roomID, u.ID); merr == nil && !member {
+				err = ErrNotMember
+			} else {
+				err = ErrNotLead
+			}
+		}
+		return RoomInfo{}, err
+	}
+	if _, err := rs.db.ExecContext(ctx, `UPDATE rooms SET merge_mode = ? WHERE id = ?`, mode, roomID); err != nil {
+		return RoomInfo{}, err
+	}
+	return rs.info(ctx, u, roomID)
 }
 
 func randomID(prefix string, n int) (string, error) {
@@ -225,8 +254,9 @@ func (rs *Rooms) info(ctx context.Context, u auth.User, roomID string) (RoomInfo
 		SELECT r.name,
 		       (SELECT role FROM members WHERE room_id = r.id AND github_user_id = ? AND left_unix_ms IS NULL),
 		       (SELECT github_login FROM members WHERE room_id = r.id AND role = 'lead' AND left_unix_ms IS NULL),
-		       (SELECT count(*) FROM members WHERE room_id = r.id AND left_unix_ms IS NULL)
-		FROM rooms r WHERE r.id = ?`, u.ID, roomID).Scan(&info.Name, &info.Role, &info.LeadLogin, &info.Members)
+		       (SELECT count(*) FROM members WHERE room_id = r.id AND left_unix_ms IS NULL),
+		       r.merge_mode
+		FROM rooms r WHERE r.id = ?`, u.ID, roomID).Scan(&info.Name, &info.Role, &info.LeadLogin, &info.Members, &info.MergeMode)
 	if err != nil {
 		return RoomInfo{}, fmt.Errorf("room %s: %w", roomID, err)
 	}
@@ -275,6 +305,8 @@ type RoomKeys struct {
 	RoomID    string       `json:"room_id"`
 	LeadLogin string       `json:"lead_login"`
 	Members   []MemberKeys `json:"members"`
+	// MergeMode is who may merge tasks (ADR 0014).
+	MergeMode string `json:"merge_mode"`
 }
 
 // Keys returns the room's lead and its active members' device keys. Only
@@ -287,6 +319,9 @@ func (rs *Rooms) Keys(ctx context.Context, u auth.User, roomID string) (RoomKeys
 		return RoomKeys{}, err
 	}
 	out := RoomKeys{RoomID: roomID, Members: []MemberKeys{}}
+	if err := rs.db.QueryRowContext(ctx, `SELECT merge_mode FROM rooms WHERE id = ?`, roomID).Scan(&out.MergeMode); err != nil {
+		return RoomKeys{}, err
+	}
 	rows, err := rs.db.QueryContext(ctx, `
 		SELECT m.github_user_id, m.github_login, m.role, d.key_id, d.public_key, d.revoked_unix_ms IS NOT NULL
 		FROM members m LEFT JOIN device_keys d ON d.github_user_id = m.github_user_id

@@ -150,6 +150,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/rooms/{id}/invites", s.serveInvite)
 	mux.HandleFunc("POST /v1/rooms/{id}/leave", s.serveLeave)
 	mux.HandleFunc("GET /v1/rooms/{id}/keys", s.serveRoomKeys)
+	mux.HandleFunc("POST /v1/rooms/{id}/settings", s.serveSettings)
 	mux.HandleFunc("GET /v1/ws", s.serveWS)
 	return mux
 }
