@@ -1,6 +1,6 @@
 # 0005. Git strategy: task branches, refs/crewbo/ checkpoints, daemon merge queue
 
-- Status: Accepted (PRD 2026-10-10)
+- Status: Accepted (PRD 2026-10-10); the merge rule is superseded by ADR 0014 (members merge their own work through the conflict check, with an optional lead-only mode)
 - Date: 2026-10-11
 - Deciders: Ronel Abraham Mathew
 

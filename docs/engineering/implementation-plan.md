@@ -112,9 +112,13 @@ Notes from M3 that shape M4:
 | M5-01 | Checkpoint on stop: commit, push `refs/crewbo/...` (fallback per U-06) | Ref visible on remote | Integration test against a local bare remote | M1-09, M2-01 |
 | M5-02 | Cross-machine merge-tree check and `ConflictWarning` event | Warning reaches all room members | e2e with two clones | M5-01, M3-05 |
 | M5-03 | Escalation ladder: handoff request, owner decision, lead override | All ladder steps logged | e2e | M3-07 |
-| M5-04 | Serial merge queue on the lead | Re-runs merge-tree against current main; refuses conflicts | Integration test | M5-02 |
+| M5-04 | `crewbo task merge`: the assignee (or the lead) merges a task through the conflict check (ADR 0014); optional lead-only room mode | Re-runs merge-tree against current main and every other active task branch; refuses a conflict with main, and with an active branch unless the lead overrides; a push rejected because main moved re-fetches, re-checks and retries; in lead-only mode members are refused | Integration tests with a local bare remote, including two members merging at once | M5-02 |
 | M5-05 | Extension v0: claims, intents, warnings, approve task | Works in VS Code; lists live state | Manual test plan; unit tests for the client | M3-05 |
 | M5-06 | Dashboard v0 served by the daemon | Localhost only, token, Origin check | Integration tests | M1-07 |
+| M5-07 | Self-started tasks (ADR 0014): `crewbo task start "<text>" --path <glob>...` and registering an existing branch | A member gets a task branch and worktree, claims on its paths, checkpoints and merge-tree checks without a lead or approval; the room event carries no lead signature and dispatched-task verification is unchanged; a registered branch is checkpointed and checked like a task branch | Unit tests; e2e with two daemons | M5-01, M4-06 |
+| M5-08 | Move a session and its rooms to a new server address | `crewbo login --server <new>` (or a room command) moves this machine's room bindings from the old address when the server still knows the rooms, so a restarted tunnel needs no hand edits (M4 check finding 4) | Unit tests; manual with a restarted tunnel | M3-04, M3-06 |
+
+Carried over from M4, proposed for M5 if time allows (otherwise M6): `crewbo task cancel` (the Cancelled state exists, no command), and the device key rotation runbook the threat model promised (`docs/runbooks/` is empty).
 
 ## M5b: Antigravity adapter (stretch, ADR 0013)
 
