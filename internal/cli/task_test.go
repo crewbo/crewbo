@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -210,5 +211,30 @@ func TestListLine(t *testing.T) {
 	}
 	if got := listLine(daemon.Task{State: "rejected", Detail: "bad \x1b", Received: now}, now); got != `(rejected)  received 2026-10-12 12:00:00: bad \x1b` {
 		t.Errorf("rejected task: %q", got)
+	}
+}
+
+// Only a terminal counts: /dev/null (where agents point stdin) is a
+// character device but not a terminal, and a pipe is neither.
+func TestInteractiveNeedsATerminal(t *testing.T) {
+	null, err := os.Open(os.DevNull)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = null.Close() }()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = r.Close(); _ = w.Close() }()
+	for name, in := range map[string]io.Reader{"null device": null, "pipe": r, "reader": strings.NewReader("yes\n")} {
+		if interactive(in) {
+			t.Errorf("%s counts as a terminal", name)
+		}
+	}
+	// Approving with stdin on the null device is refused before anything
+	// is shown, as an agent's shell would run it.
+	if code, out, errOut := task(t, []string{"approve", "01a1"}, null); code != ExitError || out != "" || !strings.Contains(errOut, "interactive terminal") {
+		t.Errorf("approve from /dev/null = %d %q %q", code, out, errOut)
 	}
 }

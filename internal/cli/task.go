@@ -12,6 +12,8 @@ import (
 	"time"
 	"unicode"
 
+	"golang.org/x/term"
+
 	"github.com/crewbo/crewbo/internal/daemon"
 	"github.com/crewbo/crewbo/internal/hooks"
 )
@@ -284,14 +286,12 @@ func visible(s string) string {
 	return b.String()
 }
 
-// interactive reports whether stdin is a terminal.
+// interactive reports whether stdin is a terminal. A character device is
+// not enough: agents run commands with stdin on /dev/null, which is one
+// (M4 two-machine check, C7).
 func interactive(stdin io.Reader) bool {
 	f, ok := stdin.(*os.File)
-	if !ok {
-		return false
-	}
-	fi, err := f.Stat()
-	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+	return ok && term.IsTerminal(int(f.Fd())) //nolint:gosec // a file descriptor or Windows handle fits in int
 }
 
 // confirm asks the member to type yes.
