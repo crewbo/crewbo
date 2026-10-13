@@ -39,7 +39,7 @@ type fakeRun struct {
 // fakeClaudeMain answers claude auth status and codex login status
 // (signed out when dir/signed-out exists), or records a run of either in
 // dir/run-<pid>.json, writes agent.txt with the contents of dir/write when
-// that exists, then, when dir/hold exists, waits for dir/exit and exits
+// that exists (plus a line naming the run when dir/write-unique exists), then, when dir/hold exists, waits for dir/exit and exits
 // with the code in it (a failing codex prints turn.failed first).
 func fakeClaudeMain(dir string) int {
 	_, signedOut := os.Stat(filepath.Join(dir, "signed-out"))
@@ -66,6 +66,9 @@ func fakeClaudeMain(dir string) int {
 	out, _ := json.Marshal(run)
 	_ = os.WriteFile(filepath.Join(dir, fmt.Sprintf("run-%d.json", os.Getpid())), out, 0o600)
 	if b, err := os.ReadFile(filepath.Join(dir, "write")); err == nil { // the agent's work
+		if _, err := os.Stat(filepath.Join(dir, "write-unique")); err == nil {
+			b = fmt.Appendf(b, "run %d\n", os.Getpid()) // differs per run
+		}
 		_ = os.WriteFile("agent.txt", b, 0o600)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "hold")); err != nil {

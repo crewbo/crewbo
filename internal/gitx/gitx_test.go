@@ -265,6 +265,21 @@ func TestCheckpointCommitAndPush(t *testing.T) {
 	if err != nil || strings.TrimSpace(string(out)) != commit {
 		t.Errorf("ref on the remote = %q, %v; want %s", out, err, commit)
 	}
+	// Another clone fetches the checkpoint and can then merge-tree against it.
+	other := t.TempDir()
+	gitT(t, other, "clone", "-q", "--no-local", bare, ".") // a real transport, not a copy of the object store
+	if ok, _ := g.HasCommit(ctx, other, commit); ok {
+		t.Fatal("the clone already has the checkpoint")
+	}
+	if err := g.Fetch(ctx, other, "origin", "refs/crewbo/member/task-1"); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := g.HasCommit(ctx, other, commit); !ok || err != nil {
+		t.Errorf("after fetch: %v %v", ok, err)
+	}
+	if err := g.Fetch(ctx, other, "origin", "--upload-pack=x"); !errors.Is(err, ErrBadRef) {
+		t.Errorf("option-like ref: %v", err)
+	}
 	if err := g.Push(ctx, dir, "--upload-pack=x", commit, "refs/crewbo/m/t"); !errors.Is(err, ErrBadRef) {
 		t.Errorf("option-like remote: %v", err)
 	}

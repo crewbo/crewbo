@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Conflict warnings across machines: after a task's work is checkpointed, Crewbo fetches the latest checkpoint of every other task in the room and checks them with `git merge-tree`. Conflicting pairs are announced to the whole room; `crewbo task list` flags the affected tasks and `crewbo task show` names the other task and the files, so they can be sorted out before anyone merges.
 - When a task's agent finishes cleanly, Crewbo commits its work on the task branch as you (your git `user.name` and `user.email`) and pushes it to `refs/crewbo/<you>/<task id>` on the repository's remote, or to the branch `wip/<you>/<task id>` if the remote refuses that ref. The task is then checkpointed and the lead sees where. If nothing changed it stays finished; if the commit or push fails, it says why and the work stays in the worktree.
 - `crewbo task list` on the lead's machine also shows the tasks the lead sent, with the state their assignee last reported (approved, declined with the reason, expired, running, finished or failed); `crewbo task show` marks them "sent by you". A task that ends cleanly is reported as finished.
 - `crewbo task approve ID --agent codex` runs the task with Codex (`codex exec --sandbox workspace-write`) instead of Claude Code, on Linux and macOS; Windows is refused until Codex's sandbox works there. Crewbo checks `codex login status` first and reports why a run failed. Any agent working in a task's worktree holds the task's claims.
