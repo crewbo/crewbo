@@ -1,6 +1,6 @@
 # 0012. Crewbo IDE as a long-term product
 
-- Status: Proposed
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-11
 - Decision owner: Ronel Abraham Mathew
 
@@ -21,4 +21,4 @@ The PRD lists "forking an IDE or editor" as a permanent non-goal. On 2026-10-11 
 
 ## Decision
 
-Not decided. If accepted, the PRD's permanent non-goals change and this ADR records why.
+Accepted by Ronel on 2026-10-13: Crewbo will build its own IDE in the long term, on the timeline in the proposal above. v1 and v2 ship the extension only; the IDE is revisited after the v2 exit gate, with evidence that the extension surface blocks a needed feature. The PRD no longer lists "forking an IDE or editor" as a permanent non-goal; it lists the IDE as long term, not before v3. How the IDE is built (fork, new editor, or a deeper extension host) is decided in a later ADR.
