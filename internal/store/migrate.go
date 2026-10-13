@@ -170,6 +170,9 @@ var Server = Schema{
 		max_uses        INTEGER NOT NULL CHECK (max_uses >= 1),
 		uses            INTEGER NOT NULL DEFAULT 0 CHECK (uses <= max_uses)
 	) WITHOUT ROWID;`,
+	// 5: who may merge tasks in a room (ADR 0014): its members (default)
+	// or only its lead.
+	`ALTER TABLE rooms ADD COLUMN merge_mode TEXT NOT NULL DEFAULT 'members' CHECK (merge_mode IN ('members', 'lead'));`,
 }
 
 // migrate applies pending migrations, each in its own transaction together

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -21,10 +22,16 @@ const roomUsage = `Usage:
   crewbo room join CODE
   crewbo room leave
   crewbo room status
+  crewbo room set --merge lead-only|members
 
 Run inside a git repository. A room shares this repository's claims with
 your teammates; each teammate joins from their own clone. Sign in first
 with crewbo login.
+
+set --merge (lead only) chooses who may merge tasks into main with crewbo
+task merge: members, each their own task (the default), or lead-only. It
+is a Crewbo rule, not a lock: plain git push still works unless the
+repository protects its main branch.
 `
 
 // roomCmd holds what the room subcommands need, so tests can supply it.
@@ -50,7 +57,7 @@ func runRoom(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 }
 
 func (rc roomCmd) run(ctx context.Context, args []string) int {
-	if len(args) == 0 || !map[string]bool{"create": true, "invite": true, "join": true, "leave": true, "status": true}[args[0]] {
+	if len(args) == 0 || !map[string]bool{"create": true, "invite": true, "join": true, "leave": true, "status": true, "set": true}[args[0]] {
 		return write(rc.stderr, ExitUsage, "%s", roomUsage)
 	}
 	fs := flag.NewFlagSet("room "+args[0], flag.ContinueOnError)
@@ -58,6 +65,7 @@ func (rc roomCmd) run(ctx context.Context, args []string) int {
 	name := fs.String("name", "", "room name (default: the repository folder name)")
 	uses := fs.Int("uses", 0, "how many people the invite admits (default 9)")
 	ttl := fs.Duration("for", 0, "how long the invite is valid (default 24h)")
+	merge := fs.String("merge", "", "set: who may merge tasks, members or lead-only")
 	if err := fs.Parse(args[1:]); err != nil {
 		return ExitUsage
 	}
@@ -153,7 +161,38 @@ func (rc roomCmd) run(ctx context.Context, args []string) int {
 		if !isBound {
 			return write(rc.stdout, ExitOK, "%s is not in a room. Signed in to %s as %s.\n", repo, sess.Server, sess.GitHubLogin)
 		}
-		return write(rc.stdout, ExitOK, "%s is in room %s (%s) on %s. Signed in as %s.\n", repo, bound.Name, bound.RoomID, bound.Server, sess.GitHubLogin)
+		line := fmt.Sprintf("%s is in room %s (%s) on %s. Signed in as %s.\n", repo, bound.Name, bound.RoomID, bound.Server, sess.GitHubLogin)
+		var rooms []server.RoomInfo
+		if bound.Server == sess.Server && call(http.MethodGet, "/v1/rooms", nil, &rooms) == nil {
+			for _, r := range rooms {
+				if r.ID == bound.RoomID {
+					line += "Tasks are merged by " + mergedBy(r.MergeMode) + ".\n"
+				}
+			}
+		}
+		return write(rc.stdout, ExitOK, "%s", line)
+
+	case args[0] == "set" && fs.NArg() == 0 && *merge != "":
+		if !isBound {
+			return write(rc.stderr, ExitError, "crewbo: this repository is not in a room\n")
+		}
+		mode := map[string]string{"members": server.MergeMembers, "lead-only": server.MergeLead}[*merge]
+		if mode == "" {
+			return write(rc.stderr, ExitUsage, "crewbo: --merge must be members or lead-only\n")
+		}
+		var info server.RoomInfo
+		if err := call(http.MethodPost, "/v1/rooms/"+bound.RoomID+"/settings", server.SettingsRequest{MergeMode: mode}, &info); err != nil {
+			return write(rc.stderr, ExitError, "crewbo: %v\n", err)
+		}
+		return write(rc.stdout, ExitOK, "In room %s, tasks are now merged by %s.\n", info.Name, mergedBy(info.MergeMode))
 	}
 	return write(rc.stderr, ExitUsage, "%s", roomUsage)
+}
+
+// mergedBy describes a room merge mode.
+func mergedBy(mode string) string {
+	if mode == server.MergeLead {
+		return "the lead only"
+	}
+	return "their members"
 }

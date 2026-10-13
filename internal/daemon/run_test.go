@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/crewbo/crewbo/internal/auth"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
 	"github.com/crewbo/crewbo/internal/server"
 )
@@ -669,6 +670,13 @@ func TestLeadMergesASentTask(t *testing.T) {
 	eventually(t, "the marker", func() bool { return f.b.taskState(marker.TaskID).ID != "" })
 	if st := f.b.taskState(sent.TaskID).State; st != "checkpointed" {
 		t.Errorf("a forged merge moved the assignee's task to %s", st)
+	}
+	// In a lead-only room the assignee may not merge; the lead may.
+	if _, err := server.NewRooms(f.db.SQL(), time.Now).SetMergeMode(context.Background(), auth.User{ID: 1, Login: "RM1338"}, roomID, server.MergeLead); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.b.call(Request{Method: MethodTaskMerge, Task: sent.TaskID}); err == nil || !strings.Contains(err.Error(), "only the lead (RM1338) merges tasks") {
+		t.Errorf("assignee merge in a lead-only room: %v", err)
 	}
 	resp, err := f.a.call(Request{Method: MethodTaskMerge, Task: sent.TaskID})
 	if err != nil || !strings.HasPrefix(resp.Note, "Merged into main as ") {

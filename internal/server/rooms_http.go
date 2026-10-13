@@ -85,6 +85,11 @@ type InviteResponse struct {
 	MaxUses       int    `json:"max_uses"`
 }
 
+// SettingsRequest is the body of POST /v1/rooms/{id}/settings.
+type SettingsRequest struct {
+	MergeMode string `json:"merge_mode"`
+}
+
 // JoinRequest is the body of POST /v1/rooms/join.
 type JoinRequest struct {
 	Code string `json:"code"`
@@ -196,4 +201,27 @@ func (s *Server) serveRoomKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, keys)
+}
+
+// serveSettings changes a room's settings; only its lead may.
+func (s *Server) serveSettings(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.authenticate(w, r)
+	if !ok {
+		return
+	}
+	var req SettingsRequest
+	if !decode(w, r, &req) {
+		return
+	}
+	if req.MergeMode != MergeMembers && req.MergeMode != MergeLead {
+		http.Error(w, "merge_mode must be members or lead", http.StatusBadRequest)
+		return
+	}
+	info, err := s.rooms.SetMergeMode(r.Context(), u, r.PathValue("id"), req.MergeMode)
+	if err != nil {
+		s.roomError(w, err)
+		return
+	}
+	s.log.Info("rooms: settings", "room_id", info.ID, "merge_mode", info.MergeMode)
+	reply(w, info)
 }

@@ -77,6 +77,26 @@ func TestRoomEndpoints(t *testing.T) {
 	if code, b := mate.do("POST", "/v1/rooms/join", string(join)); code != http.StatusOK || !bytes.Contains(b, []byte(`"role":"member"`)) {
 		t.Errorf("join: %d %s", code, b)
 	}
+	// Merge mode: members by default; only the lead changes it.
+	settings := "/v1/rooms/" + room.ID + "/settings"
+	if !bytes.Contains(mustGet(t, mate, "/v1/rooms/"+room.ID+"/keys"), []byte(`"merge_mode":"members"`)) {
+		t.Error("a new room does not merge by members")
+	}
+	for c, want := range map[client]int{mate: http.StatusForbidden, stranger: http.StatusNotFound, anon: http.StatusUnauthorized} {
+		if code, _ := c.do("POST", settings, `{"merge_mode":"lead"}`); code != want {
+			t.Errorf("settings by %q: %d, want %d", c.token, code, want)
+		}
+	}
+	if code, _ := lead.do("POST", settings, `{"merge_mode":"everyone"}`); code != http.StatusBadRequest {
+		t.Errorf("unknown mode: %d", code)
+	}
+	if code, b := lead.do("POST", settings, `{"merge_mode":"lead"}`); code != http.StatusOK || !bytes.Contains(b, []byte(`"merge_mode":"lead"`)) {
+		t.Errorf("lead sets lead-only: %d %s", code, b)
+	}
+	if !bytes.Contains(mustGet(t, mate, "/v1/rooms/"+room.ID+"/keys"), []byte(`"merge_mode":"lead"`)) ||
+		!bytes.Contains(mustGet(t, mate, "/v1/rooms"), []byte(`"merge_mode":"lead"`)) {
+		t.Error("members do not see the lead-only mode")
+	}
 	if code, _ := mate.do("POST", invites, `{}`); code != http.StatusForbidden {
 		t.Errorf("member invites: %d, want 403", code)
 	}
@@ -105,4 +125,13 @@ func TestRoomEndpoints(t *testing.T) {
 	if code, _ := stranger.do("POST", "/v1/rooms/join", string(join)); code != http.StatusGone {
 		t.Errorf("used-up invite: %d", code)
 	}
+}
+
+func mustGet(t *testing.T, c client, path string) []byte {
+	t.Helper()
+	code, b := c.do("GET", path, "")
+	if code != http.StatusOK {
+		t.Fatalf("GET %s: %d %s", path, code, b)
+	}
+	return b
 }

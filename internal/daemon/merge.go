@@ -12,6 +12,7 @@ import (
 	"github.com/crewbo/crewbo/internal/dispatch"
 	"github.com/crewbo/crewbo/internal/gitx"
 	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
+	"github.com/crewbo/crewbo/internal/server"
 )
 
 // mergeAttempts bounds how often a merge re-checks after main moved.
@@ -64,6 +65,16 @@ func (d *Daemon) mergeTask(ctx context.Context, req Request) Response {
 	b, ok := d.sync.roomBinding(room)
 	if !ok {
 		return fail("no repository on this machine is in the task's room")
+	}
+	// A lead-only room refuses merges from anyone else (ADR 0014). If the
+	// setting cannot be read, refuse rather than ignore the lead's choice.
+	sess := d.sync.session()
+	rk, err := fetchRoomKeys(ctx, sess, room)
+	if err != nil {
+		return fail("cannot check who may merge in this room: %v", err)
+	}
+	if rk.MergeMode == server.MergeLead && sess.GitHubLogin != rk.LeadLogin {
+		return fail("in this room only the lead (%s) merges tasks; ask them to run crewbo task merge %s", rk.LeadLogin, req.Task)
 	}
 	g := gitx.New("")
 	remote, err := g.PushRemote(ctx, b.Repo)
