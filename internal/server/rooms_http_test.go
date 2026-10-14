@@ -135,3 +135,21 @@ func mustGet(t *testing.T, c client, path string) []byte {
 	}
 	return b
 }
+
+// The server id is public, permanent and the same on every call.
+func TestServerInfo(t *testing.T) {
+	s := newTestServer(t)
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+	anon := client{t, ts.URL, ""}
+	var first, second Info
+	for _, info := range []*Info{&first, &second} {
+		code, b := anon.do("GET", "/v1/info", "")
+		if code != http.StatusOK || json.Unmarshal(b, info) != nil {
+			t.Fatalf("info: %d %s", code, b)
+		}
+	}
+	if !strings.HasPrefix(first.ServerID, "srv_") || first.ServerID != second.ServerID || first.ProtocolVersion != ProtocolVersion {
+		t.Errorf("info %+v then %+v", first, second)
+	}
+}

@@ -17,6 +17,9 @@ type Session struct {
 	ExpiresUnixMs int64  `json:"expires_unix_ms"`
 	// DeviceKeyID is this device's registered key (keys.Key.ID).
 	DeviceKeyID string `json:"device_key_id,omitempty"`
+	// ServerID is the server's permanent id (GET /v1/info), so the same
+	// server can be recognised at a new address.
+	ServerID string `json:"server_id,omitempty"`
 }
 
 // ErrNoSession means nobody has signed in on this machine.

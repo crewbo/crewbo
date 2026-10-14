@@ -182,6 +182,12 @@ var Server = Schema{
 	// 5: who may merge tasks in a room (ADR 0014): its members (default)
 	// or only its lead.
 	`ALTER TABLE rooms ADD COLUMN merge_mode TEXT NOT NULL DEFAULT 'members' CHECK (merge_mode IN ('members', 'lead'));`,
+	// 6: facts about this server, such as its permanent random id, which
+	// lets a client recognise the same server at a new address (M5-08).
+	`CREATE TABLE server_meta (
+		key   TEXT PRIMARY KEY,
+		value TEXT NOT NULL
+	) WITHOUT ROWID;`,
 }
 
 // migrate applies pending migrations, each in its own transaction together

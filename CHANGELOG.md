@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `crewbo login --server URL` recognises a new address of the server you are signed in to (for example a restarted tunnel) by the server's public id, and moves your sign-in and rooms there without signing in again. After a normal sign-in, rooms the server already has move to it too. `GET /v1/info` gives the id; sessions saved before this change need one more sign-in to record it.
 - `crewbo task start --branch NAME` makes an existing branch a task, so work begun before Crewbo gets claims, checkpoints, conflict checks and merging too. The task is worked on where the branch is checked out, your own checkout included, or in a new worktree; the main branch itself cannot be registered.
 - Tasks you start yourself are checkpointed when your agent finishes a reply, at most every 5 minutes, or at once with `crewbo task checkpoint ID`; they get the same conflict checks as dispatched tasks and merge with `crewbo task merge`, which then releases their claims. A conflict that a later checkpoint resolves disappears from everyone's task list.
 - `crewbo task start [--path PATH]... TEXT` gives you a task of your own, with no lead or approval: a new git worktree on branch `crewbo/<task id>` at your current commit, with the paths claimed for whatever agent you open there (for up to 8 hours). The room sees it running. Checkpoints and merging for these tasks follow.

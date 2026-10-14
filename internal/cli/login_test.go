@@ -121,3 +121,114 @@ func TestRegisterDeviceAgainstServer(t *testing.T) {
 		t.Errorf("unknown session: %v", err)
 	}
 }
+
+// M5-08: a restarted tunnel gives the same server a new address; logging
+// in there moves the session and its rooms without a GitHub sign-in.
+func TestLoginMovesToANewAddress(t *testing.T) {
+	p := isolate(t)
+	ctx := context.Background()
+	db, err := store.Open(ctx, filepath.Join(t.TempDir(), "server.db"), store.Server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	h := server.New(slog.New(slog.DiscardHandler), db.SQL()).Handler()
+	oldAddr, newAddr := httptest.NewServer(h), httptest.NewServer(h) // one server, two addresses
+	defer oldAddr.Close()
+	defer newAddr.Close()
+	token, expires, err := server.NewSessions(db.SQL(), time.Now).Create(ctx, auth.User{ID: 2, Login: "gavriel953"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var info server.Info
+	if err := callServer(ctx, oldAddr.Client(), oldAddr.URL, "", http.MethodGet, "/v1/info", nil, &info); err != nil {
+		t.Fatal(err)
+	}
+	prev := auth.Session{Server: oldAddr.URL, SessionToken: token, GitHubLogin: "gavriel953", ExpiresUnixMs: expires.UnixMilli(), ServerID: info.ServerID}
+	if err := auth.SaveSession(auth.SessionPath(p.Config), prev); err != nil {
+		t.Fatal(err)
+	}
+	if err := auth.SaveBindings(auth.BindingsPath(p.Config), []auth.Binding{
+		{Repo: "/src/app", Server: oldAddr.URL, RoomID: "r_app", Name: "app"},
+		{Repo: "/src/other", Server: "https://elsewhere.example", RoomID: "r_other", Name: "other"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	if code := runLogin(ctx, []string{"--server", newAddr.URL}, &out, &errOut); code != ExitOK || !strings.Contains(out.String(), "no new sign-in needed") || !strings.Contains(out.String(), "1 room(s)") {
+		t.Fatalf("login: %d %q %q", code, out.String(), errOut.String())
+	}
+	s, err := auth.LoadSession(auth.SessionPath(p.Config))
+	if err != nil || s.Server != newAddr.URL || s.SessionToken != token || s.ServerID != info.ServerID {
+		t.Errorf("session after the move: %+v %v", s, err)
+	}
+	bs, _ := auth.LoadBindings(auth.BindingsPath(p.Config))
+	if len(bs) != 2 || bs[0].Server != newAddr.URL || bs[1].Server != "https://elsewhere.example" {
+		t.Errorf("bindings after the move: %+v", bs)
+	}
+	// Something that is not a Crewbo server is refused before anything else.
+	notCrewbo := httptest.NewServer(http.NotFoundHandler())
+	defer notCrewbo.Close()
+	if code := runLogin(ctx, []string{"--server", notCrewbo.URL}, &out, &errOut); code != ExitError || !strings.Contains(errOut.String(), "does not answer like a Crewbo server") {
+		t.Errorf("login to a non-Crewbo server: %d %q", code, errOut.String())
+	}
+}
+
+func TestSameServerNewAddress(t *testing.T) {
+	now := time.Now()
+	valid := auth.Session{Server: "https://old", ServerID: "srv_a", ExpiresUnixMs: now.Add(time.Hour).UnixMilli()}
+	if !sameServerNewAddress(valid, server.Info{ServerID: "srv_a"}, "https://new", now) {
+		t.Error("the same server at a new address was not recognised")
+	}
+	for name, tc := range map[string]struct {
+		prev auth.Session
+		id   string
+		base string
+	}{
+		"another server":     {valid, "srv_b", "https://new"},
+		"no saved server id": {auth.Session{Server: "https://old", ExpiresUnixMs: valid.ExpiresUnixMs}, "srv_a", "https://new"},
+		"the same address":   {valid, "srv_a", "https://old"},
+		"an expired session": {auth.Session{Server: "https://old", ServerID: "srv_a", ExpiresUnixMs: now.Add(-time.Minute).UnixMilli()}, "srv_a", "https://new"},
+	} {
+		if sameServerNewAddress(tc.prev, server.Info{ServerID: tc.id}, tc.base, now) {
+			t.Errorf("%s: treated as a move", name)
+		}
+	}
+}
+
+// After a full sign-in, rooms the server already has move to its address;
+// rooms it does not know stay where they were.
+func TestMoveKnownRooms(t *testing.T) {
+	ctx := context.Background()
+	db, err := store.Open(ctx, filepath.Join(t.TempDir(), "server.db"), store.Server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	ts := httptest.NewServer(server.New(slog.New(slog.DiscardHandler), db.SQL()).Handler())
+	defer ts.Close()
+	u := auth.User{ID: 2, Login: "gavriel953"}
+	room, err := server.NewRooms(db.SQL(), time.Now).Create(ctx, u, "app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _, err := server.NewSessions(db.SQL(), time.Now).Create(ctx, u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := t.TempDir()
+	if err := auth.SaveBindings(auth.BindingsPath(cfg), []auth.Binding{
+		{Repo: "/src/app", Server: "https://old-tunnel.example", RoomID: room.ID, Name: "app"},
+		{Repo: "/src/other", Server: "https://elsewhere.example", RoomID: "r_unknown", Name: "other"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	n, err := moveKnownRooms(ctx, ts.Client(), ts.URL, token, cfg)
+	if err != nil || n != 1 {
+		t.Fatalf("moved %d, %v", n, err)
+	}
+	bs, _ := auth.LoadBindings(auth.BindingsPath(cfg))
+	if bs[0].Server != ts.URL || bs[1].Server != "https://elsewhere.example" {
+		t.Errorf("bindings %+v", bs)
+	}
+}

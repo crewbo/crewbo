@@ -21,7 +21,7 @@ Run on 2026-10-13 by Ronel as room lead (Omarchy, Claude Code 2.1.294, codex-cli
 1. The approve check counted `/dev/null` (a character device, where agents point stdin) as a terminal, so an agent reached the prompt. Nothing could type `yes`, so nothing was approved. Fixed in #114 (`term.IsTerminal`). An agent whose shell runs in a pseudo-terminal still reaches the prompt; that limit is in the decision log.
 2. `crewbo login` gave up when one poll of GitHub timed out on a slow network: fixed in #112.
 3. The Cloudflare quick tunnel could not run on a university network that blocks port 7844 over both QUIC and TCP (`--protocol http2` also failed); a phone hotspot worked. For checks, use a network that allows outbound port 7844, or Tailscale.
-4. A restarted quick tunnel has a new address, and `session.json` and `rooms.json` keep the old one, so both machines changed it by hand. Open: Crewbo needs a way to move a session and its rooms to a new server address.
+4. A restarted quick tunnel has a new address, and `session.json` and `rooms.json` keep the old one, so both machines changed it by hand. Fixed in M5-08: `crewbo login --server <new address>` moves the session and rooms when the server id matches.
 5. The lead's `crewbo task list` shows a sent task only a few seconds after sending, once its room event has come back and been verified. Minor; not changed.
 6. A RUNNING status was recorded twice after a reconnect (at-least-once delivery); the lead's view ignored the duplicate. One claim reached the server 7.4 s after approval, cause unknown.
 

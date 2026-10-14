@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -224,4 +225,37 @@ func (s *Server) serveSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	s.log.Info("rooms: settings", "room_id", info.ID, "merge_mode", info.MergeMode)
 	reply(w, info)
+}
+
+// Info answers GET /v1/info: what a client may know before signing in.
+type Info struct {
+	// ServerID is random and permanent for this server's database, so a
+	// client can tell the same server at a new address (a restarted
+	// tunnel) without sending it any credential.
+	ServerID        string `json:"server_id"`
+	ProtocolVersion int    `json:"protocol_version"`
+}
+
+func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
+	id, err := s.serverID(r.Context())
+	if err != nil {
+		s.log.Error("server id", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	reply(w, Info{ServerID: id, ProtocolVersion: ProtocolVersion})
+}
+
+// serverID returns this server's permanent id, creating it on first use.
+func (s *Server) serverID(ctx context.Context) (string, error) {
+	fresh, err := randomID("srv_", 16)
+	if err != nil {
+		return "", err
+	}
+	if _, err := s.rooms.db.ExecContext(ctx, `INSERT INTO server_meta (key, value) VALUES ('server_id', ?) ON CONFLICT DO NOTHING`, fresh); err != nil {
+		return "", err
+	}
+	var id string
+	err = s.rooms.db.QueryRowContext(ctx, `SELECT value FROM server_meta WHERE key = 'server_id'`).Scan(&id)
+	return id, err
 }
