@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -87,7 +86,7 @@ func (d *Daemon) mergeTask(ctx context.Context, req Request) Response {
 		if err := g.Fetch(ctx, b.Repo, remote, ckRef); err != nil {
 			return fail("fetch the task's checkpoint: %v", err)
 		}
-	} else if commit, err = g.Head(ctx, filepath.Join(d.cfg.Paths.Data, "worktrees", req.Task)); err != nil {
+	} else if commit, err = g.Head(ctx, d.taskWorktree(ctx, req.Task)); err != nil {
 		return fail("read the task's checkpoint: %v", err)
 	}
 	branch, err := g.DefaultBranch(ctx, b.Repo, remote)

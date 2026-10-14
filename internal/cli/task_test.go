@@ -158,6 +158,7 @@ func TestTaskCommandsForTheAssignee(t *testing.T) {
 		{"start for someone else", []string{"start", "--to", "x", "text"}, ExitUsage, "Usage:"},
 		{"start with a deadline", []string{"start", "--for", "1h", "text"}, ExitUsage, "Usage:"},
 		{"start without text", []string{"start"}, ExitUsage, "Usage:"},
+		{"create with a branch", []string{"create", "--to", "x", "--branch", "b", "text"}, ExitUsage, "Usage:"},
 		{"merge a task not yet run", []string{"merge", first}, ExitError, "only a checkpointed task can be merged"},
 		{"unknown subcommand", []string{"frobnicate"}, ExitUsage, "Usage:"},
 		{"decline with reason", []string{"decline", first, "--reason", "on holiday"}, ExitOK, "Task " + first + " declined. The lead has been told."},

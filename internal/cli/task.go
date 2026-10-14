@@ -20,7 +20,7 @@ import (
 
 const taskUsage = `Usage:
   crewbo task create --to LOGIN [--path PATH]... [--for DURATION] (TEXT... | --file FILE)
-  crewbo task start [--path PATH]... (TEXT... | --file FILE)
+  crewbo task start [--path PATH]... [--branch NAME] (TEXT... | --file FILE)
   crewbo task list
   crewbo task show ID
   crewbo task approve ID [--agent claude-code|codex] [--use-api-key]
@@ -34,7 +34,9 @@ may change (repeat it); --for is how long the teammate has to approve
 (default 24h, at most 7 days); --file - reads the text from stdin.
 
 start gives you a task of your own, with no lead or approval: a new git
-worktree on its own branch, with --path claimed for it. Work there with
+worktree on its own branch, with --path claimed for it. --branch NAME
+makes an existing branch the task's instead, worked on where it is
+checked out (your own checkout included) or in a new worktree. Work there with
 any agent; Crewbo checkpoints your work for the room when the agent
 finishes a reply (at most every 5 minutes) and checks it against your
 teammates' tasks. checkpoint does it now.
@@ -166,6 +168,7 @@ func taskCreate(ctx context.Context, args []string, stdin io.Reader, stdout, std
 	to := fs.String("to", "", "the teammate's GitHub login")
 	ttl := fs.Duration("for", 0, "how long the teammate has to approve (default 24h)")
 	file := fs.String("file", "", "read the task text from FILE (- for stdin)")
+	branch := fs.String("branch", "", "start: an existing branch to make the task's")
 	var owned pathList
 	fs.Var(&owned, "path", "a file or glob the task may change (repeatable)")
 	rest, err := parseInterspersed(fs, args[1:])
@@ -187,7 +190,7 @@ func taskCreate(ctx context.Context, args []string, stdin io.Reader, stdout, std
 		}
 		text = string(b)
 	}
-	if (*to == "") != own || (own && *ttl != 0) || strings.TrimSpace(text) == "" || (*file != "" && len(rest) > 0) {
+	if (*to == "") != own || (own && *ttl != 0) || (!own && *branch != "") || strings.TrimSpace(text) == "" || (*file != "" && len(rest) > 0) {
 		return write(stderr, ExitUsage, "%s", taskUsage)
 	}
 	cwd, err := os.Getwd()
@@ -212,7 +215,7 @@ func taskCreate(ctx context.Context, args []string, stdin io.Reader, stdout, std
 	}
 	resp, code := callTaskDaemon(ctx, daemon.Request{
 		Method: method, Repo: root, Assignee: *to, Text: text,
-		Patterns: patterns, TTLSeconds: int64(ttl.Seconds()),
+		Patterns: patterns, TTLSeconds: int64(ttl.Seconds()), Branch: *branch,
 	}, stderr)
 	if code != ExitOK {
 		return code
