@@ -9,7 +9,16 @@ import (
 // Head returns the commit the repository's HEAD points at, as a full hex
 // object id. It fails in a repository with no commits.
 func (g *Git) Head(ctx context.Context, repo string) (string, error) {
-	out, err := g.run(ctx, repo, "rev-parse", "--verify", "HEAD^{commit}")
+	return g.Commit(ctx, repo, "HEAD")
+}
+
+// Commit returns the full object id of the commit rev names (a branch,
+// tag or commit).
+func (g *Git) Commit(ctx context.Context, repo, rev string) (string, error) {
+	if err := checkRefs(rev); err != nil {
+		return "", err
+	}
+	out, err := g.run(ctx, repo, "rev-parse", "--verify", "--end-of-options", rev+"^{commit}")
 	if err != nil {
 		return "", err
 	}

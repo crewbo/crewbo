@@ -879,3 +879,60 @@ func TestResolvedConflictIsCleared(t *testing.T) {
 		t.Errorf("warnings %v", w)
 	}
 }
+
+// M5-07: an existing branch can become a task's: worked on where it is
+// checked out (the member's own checkout here), or in a new worktree; the
+// main branch itself cannot.
+func TestRegisteredBranchIsATask(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	f := newCrossFixture(t)
+	bare := f.a.remoteFor(t, true)
+	gitOut(t, f.a.repo, "push", "-q", "origin", "HEAD:refs/heads/main")
+	f.b.fetchFrom(f.a)
+	gitOut(t, f.b.repo, "reset", "-q", "--hard", "FETCH_HEAD")
+	f.b.useRemote(t, bare, true)
+	gitOut(t, f.b.repo, "branch", "-M", "main")
+	start := func(branch string) (Response, error) {
+		return f.b.call(Request{Method: MethodTaskStart, Repo: f.b.repo, Text: "Login work.", Patterns: []string{"login.txt"}, Branch: branch})
+	}
+	if _, err := start("main"); err == nil || !strings.Contains(err.Error(), "main is the main branch") {
+		t.Errorf("registering main: %v", err)
+	}
+	if _, err := start("nope"); err == nil || !strings.Contains(err.Error(), "no commit for refs/heads/nope") {
+		t.Errorf("a missing branch: %v", err)
+	}
+
+	// Checked out in the member's own checkout: that checkout is the task's.
+	gitOut(t, f.b.repo, "switch", "-q", "-c", "feat/login")
+	resp, err := start("feat/login")
+	if err != nil || !strings.Contains(resp.Note, "(branch feat/login)") {
+		t.Fatalf("start: %+v %v", resp, err)
+	}
+	if ok, err := f.b.call(Request{Method: MethodDecide, Session: "interactive", Agent: "codex", Repo: f.b.repo, Paths: []string{"login.txt"}}); err != nil || !ok.Allow {
+		t.Errorf("the member's agent in their checkout is blocked by its own task: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(f.b.repo, "login.txt"), []byte("login\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := f.b.call(Request{Method: MethodTaskCheckpoint, Task: resp.TaskID}); err != nil || !strings.HasPrefix(r.Note, "Checkpointed as ") {
+		t.Fatalf("checkpoint: %+v %v", r, err)
+	}
+	if got := gitOut(t, bare, "show", "refs/crewbo/gavriel953/"+resp.TaskID+":login.txt"); got != "login" {
+		t.Errorf("checkpoint holds %q", got)
+	}
+	if br := gitOut(t, f.b.repo, "branch", "--show-current"); br != "feat/login" {
+		t.Errorf("the member's checkout moved to %s", br)
+	}
+
+	// Checked out nowhere: a new worktree on that branch.
+	gitOut(t, f.b.repo, "branch", "feat/other", "main")
+	other, err := f.b.call(Request{Method: MethodTaskStart, Repo: f.b.repo, Text: "Other.", Branch: "feat/other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt := filepath.Join(f.b.paths.Data, "worktrees", other.TaskID)
+	if br := gitOut(t, wt, "branch", "--show-current"); br != "feat/other" {
+		t.Errorf("new worktree on %q", br)
+	}
+}

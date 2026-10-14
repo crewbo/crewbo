@@ -361,3 +361,38 @@ func gitOut(t *testing.T, dir string, args ...string) string {
 	}
 	return strings.TrimSpace(string(out))
 }
+
+func TestWorktreeForABranch(t *testing.T) {
+	dir := repo(t)
+	ctx := context.Background()
+	g := New("")
+	gitT(t, dir, "branch", "feat/login")
+	if _, ok, err := g.WorktreeFor(ctx, dir, "feat/login"); ok || err != nil {
+		t.Errorf("a branch checked out nowhere: %v %v", ok, err)
+	}
+	if path, ok, err := g.WorktreeFor(ctx, dir, "main"); !ok || err != nil || evalT(t, path) != evalT(t, dir) {
+		t.Errorf("main: %q %v %v", path, ok, err)
+	}
+	wt := filepath.Join(t.TempDir(), "with space")
+	if err := g.WorktreeAddBranch(ctx, dir, wt, "feat/login"); err != nil {
+		t.Fatal(err)
+	}
+	if path, ok, err := g.WorktreeFor(ctx, dir, "feat/login"); !ok || err != nil || evalT(t, path) != evalT(t, wt) {
+		t.Errorf("feat/login: %q %v %v", path, ok, err)
+	}
+	if err := g.WorktreeAddBranch(ctx, dir, filepath.Join(t.TempDir(), "again"), "feat/login"); err == nil {
+		t.Error("a branch was checked out twice")
+	}
+	if _, _, err := g.WorktreeFor(ctx, dir, "--upload-pack=x"); !errors.Is(err, ErrBadRef) {
+		t.Errorf("option-like branch: %v", err)
+	}
+}
+
+func evalT(t *testing.T, p string) string {
+	t.Helper()
+	r, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}

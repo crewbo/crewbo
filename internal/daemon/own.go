@@ -43,9 +43,25 @@ func (d *Daemon) startOwnTask(ctx context.Context, req Request) Response {
 		return fail("this device's key is not the one registered at sign-in; run crewbo login again")
 	}
 	g := gitx.New("")
-	head, err := g.Head(ctx, req.Repo)
+	// A registered branch is worked on where it is checked out, or in a new
+	// worktree; otherwise the task gets a new branch at the current commit.
+	rev, wt, checkedOut := "HEAD", "", false
+	if req.Branch != "" {
+		if remote, err := g.PushRemote(ctx, req.Repo); err == nil {
+			if main, err := g.DefaultBranch(ctx, req.Repo, remote); err == nil && main == "refs/heads/"+req.Branch {
+				return fail("%s is the main branch; register a branch of its own", req.Branch)
+			}
+		}
+		rev = "refs/heads/" + req.Branch
+		path, ok, err := g.WorktreeFor(ctx, req.Repo, req.Branch)
+		if err != nil {
+			return fail("find where %s is checked out: %v", req.Branch, err)
+		}
+		wt, checkedOut = path, ok
+	}
+	head, err := g.Commit(ctx, req.Repo, rev)
 	if err != nil {
-		return fail("read the repository's current commit: %v", err)
+		return fail("no commit for %s: %v", rev, err)
 	}
 	id, err := dispatch.NewTaskID()
 	if err != nil {
@@ -81,8 +97,20 @@ func (d *Daemon) startOwnTask(ctx context.Context, req Request) Response {
 			claimIDs = append(claimIDs, c.ID)
 		}
 	}
-	wt := filepath.Join(d.cfg.Paths.Data, "worktrees", id)
-	if err := g.WorktreeAdd(ctx, req.Repo, wt, "crewbo/"+id, head); err != nil {
+	branch := "crewbo/" + id
+	switch {
+	case checkedOut:
+		branch = req.Branch
+		err = nil
+	case req.Branch != "":
+		branch = req.Branch
+		wt = filepath.Join(d.cfg.Paths.Data, "worktrees", id)
+		err = g.WorktreeAddBranch(ctx, req.Repo, wt, req.Branch)
+	default:
+		wt = filepath.Join(d.cfg.Paths.Data, "worktrees", id)
+		err = g.WorktreeAdd(ctx, req.Repo, wt, branch, head)
+	}
+	if err != nil {
 		if len(claimIDs) > 0 {
 			d.sharedClaim(ctx, Request{Method: MethodClaimRelease, Repo: b.Repo, IDs: claimIDs})
 		}
@@ -92,8 +120,8 @@ func (d *Daemon) startOwnTask(ctx context.Context, req Request) Response {
 	if err != nil {
 		return fail("%v", err)
 	}
-	if _, err := d.sync.db.ExecContext(ctx, `INSERT INTO tasks (digest, task_id, room_id, signed, state, received_unix_ms, expires_unix_ms, own, session) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-		taskDigest(st), id, b.RoomID, signed, taskRunning, now.UnixMilli(), body.GetExpiresUnixMs(), session); err != nil {
+	if _, err := d.sync.db.ExecContext(ctx, `INSERT INTO tasks (digest, task_id, room_id, signed, state, received_unix_ms, expires_unix_ms, own, session, worktree) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+		taskDigest(st), id, b.RoomID, signed, taskRunning, now.UnixMilli(), body.GetExpiresUnixMs(), session, wt); err != nil {
 		return fail("record the task: %v", err)
 	}
 	d.setRun(wt, session)
@@ -102,23 +130,23 @@ func (d *Daemon) startOwnTask(ctx context.Context, req Request) Response {
 	}
 	d.cfg.Log.Info("own task started", "task_id", id, "worktree", wt)
 	return Response{ID: req.ID, TaskID: id, Note: fmt.Sprintf(
-		"Work in %s (branch crewbo/%s) with any agent; its claims are yours there. Crewbo checkpoints your work when the agent finishes a reply, at most every 5 minutes.", wt, id)}
+		"Work in %s (branch %s) with any agent; its claims are yours there. Crewbo checkpoints your work when the agent finishes a reply, at most every 5 minutes.", wt, branch)}
 }
 
 // restoreOwnTasks maps the worktree of every own task still in progress
 // back to its session after a restart, so the member's agent there still
 // holds the task's claims.
 func (d *Daemon) restoreOwnTasks(ctx context.Context) {
-	rows, err := d.sync.db.QueryContext(ctx, `SELECT task_id, session FROM tasks WHERE own = 1 AND session != '' AND state IN (?, ?)`, taskRunning, dispatch.StateCheckpointed)
+	rows, err := d.sync.db.QueryContext(ctx, `SELECT task_id, session, worktree FROM tasks WHERE own = 1 AND session != '' AND state IN (?, ?)`, taskRunning, dispatch.StateCheckpointed)
 	if err != nil {
 		d.cfg.Log.Warn("restore own tasks", "err", err)
 		return
 	}
 	defer func() { _ = rows.Close() }()
 	for rows.Next() {
-		var id, session string
-		if rows.Scan(&id, &session) == nil {
-			d.setRun(filepath.Join(d.cfg.Paths.Data, "worktrees", id), session)
+		var id, session, wt string
+		if rows.Scan(&id, &session, &wt) == nil {
+			d.setRun(d.worktreeOf(id, wt), session)
 		}
 	}
 }
@@ -176,7 +204,7 @@ func (d *Daemon) checkpointOwn(ctx context.Context, id string) (string, error) {
 		return "", fmt.Errorf("task %s is %s", id, state)
 	}
 	g := gitx.New("")
-	wt := filepath.Join(d.cfg.Paths.Data, "worktrees", id)
+	wt := d.taskWorktree(ctx, id)
 	commit, err := g.CommitAll(ctx, wt, "Checkpoint of Crewbo task "+id)
 	if err != nil {
 		return "", err
@@ -278,5 +306,21 @@ func (d *Daemon) releaseOwnClaims(ctx context.Context, r *taskRun, session strin
 	if len(ids) > 0 {
 		d.sharedClaim(ctx, Request{Method: MethodClaimRelease, Repo: r.b.Repo, IDs: ids})
 	}
-	d.setRun(filepath.Join(d.cfg.Paths.Data, "worktrees", r.body.GetTaskId()), "")
+	d.setRun(d.taskWorktree(ctx, r.body.GetTaskId()), "")
+}
+
+// worktreeOf is a task's working tree: wt when recorded, else the
+// daemon's own <data>/worktrees/<task id>.
+func (d *Daemon) worktreeOf(id, wt string) string {
+	if wt != "" {
+		return wt
+	}
+	return filepath.Join(d.cfg.Paths.Data, "worktrees", id)
+}
+
+// taskWorktree reads a task's working tree from the store.
+func (d *Daemon) taskWorktree(ctx context.Context, id string) string {
+	var wt string
+	_ = d.sync.db.QueryRowContext(ctx, `SELECT worktree FROM tasks WHERE task_id = ?`, id).Scan(&wt)
+	return d.worktreeOf(id, wt)
 }

@@ -111,6 +111,10 @@ var Daemon = Schema{
 	// a restarted daemon still knows the task's worktree is that session.
 	`ALTER TABLE tasks ADD COLUMN own INTEGER NOT NULL DEFAULT 0;
 	ALTER TABLE tasks ADD COLUMN session TEXT NOT NULL DEFAULT '';`,
+	// 8: where an own task is worked on when it is not the default
+	// <data>/worktrees/<task id>: the member's own checkout of a branch
+	// they registered (M5-07).
+	`ALTER TABLE tasks ADD COLUMN worktree TEXT NOT NULL DEFAULT '';`,
 }
 
 // Server is the schema of the sync server's database (`crewbo serve`).

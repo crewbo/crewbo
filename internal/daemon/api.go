@@ -81,6 +81,8 @@ type Request struct {
 	Task         string `json:"task,omitempty"`
 	LeaseSeconds int64  `json:"lease_seconds,omitempty"` // DefaultCLILease when 0
 	KeepAPIKey   bool   `json:"keep_api_key,omitempty"`
+	// task_start: an existing branch to register as the task's.
+	Branch string `json:"branch,omitempty"`
 	// task_merge: other tasks whose conflicting checkpoints the member
 	// confirmed merging over (ADR 0015).
 	Despite []string `json:"despite,omitempty"`
