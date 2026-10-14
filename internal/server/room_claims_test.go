@@ -245,3 +245,133 @@ func TestLeasesExpireAndClaimsSurviveRestart(t *testing.T) {
 		t.Errorf("x.go after its lease lapsed: %v", reply)
 	}
 }
+
+func handoffReq(id, room, rid, claim, reason string) *crewbov1.Envelope {
+	return &crewbov1.Envelope{Id: id, Body: &crewbov1.Envelope_HandoffRequest{HandoffRequest: &crewbov1.HandoffRequest{RoomId: room, RequestId: rid, ClaimId: claim, Reason: reason}}}
+}
+
+func handoffAns(id, room, rid string, approve bool) *crewbov1.Envelope {
+	return &crewbov1.Envelope{Id: id, Body: &crewbov1.Envelope_HandoffAnswer{HandoffAnswer: &crewbov1.HandoffAnswer{RoomId: room, RequestId: rid, Approve: approve}}}
+}
+
+func override(id, room, claim, reason string) *crewbov1.Envelope {
+	return &crewbov1.Envelope{Id: id, Body: &crewbov1.Envelope_LeadOverride{LeadOverride: &crewbov1.LeadOverride{RoomId: room, ClaimId: claim, Reason: reason}}}
+}
+
+// M5-03: the escalation ladder. A member asks the holder for a claim; the
+// holder declines or approves (which releases it); the lead can release a
+// claim with a reason. Every step is a room event.
+func TestHandoffLadder(t *testing.T) {
+	cr := newClaimRoom(t)
+	lead := cr.connect(t, testToken, cr.keyA)
+	mate := cr.connect(t, cr.tokenB, cr.keyB)
+	invalid := crewbov1.ErrorCode_ERROR_CODE_INVALID
+	// last returns the room's latest n events.
+	last := func(n int) []*crewbov1.Event {
+		t.Helper()
+		evs, err := cr.s.events.Since(context.Background(), cr.room, 0)
+		if err != nil || len(evs) < n {
+			t.Fatalf("log: %d events, %v", len(evs), err)
+		}
+		return evs[len(evs)-n:]
+	}
+	ok := func(c *websocket.Conn, env *crewbov1.Envelope) {
+		t.Helper()
+		if r := request(t, c, env); r.GetAck() == nil {
+			t.Fatalf("%s: %v", env.GetId(), r)
+		}
+	}
+	ok(lead, claimReq("c", cr.room, cr.keyA+"/terminal", []string{"src/a.go"}, []string{"c1"}))
+
+	for name, tc := range map[string]struct {
+		conn *websocket.Conn
+		env  *crewbov1.Envelope
+	}{
+		"your own claim": {lead, handoffReq("x1", cr.room, "r0", "c1", "")},
+		"no such claim":  {mate, handoffReq("x2", cr.room, "r0", "nope", "")},
+		"no request id":  {mate, handoffReq("x3", cr.room, "", "c1", "")},
+		"answer nothing": {lead, handoffAns("x4", cr.room, "nope", true)},
+	} {
+		if r := request(t, tc.conn, tc.env); r.GetError().GetCode() != invalid {
+			t.Errorf("%s: %v", name, r)
+		}
+	}
+
+	ok(mate, handoffReq("h1", cr.room, "r1", "c1", "I need the parser"))
+	if ev := last(1)[0]; ev.GetHandoffRequested().GetReason() != "I need the parser" || ev.GetActorMemberId() != "gavriel953" {
+		t.Errorf("logged %v", ev)
+	}
+	if r := request(t, mate, handoffReq("h1b", cr.room, "r1", "c1", "I need the parser")); r.GetAck() == nil || r.GetAck().GetSeq() != 0 {
+		t.Errorf("a resent request: %v", r)
+	}
+	if r := request(t, mate, handoffAns("a0", cr.room, "r1", true)); r.GetError().GetCode() != invalid || !strings.Contains(r.GetError().GetMessage(), "only tester") {
+		t.Errorf("the requester answering: %v", r)
+	}
+	ok(lead, handoffAns("a1", cr.room, "r1", false))
+	if ev := last(1)[0]; ev.GetHandoffAnswered() == nil || ev.GetHandoffAnswered().GetApprove() || ev.GetActorMemberId() != "tester" {
+		t.Errorf("decline logged as %v", ev)
+	}
+	if r := request(t, lead, handoffAns("a1b", cr.room, "r1", true)); r.GetError().GetCode() != invalid {
+		t.Errorf("answering a closed request: %v", r)
+	}
+
+	// Asked again and approved: the answer, then the release.
+	ok(mate, handoffReq("h2", cr.room, "r2", "c1", ""))
+	ok(lead, handoffAns("a2", cr.room, "r2", true))
+	evs := last(2)
+	if !evs[0].GetHandoffAnswered().GetApprove() || evs[1].GetClaimsReleased().GetClaimIds()[0] != "c1" {
+		t.Errorf("approval logged as %v", evs)
+	}
+
+	// The lead overrides the teammate's claim, with a reason.
+	ok(mate, claimReq("c2", cr.room, cr.keyB+"/terminal", []string{"src/b.go"}, []string{"c2"}))
+	if r := request(t, mate, override("o0", cr.room, "c2", "mine")); r.GetError().GetCode() != crewbov1.ErrorCode_ERROR_CODE_NOT_LEAD {
+		t.Errorf("a member overriding: %v", r)
+	}
+	if r := request(t, lead, override("o1", cr.room, "c2", "")); r.GetError().GetCode() != invalid {
+		t.Errorf("an override without a reason: %v", r)
+	}
+	ok(lead, override("o2", cr.room, "c2", "they are offline and the demo is in an hour"))
+	evs = last(2)
+	if evs[0].GetClaimOverridden().GetReason() != "they are offline and the demo is in an hour" || evs[0].GetActorMemberId() != "tester" ||
+		evs[1].GetClaimsReleased().GetClaimIds()[0] != "c2" {
+		t.Errorf("override logged as %v", evs)
+	}
+	// Live members hear the steps too.
+	ev := nextEvent(t, mate)
+	for ev.GetClaimOverridden() == nil {
+		ev = nextEvent(t, mate)
+	}
+}
+
+// Open handoff requests are part of the room's projection: a restarted
+// room still knows them.
+func TestOpenHandoffsSurviveRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "server.db")
+	ctx := context.Background()
+	db, err := store.Open(ctx, path, store.Server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := NewLog(db.SQL()).CreateRoom(ctx, "r", "r", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	_ = db.Close()
+	r, _, _, stop := roomWithClock(t, path)
+	holder, asker := Caller{Member: "a", DeviceKey: "ed25519:a"}, Caller{Member: "b", DeviceKey: "ed25519:b"}
+	if rep := r.Handle(ctx, holder, claimReq("c", "r", "ed25519:a/t", []string{"x.go"}, []string{"c1"})); rep.GetAck() == nil {
+		t.Fatal(rep)
+	}
+	if rep := r.Handle(ctx, asker, handoffReq("h", "r", "r1", "c1", "")); rep.GetAck() == nil {
+		t.Fatal(rep)
+	}
+	stop()
+	r, _, _, stop = roomWithClock(t, path)
+	defer stop()
+	if rep := r.Handle(ctx, holder, handoffAns("a", "r", "r1", true)); rep.GetAck() == nil {
+		t.Fatalf("answer after a restart: %v", rep)
+	}
+	if rep := r.Handle(ctx, asker, handoffReq("h2", "r", "r2", "c1", "")); rep.GetError().GetCode() != crewbov1.ErrorCode_ERROR_CODE_INVALID {
+		t.Errorf("the claim was not released: %v", rep)
+	}
+}

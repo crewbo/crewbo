@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/crewbo/crewbo/internal/claims"
@@ -32,6 +33,33 @@ type Room struct {
 	// server time; only the room goroutine touches it.
 	claims      *claims.Set
 	expireEvery time.Duration
+	// handoffs is the open handoff requests by request id, a projection of
+	// the log like the claims.
+	handoffs map[string]handoff
+}
+
+// handoff is an open request to hand a claim over.
+type handoff struct{ claimID, requester string }
+
+// track keeps the open handoff requests in step with an event.
+func (r *Room) track(ev *crewbov1.Event) {
+	drop := func(ids []string) {
+		for rid, h := range r.handoffs {
+			if slices.Contains(ids, h.claimID) {
+				delete(r.handoffs, rid)
+			}
+		}
+	}
+	switch b := ev.GetBody().(type) {
+	case *crewbov1.Event_HandoffRequested:
+		r.handoffs[b.HandoffRequested.GetRequestId()] = handoff{claimID: b.HandoffRequested.GetClaimId(), requester: ev.GetActorMemberId()}
+	case *crewbov1.Event_HandoffAnswered:
+		delete(r.handoffs, b.HandoffAnswered.GetRequestId())
+	case *crewbov1.Event_ClaimsReleased:
+		drop(b.ClaimsReleased.GetClaimIds())
+	case *crewbov1.Event_ClaimsExpired:
+		drop(b.ClaimsExpired.GetClaimIds())
+	}
 }
 
 // NewRoom returns a room over log. Call Run to start it.
@@ -39,6 +67,7 @@ func NewRoom(id string, log *Log, now func() time.Time) *Room {
 	return &Room{
 		id: id, log: log, now: now, reqs: make(chan func()), done: make(chan struct{}),
 		subs: map[chan *crewbov1.Event]uint64{}, claims: claims.NewSet(), expireEvery: 5 * time.Second,
+		handoffs: map[string]handoff{},
 	}
 }
 
@@ -59,6 +88,7 @@ func (r *Room) Run(ctx context.Context) {
 	}
 	for _, ev := range evs {
 		roomstate.Apply(r.claims, ev, roomstate.ServerClock, r.now())
+		r.track(ev)
 	}
 	tick := time.NewTicker(r.expireEvery)
 	defer tick.Stop()
@@ -109,6 +139,7 @@ func (r *Room) commit(ctx context.Context, ev *crewbov1.Event) (*crewbov1.Event,
 		return nil, err
 	}
 	roomstate.Apply(r.claims, out, roomstate.ServerClock, r.now())
+	r.track(out)
 	for ch, after := range r.subs {
 		if out.GetSeq() <= after {
 			continue // cursor ahead of the log; see Subscribe

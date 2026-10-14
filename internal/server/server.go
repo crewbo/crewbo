@@ -265,6 +265,12 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 			roomID = b.TaskStatus.GetRoomId()
 		case *crewbov1.Envelope_ConflictWarning:
 			roomID = b.ConflictWarning.GetRoomId()
+		case *crewbov1.Envelope_HandoffRequest:
+			roomID = b.HandoffRequest.GetRoomId()
+		case *crewbov1.Envelope_HandoffAnswer:
+			roomID = b.HandoffAnswer.GetRoomId()
+		case *crewbov1.Envelope_LeadOverride:
+			roomID = b.LeadOverride.GetRoomId()
 		default:
 			// The protocol answers unknown requests with UNSUPPORTED.
 			if err := send(ctx, c, errorEnvelope(env.GetId(), crewbov1.ErrorCode_ERROR_CODE_UNSUPPORTED, "not supported by this server")); err != nil {
@@ -275,6 +281,8 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 		reply := errorEnvelope(env.GetId(), crewbov1.ErrorCode_ERROR_CODE_NOT_MEMBER, "this connection has not joined room "+roomID)
 		if joined[roomID] {
 			if refusal := s.checkDispatch(ctx, u.ID, caller, env); refusal != nil {
+				reply = refusal
+			} else if refusal := s.checkLead(ctx, u.ID, env); refusal != nil {
 				reply = refusal
 			} else {
 				reply = s.room(roomID).Handle(ctx, caller, env)
@@ -373,6 +381,24 @@ func (s *Server) checkDispatch(ctx context.Context, userID int64, caller Caller,
 	}
 	if !ed25519.Verify(pub, d.GetTask().GetBody(), d.GetTask().GetSignature()) {
 		return refuse(crewbov1.ErrorCode_ERROR_CODE_INVALID, "the task's signature does not match its body")
+	}
+	return nil
+}
+
+// checkLead admits a LeadOverride only from the room's lead. It returns nil
+// for other requests and for an admitted override.
+func (s *Server) checkLead(ctx context.Context, userID int64, env *crewbov1.Envelope) *crewbov1.Envelope {
+	o := env.GetLeadOverride()
+	if o == nil {
+		return nil
+	}
+	lead, err := s.rooms.IsLead(ctx, o.GetRoomId(), userID)
+	switch {
+	case err != nil:
+		s.log.Error("override: lead check", "err", err)
+		return errorEnvelope(env.GetId(), crewbov1.ErrorCode_ERROR_CODE_UNSPECIFIED, "internal error")
+	case !lead:
+		return errorEnvelope(env.GetId(), crewbov1.ErrorCode_ERROR_CODE_NOT_LEAD, "only the room lead can override a claim")
 	}
 	return nil
 }
