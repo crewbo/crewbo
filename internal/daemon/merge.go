@@ -122,6 +122,9 @@ func (d *Daemon) mergeTask(ctx context.Context, req Request) Response {
 		}
 	}
 	d.cfg.Log.Info("task merged", "task_id", req.Task, "branch", branch, "commit", merged[:12])
+	if own, _, session, err := d.loadOwnTask(ctx, req.Task); err == nil && session != "" {
+		d.releaseOwnClaims(ctx, own, session) // a run's claims were released when it ended
+	}
 	return Response{ID: req.ID, TaskID: req.Task, Note: fmt.Sprintf("Merged into %s as %s and pushed to %s.", short, merged[:12], remote)}
 }
 

@@ -762,3 +762,120 @@ func TestMemberStartsTheirOwnTask(t *testing.T) {
 		t.Errorf("a refused start left a branch: %q", branches)
 	}
 }
+
+// M5-07: an own task is checkpointed on request, and when its agent
+// finishes a reply at most every ownEvery; a new prompt after a checkpoint
+// means it is running again; merging it releases its claims.
+func TestOwnTaskCheckpointsAndMerges(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	f := newCrossFixture(t)
+	bare := f.a.remoteFor(t, true)
+	gitOut(t, f.a.repo, "push", "-q", "origin", "HEAD:refs/heads/main")
+	f.b.fetchFrom(f.a)
+	gitOut(t, f.b.repo, "reset", "-q", "--hard", "FETCH_HEAD") // the member's clone of main
+	f.b.useRemote(t, bare, true)
+	started, err := f.b.call(Request{Method: MethodTaskStart, Repo: f.b.repo, Text: "Own work.", Patterns: []string{"agent.txt"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := started.TaskID
+	wt := filepath.Join(f.b.paths.Data, "worktrees", id)
+	ref := "refs/crewbo/gavriel953/" + id
+	work := func(content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(wt, "agent.txt"), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	event := func(name string) {
+		t.Helper()
+		if _, err := f.b.call(Request{Method: MethodEvent, Session: "interactive", Agent: "claude-code", Repo: wt, Event: name}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checkpoint := func() (Response, error) { return f.b.call(Request{Method: MethodTaskCheckpoint, Task: id}) }
+
+	work("first\n")
+	resp, err := checkpoint()
+	if err != nil || !strings.HasPrefix(resp.Note, "Checkpointed as "+ref+" at ") {
+		t.Fatalf("checkpoint: %+v %v", resp, err)
+	}
+	first := gitOut(t, bare, "rev-parse", ref)
+	if st := f.b.taskState(id).State; st != "checkpointed" {
+		t.Errorf("state %s", st)
+	}
+	if resp, err := checkpoint(); err != nil || resp.Note != "Nothing new since the last checkpoint." {
+		t.Errorf("checkpoint with nothing new: %+v %v", resp, err)
+	}
+	event("prompt")
+	eventually(t, "the task to run again", func() bool { return f.b.taskState(id).State == "running" })
+
+	work("second\n")
+	event("stop") // within ownEvery of the last checkpoint: not yet
+	time.Sleep(400 * time.Millisecond)
+	if got := gitOut(t, bare, "rev-parse", ref); got != first {
+		t.Error("an automatic checkpoint ran within the interval")
+	}
+	event("stop") // the interval has passed
+	eventually(t, "the automatic checkpoint", func() bool { return gitOut(t, bare, "rev-parse", ref) != first })
+	if got := gitOut(t, bare, "show", ref+":agent.txt"); got != "second" {
+		t.Errorf("the automatic checkpoint holds %q", got)
+	}
+	eventually(t, "checkpointed again", func() bool { return f.b.taskState(id).State == "checkpointed" })
+
+	if resp, err := f.b.call(Request{Method: MethodTaskMerge, Task: id}); err != nil || !strings.HasPrefix(resp.Note, "Merged into main") {
+		t.Fatalf("merge: %+v %v", resp, err)
+	}
+	if got := gitOut(t, bare, "show", "main:agent.txt"); got != "second" {
+		t.Errorf("main has %q", got)
+	}
+	eventually(t, "the claim to be released", func() bool { ok, _ := f.a.agentMay("agent.txt"); return ok })
+	if _, ok := f.b.run.d.runSession(wt); ok {
+		t.Error("the merged task still owns its worktree's sessions")
+	}
+}
+
+// A conflict that a later checkpoint resolves is cleared for everyone.
+func TestResolvedConflictIsCleared(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	f := newCrossFixture(t)
+	bare := f.a.remoteFor(t, true)
+	f.b.fetchFrom(f.a)
+	gitOut(t, f.b.repo, "reset", "-q", "--hard", "FETCH_HEAD")
+	f.b.useRemote(t, bare, true)
+	start := func(m *machine) (string, string) {
+		t.Helper()
+		r, err := m.call(Request{Method: MethodTaskStart, Repo: m.repo, Text: "Own work."})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r.TaskID, filepath.Join(m.paths.Data, "worktrees", r.TaskID)
+	}
+	save := func(m *machine, id, wt, content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(wt, "agent.txt"), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := m.call(Request{Method: MethodTaskCheckpoint, Task: id}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	leadTask, leadWT := start(f.a)
+	mateTask, mateWT := start(f.b)
+	save(f.a, leadTask, leadWT, "lead version\n")
+	eventually(t, "the lead's checkpoint on the teammate's machine", func() bool {
+		cs, err := f.b.run.d.otherCheckpoints(context.Background(), f.checkFor("gavriel953").RoomID, mateTask)
+		return err == nil && len(cs) == 1
+	})
+	save(f.b, mateTask, mateWT, "mate version\n")
+	eventually(t, "the conflict", func() bool { return len(f.b.taskState(mateTask).Conflicts) == 1 })
+	save(f.b, mateTask, mateWT, "lead version\n") // now identical: merges cleanly
+	eventually(t, "the conflict to clear on both machines", func() bool {
+		return len(f.b.taskState(mateTask).Conflicts) == 0 && len(f.a.taskState(leadTask).Conflicts) == 0
+	})
+	if w := f.warnings(); len(w) != 2 || len(w[1].GetConflictWarning().GetPaths()) != 0 {
+		t.Errorf("warnings %v", w)
+	}
+}

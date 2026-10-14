@@ -18,18 +18,19 @@ type Hello struct {
 
 // Methods of the local API.
 const (
-	MethodDecide       = "decide"
-	MethodEvent        = "event"
-	MethodStatus       = "status"
-	MethodClaimAdd     = "claim_add"
-	MethodClaimList    = "claim_list"
-	MethodClaimRelease = "claim_release"
-	MethodTaskCreate   = "task_create"
-	MethodTaskList     = "task_list"
-	MethodTaskApprove  = "task_approve"
-	MethodTaskDecline  = "task_decline"
-	MethodTaskMerge    = "task_merge"
-	MethodTaskStart    = "task_start"
+	MethodDecide         = "decide"
+	MethodEvent          = "event"
+	MethodStatus         = "status"
+	MethodClaimAdd       = "claim_add"
+	MethodClaimList      = "claim_list"
+	MethodClaimRelease   = "claim_release"
+	MethodTaskCreate     = "task_create"
+	MethodTaskList       = "task_list"
+	MethodTaskApprove    = "task_approve"
+	MethodTaskDecline    = "task_decline"
+	MethodTaskMerge      = "task_merge"
+	MethodTaskStart      = "task_start"
+	MethodTaskCheckpoint = "task_checkpoint"
 )
 
 // TerminalSession holds claims made with `crewbo claim add`. It is not an

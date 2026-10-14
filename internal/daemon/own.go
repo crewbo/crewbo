@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -120,4 +121,162 @@ func (d *Daemon) restoreOwnTasks(ctx context.Context) {
 			d.setRun(filepath.Join(d.cfg.Paths.Data, "worktrees", id), session)
 		}
 	}
+}
+
+// ownCheckpointEvery is how often at most an own task is checkpointed
+// automatically when its agent finishes a reply (Ronel, 2026-10-14; GitHub
+// asks for at most 6 pushes a minute per repository).
+const ownCheckpointEvery = 5 * time.Minute
+
+// errNothingNew means an own task's worktree has no changes since its last
+// checkpoint.
+var errNothingNew = errors.New("nothing new since the last checkpoint")
+
+// loadOwnTask returns an own task's binding and body, its state and
+// session.
+func (d *Daemon) loadOwnTask(ctx context.Context, id string) (r *taskRun, state, session string, err error) {
+	var room string
+	var signed []byte
+	err = d.sync.db.QueryRowContext(ctx, `SELECT room_id, signed, state, session FROM tasks WHERE task_id = ? AND own = 1`, id).Scan(&room, &signed, &state, &session)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, "", "", fmt.Errorf("no task %s that you started", id)
+	}
+	if err != nil {
+		return nil, "", "", err
+	}
+	st, body := &crewbov1.SignedTask{}, &crewbov1.TaskBody{}
+	if err := proto.Unmarshal(signed, st); err != nil {
+		return nil, "", "", err
+	}
+	if err := proto.Unmarshal(st.GetBody(), body); err != nil {
+		return nil, "", "", err
+	}
+	b, ok := d.sync.roomBinding(room)
+	if !ok {
+		return nil, "", "", errors.New("no repository on this machine is in the task's room")
+	}
+	return &taskRun{b: b, body: body, agent: ""}, state, session, nil
+}
+
+// checkpointOwn commits what is new in an own task's worktree, pushes it
+// and marks the task checkpointed, then checks it against the room's
+// other checkpoints. A task checkpointed before goes back to running
+// first (data-model.md: the agent resumed). Own checkpoints run one at a
+// time.
+func (d *Daemon) checkpointOwn(ctx context.Context, id string) (string, error) {
+	d.ownMu.Lock()
+	defer d.ownMu.Unlock()
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), checkpointTimeout)
+	defer cancel()
+	r, state, _, err := d.loadOwnTask(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	if state != taskRunning && state != dispatch.StateCheckpointed {
+		return "", fmt.Errorf("task %s is %s", id, state)
+	}
+	g := gitx.New("")
+	wt := filepath.Join(d.cfg.Paths.Data, "worktrees", id)
+	commit, err := g.CommitAll(ctx, wt, "Checkpoint of Crewbo task "+id)
+	if err != nil {
+		return "", err
+	}
+	if commit == "" {
+		return "", errNothingNew
+	}
+	if state == dispatch.StateCheckpointed {
+		d.ownResumed(ctx, r)
+	}
+	ref, err := d.pushCheckpoint(ctx, g, r.b.Repo, id, commit)
+	if err != nil {
+		return "", fmt.Errorf("committed %s, %w", short(commit), err)
+	}
+	d.lastOwnCheckpoint[id] = d.cfg.Now()
+	d.finishRunAt(ctx, r, runEnd{state: dispatch.StateCheckpointed, detail: ref + " at " + short(commit), ref: ref, commit: commit})
+	d.checkConflicts(ctx, r, commit)
+	return ref + " at " + short(commit), nil
+}
+
+// ownResumed moves a checkpointed own task back to running and tells the
+// room.
+func (d *Daemon) ownResumed(ctx context.Context, r *taskRun) {
+	id := r.body.GetTaskId()
+	if !d.setTaskState(ctx, id, taskRunning, "") {
+		return
+	}
+	if _, err := d.sendStatus(ctx, r.b.RoomID, id, crewbov1.TaskState_TASK_STATE_RUNNING, "", 0); err != nil && !errors.Is(err, errNotSent) {
+		d.cfg.Log.Warn("task status not queued", "task_id", id, "err", err)
+	}
+}
+
+// ownTaskEvent reacts to a hook event from an own task's worktree: a new
+// prompt after a checkpoint means the agent resumed; a finished reply
+// checkpoints the task, at most every ownCheckpointEvery. It runs in the
+// background, owned by the daemon's run group.
+func (d *Daemon) ownTaskEvent(ctx context.Context, event, session string) {
+	var id, state string
+	if d.sync.db.QueryRowContext(ctx, `SELECT task_id, state FROM tasks WHERE own = 1 AND session = ?`, session).Scan(&id, &state) != nil {
+		return // not an own task (a dispatched run checkpoints when it exits)
+	}
+	switch event {
+	case "prompt":
+		if state == dispatch.StateCheckpointed {
+			if r, _, _, err := d.loadOwnTask(ctx, id); err == nil {
+				d.ownResumed(ctx, r)
+			}
+		}
+	case "stop":
+		d.ownMu.Lock()
+		last, due := d.lastOwnCheckpoint[id], true
+		if !last.IsZero() && d.cfg.Now().Sub(last) < d.ownEvery {
+			due = false
+		}
+		d.ownMu.Unlock()
+		if !due {
+			return
+		}
+		if _, err := d.checkpointOwn(ctx, id); err != nil && !errors.Is(err, errNothingNew) {
+			d.cfg.Log.Warn("automatic checkpoint", "task_id", id, "err", err)
+		}
+	}
+}
+
+// checkpointOwnTask answers crewbo task checkpoint.
+func (d *Daemon) checkpointOwnTask(ctx context.Context, req Request) Response {
+	if d.sync == nil {
+		return Response{ID: req.ID, Error: "task_checkpoint: the daemon is not ready"}
+	}
+	where, err := d.checkpointOwn(ctx, req.Task)
+	switch {
+	case errors.Is(err, errNothingNew):
+		return Response{ID: req.ID, TaskID: req.Task, Note: "Nothing new since the last checkpoint."}
+	case err != nil:
+		return Response{ID: req.ID, Error: err.Error()}
+	}
+	return Response{ID: req.ID, TaskID: req.Task, Note: "Checkpointed as " + where + "."}
+}
+
+// releaseOwnClaims releases the claims an own task's session holds and
+// forgets its worktree, once the task is merged.
+func (d *Daemon) releaseOwnClaims(ctx context.Context, r *taskRun, session string) {
+	_, key, _, ok := d.sync.binding(r.b.Repo)
+	if !ok {
+		return
+	}
+	reply := make(chan Response, 1)
+	select {
+	case d.calls <- call{req: Request{Method: MethodClaimList, Repo: r.b.Repo}, reply: reply}:
+	case <-ctx.Done():
+		return
+	}
+	var ids []string
+	for _, c := range (<-reply).Claims {
+		if c.Holder.SessionID == key+"/"+session {
+			ids = append(ids, c.ID)
+		}
+	}
+	if len(ids) > 0 {
+		d.sharedClaim(ctx, Request{Method: MethodClaimRelease, Repo: r.b.Repo, IDs: ids})
+	}
+	d.setRun(filepath.Join(d.cfg.Paths.Data, "worktrees", r.body.GetTaskId()), "")
 }

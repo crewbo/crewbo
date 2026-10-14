@@ -25,6 +25,7 @@ const taskUsage = `Usage:
   crewbo task show ID
   crewbo task approve ID [--agent claude-code|codex] [--use-api-key]
   crewbo task decline ID [--reason TEXT]
+  crewbo task checkpoint ID
   crewbo task merge ID [--despite OTHER-ID]...
 
 create sends a signed task to a teammate's agent in this repository's room.
@@ -34,8 +35,9 @@ may change (repeat it); --for is how long the teammate has to approve
 
 start gives you a task of your own, with no lead or approval: a new git
 worktree on its own branch, with --path claimed for it. Work there with
-any agent; Crewbo checkpoints your work for the room and checks it
-against your teammates' tasks.
+any agent; Crewbo checkpoints your work for the room when the agent
+finishes a reply (at most every 5 minutes) and checks it against your
+teammates' tasks. checkpoint does it now.
 
 list shows the tasks sent to you and, for a lead, the tasks you sent with
 the state their assignee reported; show prints one in full. approve shows
@@ -86,6 +88,23 @@ func runTask(ctx context.Context, args []string, stdin io.Reader, stdout, stderr
 		return taskAnswer(ctx, args, stdin, stdout, stderr)
 	case "merge":
 		return taskMerge(ctx, args, stdout, stderr)
+	case "checkpoint":
+		if len(args) != 2 {
+			return write(stderr, ExitUsage, "%s", taskUsage)
+		}
+		tasks, code := listTasks(ctx, stderr)
+		if code != ExitOK {
+			return code
+		}
+		t, err := resolveTask(tasks, args[1])
+		if err != nil {
+			return write(stderr, ExitError, "crewbo: %v\n", err)
+		}
+		resp, code := callTaskDaemon(ctx, daemon.Request{Method: daemon.MethodTaskCheckpoint, Task: t.ID}, stderr)
+		if code != ExitOK {
+			return code
+		}
+		return write(stdout, ExitOK, "Task %s: %s\n", t.ID, resp.Note)
 	}
 	return write(stderr, ExitUsage, "%s", taskUsage)
 }

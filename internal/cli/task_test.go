@@ -153,6 +153,8 @@ func TestTaskCommandsForTheAssignee(t *testing.T) {
 		{"API key when declining", []string{"decline", first, "--use-api-key"}, ExitUsage, "Usage:"},
 		{"agent when showing", []string{"show", first, "--agent", "codex"}, ExitUsage, "Usage:"},
 		{"merge without an id", []string{"merge"}, ExitUsage, "Usage:"},
+		{"checkpoint without an id", []string{"checkpoint"}, ExitUsage, "Usage:"},
+		{"checkpoint a task you did not start", []string{"checkpoint", first}, ExitError, "that you started"},
 		{"start for someone else", []string{"start", "--to", "x", "text"}, ExitUsage, "Usage:"},
 		{"start with a deadline", []string{"start", "--for", "1h", "text"}, ExitUsage, "Usage:"},
 		{"start without text", []string{"start"}, ExitUsage, "Usage:"},

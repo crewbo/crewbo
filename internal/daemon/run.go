@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -358,21 +359,33 @@ func (d *Daemon) checkpoint(ctx context.Context, r *taskRun, wt string) runEnd {
 	if commit == "" {
 		return runEnd{state: taskFinished} // the agent changed nothing
 	}
-	remote, err := g.PushRemote(ctx, r.b.Repo)
+	ref, err := d.pushCheckpoint(ctx, g, r.b.Repo, id, commit)
 	if err != nil {
-		return kept("committed %s, not pushed: %v", short(commit), err)
+		return kept("committed %s, %v", short(commit), err)
+	}
+	return runEnd{state: dispatch.StateCheckpointed, detail: ref + " at " + short(commit), ref: ref, commit: commit}
+}
+
+// pushCheckpoint pushes a task's checkpoint commit to
+// refs/crewbo/<member>/<task id> on the repository's remote, or to the
+// branch wip/<member>/<task id> if the remote refuses that ref (ADR 0005),
+// and returns the ref pushed.
+func (d *Daemon) pushCheckpoint(ctx context.Context, g *gitx.Git, repo, id, commit string) (string, error) {
+	remote, err := g.PushRemote(ctx, repo)
+	if err != nil {
+		return "", fmt.Errorf("not pushed: %w", err)
 	}
 	login := d.sync.session().GitHubLogin
 	ref := "refs/crewbo/" + login + "/" + id
-	if err := g.Push(ctx, r.b.Repo, remote, commit, ref); err != nil {
+	if err := g.Push(ctx, repo, remote, commit, ref); err != nil {
 		d.cfg.Log.Warn("checkpoint ref refused; pushing a wip branch instead", "task_id", id, "err", err)
 		ref = "refs/heads/wip/" + login + "/" + id
-		if err := g.Push(ctx, r.b.Repo, remote, commit, ref); err != nil {
-			return kept("committed %s, push to %s failed: %v", short(commit), remote, err)
+		if err := g.Push(ctx, repo, remote, commit, ref); err != nil {
+			return "", fmt.Errorf("push to %s failed: %w", remote, err)
 		}
 	}
 	d.cfg.Log.Info("task checkpointed", "task_id", id, "ref", ref, "commit", short(commit))
-	return runEnd{state: dispatch.StateCheckpointed, detail: ref + " at " + short(commit), ref: ref, commit: commit}
+	return ref, nil
 }
 
 func short(commit string) string { return commit[:min(12, len(commit))] }
@@ -382,11 +395,10 @@ const maxWarnPaths = 200
 
 // checkConflicts runs git merge-tree between a task's new checkpoint and
 // the latest checkpoint of every other task in the room, fetching each
-// one, and tells the room which pairs conflict and on which paths (M5-02,
-// ADR 0005). A check that cannot run is logged and skipped: it never
-// changes how the run ended.
-// ponytail: no "clean again" warning yet; a task checkpoints once until
-// runs can resume, then a re-check should clear a pair with no paths.
+// one, and tells the room which pairs conflict and on which paths, and
+// which pairs warned about before now merge cleanly (M5-02, ADR 0005). A
+// check that cannot run is logged and skipped: it never changes how the
+// run ended.
 func (d *Daemon) checkConflicts(ctx context.Context, r *taskRun, commit string) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), checkpointTimeout)
 	defer cancel()
@@ -394,6 +406,11 @@ func (d *Daemon) checkConflicts(ctx context.Context, r *taskRun, commit string) 
 	others, err := d.otherCheckpoints(ctx, room, id)
 	if err != nil {
 		d.cfg.Log.Warn("conflict check: read checkpoints", "task_id", id, "err", err)
+		return
+	}
+	warned, err := d.taskConflicts(ctx, room, id)
+	if err != nil {
+		d.cfg.Log.Warn("conflict check: read warnings", "task_id", id, "err", err)
 		return
 	}
 	g := gitx.New("")
@@ -412,7 +429,9 @@ func (d *Daemon) checkConflicts(ctx context.Context, r *taskRun, commit string) 
 			d.cfg.Log.Warn("conflict check: merge-tree", "task_id", id, "other", o.task, "err", err)
 			continue
 		}
-		if res.Clean {
+		// A clean pair is worth a message only if it was warned about:
+		// a warning with no paths clears it (a task checkpointed again).
+		if res.Clean && !slices.ContainsFunc(warned, func(c Conflict) bool { return c.Task == o.task }) {
 			continue
 		}
 		paths := res.Conflicts[:min(len(res.Conflicts), maxWarnPaths)]
