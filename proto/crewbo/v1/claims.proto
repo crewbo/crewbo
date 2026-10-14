@@ -42,3 +42,30 @@ message ClaimRenew {
   string room_id = 1;
   string session_id = 2;
 }
+
+// HandoffRequest asks the member holding a claim to hand it over: the
+// first step of the escalation ladder (docs/architecture/flows.md, flow 4).
+message HandoffRequest {
+  string room_id = 1;
+  // Client-chosen, so a resent request is recognised.
+  string request_id = 2;
+  string claim_id = 3;
+  string reason = 4;
+}
+
+// HandoffAnswer is the claim holder's decision on a handoff request; an
+// approval releases the claim.
+message HandoffAnswer {
+  string room_id = 1;
+  string request_id = 2;
+  bool approve = 3;
+  string reason = 4;
+}
+
+// LeadOverride releases a claim on the room lead's authority, with a
+// reason: the last step of the escalation ladder.
+message LeadOverride {
+  string room_id = 1;
+  string claim_id = 2;
+  string reason = 3;
+}

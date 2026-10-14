@@ -35,6 +35,9 @@ type Event struct {
 	//	*Event_ClaimsReleased
 	//	*Event_ClaimsRenewed
 	//	*Event_ClaimsExpired
+	//	*Event_HandoffRequested
+	//	*Event_HandoffAnswered
+	//	*Event_ClaimOverridden
 	//	*Event_TaskDispatched
 	//	*Event_TaskStatusChanged
 	//	*Event_ConflictWarning
@@ -144,6 +147,33 @@ func (x *Event) GetClaimsExpired() *ClaimsExpired {
 	return nil
 }
 
+func (x *Event) GetHandoffRequested() *HandoffRequest {
+	if x != nil {
+		if x, ok := x.Body.(*Event_HandoffRequested); ok {
+			return x.HandoffRequested
+		}
+	}
+	return nil
+}
+
+func (x *Event) GetHandoffAnswered() *HandoffAnswer {
+	if x != nil {
+		if x, ok := x.Body.(*Event_HandoffAnswered); ok {
+			return x.HandoffAnswered
+		}
+	}
+	return nil
+}
+
+func (x *Event) GetClaimOverridden() *LeadOverride {
+	if x != nil {
+		if x, ok := x.Body.(*Event_ClaimOverridden); ok {
+			return x.ClaimOverridden
+		}
+	}
+	return nil
+}
+
 func (x *Event) GetTaskDispatched() *TaskDispatched {
 	if x != nil {
 		if x, ok := x.Body.(*Event_TaskDispatched); ok {
@@ -191,6 +221,18 @@ type Event_ClaimsExpired struct {
 	ClaimsExpired *ClaimsExpired `protobuf:"bytes,13,opt,name=claims_expired,json=claimsExpired,proto3,oneof"`
 }
 
+type Event_HandoffRequested struct {
+	HandoffRequested *HandoffRequest `protobuf:"bytes,14,opt,name=handoff_requested,json=handoffRequested,proto3,oneof"`
+}
+
+type Event_HandoffAnswered struct {
+	HandoffAnswered *HandoffAnswer `protobuf:"bytes,15,opt,name=handoff_answered,json=handoffAnswered,proto3,oneof"`
+}
+
+type Event_ClaimOverridden struct {
+	ClaimOverridden *LeadOverride `protobuf:"bytes,16,opt,name=claim_overridden,json=claimOverridden,proto3,oneof"`
+}
+
 type Event_TaskDispatched struct {
 	TaskDispatched *TaskDispatched `protobuf:"bytes,20,opt,name=task_dispatched,json=taskDispatched,proto3,oneof"`
 }
@@ -210,6 +252,12 @@ func (*Event_ClaimsReleased) isEvent_Body() {}
 func (*Event_ClaimsRenewed) isEvent_Body() {}
 
 func (*Event_ClaimsExpired) isEvent_Body() {}
+
+func (*Event_HandoffRequested) isEvent_Body() {}
+
+func (*Event_HandoffAnswered) isEvent_Body() {}
+
+func (*Event_ClaimOverridden) isEvent_Body() {}
 
 func (*Event_TaskDispatched) isEvent_Body() {}
 
@@ -409,7 +457,7 @@ var File_crewbo_v1_event_proto protoreflect.FileDescriptor
 
 const file_crewbo_v1_event_proto_rawDesc = "" +
 	"\n" +
-	"\x15crewbo/v1/event.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\x1a\x14crewbo/v1/task.proto\"\xff\x04\n" +
+	"\x15crewbo/v1/event.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\x1a\x14crewbo/v1/task.proto\"\xd6\x06\n" +
 	"\x05Event\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x10\n" +
 	"\x03seq\x18\x02 \x01(\x04R\x03seq\x12-\n" +
@@ -419,7 +467,10 @@ const file_crewbo_v1_event_proto_rawDesc = "" +
 	" \x01(\v2\x18.crewbo.v1.ClaimsGrantedH\x00R\rclaimsGranted\x12D\n" +
 	"\x0fclaims_released\x18\v \x01(\v2\x19.crewbo.v1.ClaimsReleasedH\x00R\x0eclaimsReleased\x12A\n" +
 	"\x0eclaims_renewed\x18\f \x01(\v2\x18.crewbo.v1.ClaimsRenewedH\x00R\rclaimsRenewed\x12A\n" +
-	"\x0eclaims_expired\x18\r \x01(\v2\x18.crewbo.v1.ClaimsExpiredH\x00R\rclaimsExpired\x12D\n" +
+	"\x0eclaims_expired\x18\r \x01(\v2\x18.crewbo.v1.ClaimsExpiredH\x00R\rclaimsExpired\x12H\n" +
+	"\x11handoff_requested\x18\x0e \x01(\v2\x19.crewbo.v1.HandoffRequestH\x00R\x10handoffRequested\x12E\n" +
+	"\x10handoff_answered\x18\x0f \x01(\v2\x18.crewbo.v1.HandoffAnswerH\x00R\x0fhandoffAnswered\x12D\n" +
+	"\x10claim_overridden\x18\x10 \x01(\v2\x17.crewbo.v1.LeadOverrideH\x00R\x0fclaimOverridden\x12D\n" +
 	"\x0ftask_dispatched\x18\x14 \x01(\v2\x19.crewbo.v1.TaskDispatchedH\x00R\x0etaskDispatched\x12N\n" +
 	"\x13task_status_changed\x18\x15 \x01(\v2\x1c.crewbo.v1.TaskStatusChangedH\x00R\x11taskStatusChanged\x12G\n" +
 	"\x10conflict_warning\x18\x16 \x01(\v2\x1a.crewbo.v1.ConflictWarningH\x00R\x0fconflictWarningB\x06\n" +
@@ -454,25 +505,31 @@ var file_crewbo_v1_event_proto_goTypes = []any{
 	(*ClaimsReleased)(nil),    // 2: crewbo.v1.ClaimsReleased
 	(*ClaimsRenewed)(nil),     // 3: crewbo.v1.ClaimsRenewed
 	(*ClaimsExpired)(nil),     // 4: crewbo.v1.ClaimsExpired
-	(*TaskDispatched)(nil),    // 5: crewbo.v1.TaskDispatched
-	(*TaskStatusChanged)(nil), // 6: crewbo.v1.TaskStatusChanged
-	(*ConflictWarning)(nil),   // 7: crewbo.v1.ConflictWarning
-	(*Claim)(nil),             // 8: crewbo.v1.Claim
+	(*HandoffRequest)(nil),    // 5: crewbo.v1.HandoffRequest
+	(*HandoffAnswer)(nil),     // 6: crewbo.v1.HandoffAnswer
+	(*LeadOverride)(nil),      // 7: crewbo.v1.LeadOverride
+	(*TaskDispatched)(nil),    // 8: crewbo.v1.TaskDispatched
+	(*TaskStatusChanged)(nil), // 9: crewbo.v1.TaskStatusChanged
+	(*ConflictWarning)(nil),   // 10: crewbo.v1.ConflictWarning
+	(*Claim)(nil),             // 11: crewbo.v1.Claim
 }
 var file_crewbo_v1_event_proto_depIdxs = []int32{
-	1, // 0: crewbo.v1.Event.claims_granted:type_name -> crewbo.v1.ClaimsGranted
-	2, // 1: crewbo.v1.Event.claims_released:type_name -> crewbo.v1.ClaimsReleased
-	3, // 2: crewbo.v1.Event.claims_renewed:type_name -> crewbo.v1.ClaimsRenewed
-	4, // 3: crewbo.v1.Event.claims_expired:type_name -> crewbo.v1.ClaimsExpired
-	5, // 4: crewbo.v1.Event.task_dispatched:type_name -> crewbo.v1.TaskDispatched
-	6, // 5: crewbo.v1.Event.task_status_changed:type_name -> crewbo.v1.TaskStatusChanged
-	7, // 6: crewbo.v1.Event.conflict_warning:type_name -> crewbo.v1.ConflictWarning
-	8, // 7: crewbo.v1.ClaimsGranted.claims:type_name -> crewbo.v1.Claim
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	1,  // 0: crewbo.v1.Event.claims_granted:type_name -> crewbo.v1.ClaimsGranted
+	2,  // 1: crewbo.v1.Event.claims_released:type_name -> crewbo.v1.ClaimsReleased
+	3,  // 2: crewbo.v1.Event.claims_renewed:type_name -> crewbo.v1.ClaimsRenewed
+	4,  // 3: crewbo.v1.Event.claims_expired:type_name -> crewbo.v1.ClaimsExpired
+	5,  // 4: crewbo.v1.Event.handoff_requested:type_name -> crewbo.v1.HandoffRequest
+	6,  // 5: crewbo.v1.Event.handoff_answered:type_name -> crewbo.v1.HandoffAnswer
+	7,  // 6: crewbo.v1.Event.claim_overridden:type_name -> crewbo.v1.LeadOverride
+	8,  // 7: crewbo.v1.Event.task_dispatched:type_name -> crewbo.v1.TaskDispatched
+	9,  // 8: crewbo.v1.Event.task_status_changed:type_name -> crewbo.v1.TaskStatusChanged
+	10, // 9: crewbo.v1.Event.conflict_warning:type_name -> crewbo.v1.ConflictWarning
+	11, // 10: crewbo.v1.ClaimsGranted.claims:type_name -> crewbo.v1.Claim
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_crewbo_v1_event_proto_init() }
@@ -487,6 +544,9 @@ func file_crewbo_v1_event_proto_init() {
 		(*Event_ClaimsReleased)(nil),
 		(*Event_ClaimsRenewed)(nil),
 		(*Event_ClaimsExpired)(nil),
+		(*Event_HandoffRequested)(nil),
+		(*Event_HandoffAnswered)(nil),
+		(*Event_ClaimOverridden)(nil),
 		(*Event_TaskDispatched)(nil),
 		(*Event_TaskStatusChanged)(nil),
 		(*Event_ConflictWarning)(nil),

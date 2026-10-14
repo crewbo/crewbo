@@ -116,6 +116,9 @@ type Envelope struct {
 	//	*Envelope_ClaimRequest
 	//	*Envelope_ClaimRelease
 	//	*Envelope_ClaimRenew
+	//	*Envelope_HandoffRequest
+	//	*Envelope_HandoffAnswer
+	//	*Envelope_LeadOverride
 	//	*Envelope_DispatchTask
 	//	*Envelope_TaskStatus
 	//	*Envelope_ConflictWarning
@@ -232,6 +235,33 @@ func (x *Envelope) GetClaimRenew() *ClaimRenew {
 	return nil
 }
 
+func (x *Envelope) GetHandoffRequest() *HandoffRequest {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_HandoffRequest); ok {
+			return x.HandoffRequest
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetHandoffAnswer() *HandoffAnswer {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_HandoffAnswer); ok {
+			return x.HandoffAnswer
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetLeadOverride() *LeadOverride {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_LeadOverride); ok {
+			return x.LeadOverride
+		}
+	}
+	return nil
+}
+
 func (x *Envelope) GetDispatchTask() *DispatchTask {
 	if x != nil {
 		if x, ok := x.Body.(*Envelope_DispatchTask); ok {
@@ -300,6 +330,18 @@ type Envelope_ClaimRenew struct {
 	ClaimRenew *ClaimRenew `protobuf:"bytes,22,opt,name=claim_renew,json=claimRenew,proto3,oneof"`
 }
 
+type Envelope_HandoffRequest struct {
+	HandoffRequest *HandoffRequest `protobuf:"bytes,23,opt,name=handoff_request,json=handoffRequest,proto3,oneof"`
+}
+
+type Envelope_HandoffAnswer struct {
+	HandoffAnswer *HandoffAnswer `protobuf:"bytes,24,opt,name=handoff_answer,json=handoffAnswer,proto3,oneof"`
+}
+
+type Envelope_LeadOverride struct {
+	LeadOverride *LeadOverride `protobuf:"bytes,25,opt,name=lead_override,json=leadOverride,proto3,oneof"`
+}
+
 type Envelope_DispatchTask struct {
 	DispatchTask *DispatchTask `protobuf:"bytes,40,opt,name=dispatch_task,json=dispatchTask,proto3,oneof"`
 }
@@ -329,6 +371,12 @@ func (*Envelope_ClaimRequest) isEnvelope_Body() {}
 func (*Envelope_ClaimRelease) isEnvelope_Body() {}
 
 func (*Envelope_ClaimRenew) isEnvelope_Body() {}
+
+func (*Envelope_HandoffRequest) isEnvelope_Body() {}
+
+func (*Envelope_HandoffAnswer) isEnvelope_Body() {}
+
+func (*Envelope_LeadOverride) isEnvelope_Body() {}
 
 func (*Envelope_DispatchTask) isEnvelope_Body() {}
 
@@ -718,7 +766,7 @@ var File_crewbo_v1_envelope_proto protoreflect.FileDescriptor
 
 const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"\n" +
-	"\x18crewbo/v1/envelope.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\x1a\x15crewbo/v1/event.proto\x1a\x14crewbo/v1/task.proto\"\xf1\x04\n" +
+	"\x18crewbo/v1/envelope.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\x1a\x15crewbo/v1/event.proto\x1a\x14crewbo/v1/task.proto\"\xba\x06\n" +
 	"\bEnvelope\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
 	"\x05hello\x18\n" +
@@ -729,7 +777,10 @@ const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"\rclaim_request\x18\x14 \x01(\v2\x17.crewbo.v1.ClaimRequestH\x00R\fclaimRequest\x12>\n" +
 	"\rclaim_release\x18\x15 \x01(\v2\x17.crewbo.v1.ClaimReleaseH\x00R\fclaimRelease\x128\n" +
 	"\vclaim_renew\x18\x16 \x01(\v2\x15.crewbo.v1.ClaimRenewH\x00R\n" +
-	"claimRenew\x12>\n" +
+	"claimRenew\x12D\n" +
+	"\x0fhandoff_request\x18\x17 \x01(\v2\x19.crewbo.v1.HandoffRequestH\x00R\x0ehandoffRequest\x12A\n" +
+	"\x0ehandoff_answer\x18\x18 \x01(\v2\x18.crewbo.v1.HandoffAnswerH\x00R\rhandoffAnswer\x12>\n" +
+	"\rlead_override\x18\x19 \x01(\v2\x17.crewbo.v1.LeadOverrideH\x00R\fleadOverride\x12>\n" +
 	"\rdispatch_task\x18( \x01(\v2\x17.crewbo.v1.DispatchTaskH\x00R\fdispatchTask\x128\n" +
 	"\vtask_status\x18) \x01(\v2\x15.crewbo.v1.TaskStatusH\x00R\n" +
 	"taskStatus\x12G\n" +
@@ -800,11 +851,14 @@ var file_crewbo_v1_envelope_proto_goTypes = []any{
 	(*ClaimRequest)(nil),    // 8: crewbo.v1.ClaimRequest
 	(*ClaimRelease)(nil),    // 9: crewbo.v1.ClaimRelease
 	(*ClaimRenew)(nil),      // 10: crewbo.v1.ClaimRenew
-	(*DispatchTask)(nil),    // 11: crewbo.v1.DispatchTask
-	(*TaskStatus)(nil),      // 12: crewbo.v1.TaskStatus
-	(*ConflictWarning)(nil), // 13: crewbo.v1.ConflictWarning
-	(*Event)(nil),           // 14: crewbo.v1.Event
-	(*Claim)(nil),           // 15: crewbo.v1.Claim
+	(*HandoffRequest)(nil),  // 11: crewbo.v1.HandoffRequest
+	(*HandoffAnswer)(nil),   // 12: crewbo.v1.HandoffAnswer
+	(*LeadOverride)(nil),    // 13: crewbo.v1.LeadOverride
+	(*DispatchTask)(nil),    // 14: crewbo.v1.DispatchTask
+	(*TaskStatus)(nil),      // 15: crewbo.v1.TaskStatus
+	(*ConflictWarning)(nil), // 16: crewbo.v1.ConflictWarning
+	(*Event)(nil),           // 17: crewbo.v1.Event
+	(*Claim)(nil),           // 18: crewbo.v1.Claim
 }
 var file_crewbo_v1_envelope_proto_depIdxs = []int32{
 	2,  // 0: crewbo.v1.Envelope.hello:type_name -> crewbo.v1.Hello
@@ -814,20 +868,23 @@ var file_crewbo_v1_envelope_proto_depIdxs = []int32{
 	8,  // 4: crewbo.v1.Envelope.claim_request:type_name -> crewbo.v1.ClaimRequest
 	9,  // 5: crewbo.v1.Envelope.claim_release:type_name -> crewbo.v1.ClaimRelease
 	10, // 6: crewbo.v1.Envelope.claim_renew:type_name -> crewbo.v1.ClaimRenew
-	11, // 7: crewbo.v1.Envelope.dispatch_task:type_name -> crewbo.v1.DispatchTask
-	12, // 8: crewbo.v1.Envelope.task_status:type_name -> crewbo.v1.TaskStatus
-	13, // 9: crewbo.v1.Envelope.conflict_warning:type_name -> crewbo.v1.ConflictWarning
-	14, // 10: crewbo.v1.Envelope.event:type_name -> crewbo.v1.Event
-	3,  // 11: crewbo.v1.Hello.rooms:type_name -> crewbo.v1.RoomCursor
-	5,  // 12: crewbo.v1.Welcome.snapshots:type_name -> crewbo.v1.RoomSnapshot
-	15, // 13: crewbo.v1.RoomSnapshot.claims:type_name -> crewbo.v1.Claim
-	0,  // 14: crewbo.v1.Error.code:type_name -> crewbo.v1.ErrorCode
-	15, // 15: crewbo.v1.Error.blocking_claims:type_name -> crewbo.v1.Claim
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	11, // 7: crewbo.v1.Envelope.handoff_request:type_name -> crewbo.v1.HandoffRequest
+	12, // 8: crewbo.v1.Envelope.handoff_answer:type_name -> crewbo.v1.HandoffAnswer
+	13, // 9: crewbo.v1.Envelope.lead_override:type_name -> crewbo.v1.LeadOverride
+	14, // 10: crewbo.v1.Envelope.dispatch_task:type_name -> crewbo.v1.DispatchTask
+	15, // 11: crewbo.v1.Envelope.task_status:type_name -> crewbo.v1.TaskStatus
+	16, // 12: crewbo.v1.Envelope.conflict_warning:type_name -> crewbo.v1.ConflictWarning
+	17, // 13: crewbo.v1.Envelope.event:type_name -> crewbo.v1.Event
+	3,  // 14: crewbo.v1.Hello.rooms:type_name -> crewbo.v1.RoomCursor
+	5,  // 15: crewbo.v1.Welcome.snapshots:type_name -> crewbo.v1.RoomSnapshot
+	18, // 16: crewbo.v1.RoomSnapshot.claims:type_name -> crewbo.v1.Claim
+	0,  // 17: crewbo.v1.Error.code:type_name -> crewbo.v1.ErrorCode
+	18, // 18: crewbo.v1.Error.blocking_claims:type_name -> crewbo.v1.Claim
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_crewbo_v1_envelope_proto_init() }
@@ -846,6 +903,9 @@ func file_crewbo_v1_envelope_proto_init() {
 		(*Envelope_ClaimRequest)(nil),
 		(*Envelope_ClaimRelease)(nil),
 		(*Envelope_ClaimRenew)(nil),
+		(*Envelope_HandoffRequest)(nil),
+		(*Envelope_HandoffAnswer)(nil),
+		(*Envelope_LeadOverride)(nil),
 		(*Envelope_DispatchTask)(nil),
 		(*Envelope_TaskStatus)(nil),
 		(*Envelope_ConflictWarning)(nil),

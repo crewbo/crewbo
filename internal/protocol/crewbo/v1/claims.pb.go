@@ -311,6 +311,209 @@ func (x *ClaimRenew) GetSessionId() string {
 	return ""
 }
 
+// HandoffRequest asks the member holding a claim to hand it over: the
+// first step of the escalation ladder (docs/architecture/flows.md, flow 4).
+type HandoffRequest struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	RoomId string                 `protobuf:"bytes,1,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
+	// Client-chosen, so a resent request is recognised.
+	RequestId     string `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	ClaimId       string `protobuf:"bytes,3,opt,name=claim_id,json=claimId,proto3" json:"claim_id,omitempty"`
+	Reason        string `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandoffRequest) Reset() {
+	*x = HandoffRequest{}
+	mi := &file_crewbo_v1_claims_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandoffRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandoffRequest) ProtoMessage() {}
+
+func (x *HandoffRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crewbo_v1_claims_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandoffRequest.ProtoReflect.Descriptor instead.
+func (*HandoffRequest) Descriptor() ([]byte, []int) {
+	return file_crewbo_v1_claims_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *HandoffRequest) GetRoomId() string {
+	if x != nil {
+		return x.RoomId
+	}
+	return ""
+}
+
+func (x *HandoffRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *HandoffRequest) GetClaimId() string {
+	if x != nil {
+		return x.ClaimId
+	}
+	return ""
+}
+
+func (x *HandoffRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// HandoffAnswer is the claim holder's decision on a handoff request; an
+// approval releases the claim.
+type HandoffAnswer struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoomId        string                 `protobuf:"bytes,1,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
+	RequestId     string                 `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Approve       bool                   `protobuf:"varint,3,opt,name=approve,proto3" json:"approve,omitempty"`
+	Reason        string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandoffAnswer) Reset() {
+	*x = HandoffAnswer{}
+	mi := &file_crewbo_v1_claims_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandoffAnswer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandoffAnswer) ProtoMessage() {}
+
+func (x *HandoffAnswer) ProtoReflect() protoreflect.Message {
+	mi := &file_crewbo_v1_claims_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandoffAnswer.ProtoReflect.Descriptor instead.
+func (*HandoffAnswer) Descriptor() ([]byte, []int) {
+	return file_crewbo_v1_claims_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *HandoffAnswer) GetRoomId() string {
+	if x != nil {
+		return x.RoomId
+	}
+	return ""
+}
+
+func (x *HandoffAnswer) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *HandoffAnswer) GetApprove() bool {
+	if x != nil {
+		return x.Approve
+	}
+	return false
+}
+
+func (x *HandoffAnswer) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// LeadOverride releases a claim on the room lead's authority, with a
+// reason: the last step of the escalation ladder.
+type LeadOverride struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoomId        string                 `protobuf:"bytes,1,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
+	ClaimId       string                 `protobuf:"bytes,2,opt,name=claim_id,json=claimId,proto3" json:"claim_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeadOverride) Reset() {
+	*x = LeadOverride{}
+	mi := &file_crewbo_v1_claims_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeadOverride) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeadOverride) ProtoMessage() {}
+
+func (x *LeadOverride) ProtoReflect() protoreflect.Message {
+	mi := &file_crewbo_v1_claims_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeadOverride.ProtoReflect.Descriptor instead.
+func (*LeadOverride) Descriptor() ([]byte, []int) {
+	return file_crewbo_v1_claims_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *LeadOverride) GetRoomId() string {
+	if x != nil {
+		return x.RoomId
+	}
+	return ""
+}
+
+func (x *LeadOverride) GetClaimId() string {
+	if x != nil {
+		return x.ClaimId
+	}
+	return ""
+}
+
+func (x *LeadOverride) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
 var File_crewbo_v1_claims_proto protoreflect.FileDescriptor
 
 const file_crewbo_v1_claims_proto_rawDesc = "" +
@@ -340,7 +543,23 @@ const file_crewbo_v1_claims_proto_rawDesc = "" +
 	"ClaimRenew\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionIdB?Z=github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1b\x06proto3"
+	"session_id\x18\x02 \x01(\tR\tsessionId\"{\n" +
+	"\x0eHandoffRequest\x12\x17\n" +
+	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId\x12\x19\n" +
+	"\bclaim_id\x18\x03 \x01(\tR\aclaimId\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\"y\n" +
+	"\rHandoffAnswer\x12\x17\n" +
+	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId\x12\x18\n" +
+	"\aapprove\x18\x03 \x01(\bR\aapprove\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\"Z\n" +
+	"\fLeadOverride\x12\x17\n" +
+	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x19\n" +
+	"\bclaim_id\x18\x02 \x01(\tR\aclaimId\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reasonB?Z=github.com/crewbo/crewbo/internal/protocol/crewbo/v1;crewbov1b\x06proto3"
 
 var (
 	file_crewbo_v1_claims_proto_rawDescOnce sync.Once
@@ -354,12 +573,15 @@ func file_crewbo_v1_claims_proto_rawDescGZIP() []byte {
 	return file_crewbo_v1_claims_proto_rawDescData
 }
 
-var file_crewbo_v1_claims_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_crewbo_v1_claims_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_crewbo_v1_claims_proto_goTypes = []any{
-	(*Claim)(nil),        // 0: crewbo.v1.Claim
-	(*ClaimRequest)(nil), // 1: crewbo.v1.ClaimRequest
-	(*ClaimRelease)(nil), // 2: crewbo.v1.ClaimRelease
-	(*ClaimRenew)(nil),   // 3: crewbo.v1.ClaimRenew
+	(*Claim)(nil),          // 0: crewbo.v1.Claim
+	(*ClaimRequest)(nil),   // 1: crewbo.v1.ClaimRequest
+	(*ClaimRelease)(nil),   // 2: crewbo.v1.ClaimRelease
+	(*ClaimRenew)(nil),     // 3: crewbo.v1.ClaimRenew
+	(*HandoffRequest)(nil), // 4: crewbo.v1.HandoffRequest
+	(*HandoffAnswer)(nil),  // 5: crewbo.v1.HandoffAnswer
+	(*LeadOverride)(nil),   // 6: crewbo.v1.LeadOverride
 }
 var file_crewbo_v1_claims_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -380,7 +602,7 @@ func file_crewbo_v1_claims_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_crewbo_v1_claims_proto_rawDesc), len(file_crewbo_v1_claims_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

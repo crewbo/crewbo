@@ -20,6 +20,9 @@ message Event {
     ClaimsReleased claims_released = 11;
     ClaimsRenewed claims_renewed = 12;
     ClaimsExpired claims_expired = 13;
+    HandoffRequest handoff_requested = 14;
+    HandoffAnswer handoff_answered = 15;
+    LeadOverride claim_overridden = 16;
     TaskDispatched task_dispatched = 20;
     TaskStatusChanged task_status_changed = 21;
     ConflictWarning conflict_warning = 22;
