@@ -78,6 +78,10 @@ type Daemon struct {
 
 	runsMu sync.Mutex
 	runs   map[string]string // running task's worktree (pathKey) to its agent session
+
+	ownMu             sync.Mutex           // own task checkpoints, one at a time
+	lastOwnCheckpoint map[string]time.Time // own task id to its last checkpoint
+	ownEvery          time.Duration        // automatic checkpoints at most this often
 }
 
 type call struct {
@@ -93,7 +97,7 @@ func New(cfg Config) *Daemon {
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, verifyKick: make(chan struct{}, 1), renewEvery: claimRenewEvery, runs: map[string]string{}, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
+	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, verifyKick: make(chan struct{}, 1), renewEvery: claimRenewEvery, runs: map[string]string{}, lastOwnCheckpoint: map[string]time.Time{}, ownEvery: ownCheckpointEvery, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
 	for repo, set := range cfg.Claims {
 		d.claims[RepoKey(repo)] = set
 	}
@@ -138,6 +142,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.sync.minBackoff, d.sync.maxBackoff, d.sync.reloadEvery = 20*time.Millisecond, 100*time.Millisecond, 20*time.Millisecond
 		d.sync.pingEvery, d.sync.pongWait = 200*time.Millisecond, 200*time.Millisecond
 		d.renewEvery = 100 * time.Millisecond
+		d.ownEvery = 300 * time.Millisecond
 	}
 	var conns sync.WaitGroup
 	ownerDone := make(chan struct{})
@@ -450,6 +455,10 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 		if (req.Method == MethodDecide || req.Method == MethodEvent) && req.Session != "" {
 			if s, ok := d.runSession(req.Repo); ok {
 				req.Session = s
+				if req.Method == MethodEvent && (req.Event == "prompt" || req.Event == "stop") && d.sync != nil {
+					d.agents.Add(1)
+					go func(event, session string) { defer d.agents.Done(); d.ownTaskEvent(ctx, event, session) }(req.Event, s)
+				}
 			}
 		}
 		if (req.Method == MethodDecide || req.Method == MethodEvent) && req.Session != "" && d.sync != nil {
@@ -469,6 +478,8 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 			resp = d.mergeTask(ctx, req)
 		case req.Method == MethodTaskStart:
 			resp = d.startOwnTask(ctx, req)
+		case req.Method == MethodTaskCheckpoint:
+			resp = d.checkpointOwnTask(ctx, req)
 		case d.shared(req):
 			resp = d.sharedClaim(ctx, req)
 		default:
