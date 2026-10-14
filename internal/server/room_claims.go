@@ -180,6 +180,63 @@ func (r *Room) handle(ctx context.Context, caller Caller, env *crewbov1.Envelope
 		}
 		ev = &crewbov1.Event{Body: &crewbov1.Event_TaskStatusChanged{TaskStatusChanged: &crewbov1.TaskStatusChanged{Status: st}}}
 
+	case *crewbov1.Envelope_HandoffRequest:
+		h := b.HandoffRequest
+		c, ok := r.claims.Get(h.GetClaimId())
+		switch {
+		case h.GetRequestId() == "" || len(h.GetRequestId()) > maxClaimID:
+			return invalid("request ids are 1 to %d bytes", maxClaimID)
+		case len(h.GetReason()) > maxDetail:
+			return invalid("a reason is at most %d bytes", maxDetail)
+		case !ok:
+			return invalid("claim %s is not held", h.GetClaimId())
+		case c.Holder.MemberID == caller.Member:
+			return invalid("you hold claim %s yourself", h.GetClaimId())
+		}
+		if prev, open := r.handoffs[h.GetRequestId()]; open {
+			if prev.claimID == h.GetClaimId() && prev.requester == caller.Member {
+				return ack(id, 0) // a resent request
+			}
+			return invalid("request id %s is already used", h.GetRequestId())
+		}
+		ev = &crewbov1.Event{Body: &crewbov1.Event_HandoffRequested{HandoffRequested: h}}
+
+	case *crewbov1.Envelope_HandoffAnswer:
+		a := b.HandoffAnswer
+		h, open := r.handoffs[a.GetRequestId()]
+		if !open {
+			return invalid("no open handoff request %s", a.GetRequestId())
+		}
+		c, _ := r.claims.Get(h.claimID) // open requests are dropped with their claim
+		switch {
+		case c.Holder.MemberID != caller.Member:
+			return invalid("only %s, who holds the claim, can answer", c.Holder.MemberID)
+		case len(a.GetReason()) > maxDetail:
+			return invalid("a reason is at most %d bytes", maxDetail)
+		}
+		ev = &crewbov1.Event{Body: &crewbov1.Event_HandoffAnswered{HandoffAnswered: a}}
+		if a.GetApprove() {
+			// Record the answer, then the release it causes.
+			if err := r.commitAs(ctx, caller, ev); err != nil {
+				return errorEnvelope(id, crewbov1.ErrorCode_ERROR_CODE_UNSPECIFIED, "could not record the change; try again")
+			}
+			ev = &crewbov1.Event{Body: &crewbov1.Event_ClaimsReleased{ClaimsReleased: &crewbov1.ClaimsReleased{ClaimIds: []string{h.claimID}}}}
+		}
+
+	case *crewbov1.Envelope_LeadOverride:
+		// Server.checkLead admitted only the room lead.
+		o := b.LeadOverride
+		if _, ok := r.claims.Get(o.GetClaimId()); !ok {
+			return invalid("claim %s is not held", o.GetClaimId())
+		}
+		if o.GetReason() == "" || len(o.GetReason()) > maxDetail {
+			return invalid("an override needs a reason of 1 to %d bytes", maxDetail)
+		}
+		if err := r.commitAs(ctx, caller, &crewbov1.Event{Body: &crewbov1.Event_ClaimOverridden{ClaimOverridden: o}}); err != nil {
+			return errorEnvelope(id, crewbov1.ErrorCode_ERROR_CODE_UNSPECIFIED, "could not record the change; try again")
+		}
+		ev = &crewbov1.Event{Body: &crewbov1.Event_ClaimsReleased{ClaimsReleased: &crewbov1.ClaimsReleased{ClaimIds: []string{o.GetClaimId()}}}}
+
 	case *crewbov1.Envelope_ConflictWarning:
 		// Recorded with the sender as actor, like a task status: it holds
 		// paths and commit ids only, never file contents.
@@ -208,6 +265,13 @@ func (r *Room) handle(ctx context.Context, caller Caller, env *crewbov1.Envelope
 		return errorEnvelope(id, crewbov1.ErrorCode_ERROR_CODE_UNSPECIFIED, "could not record the change; try again")
 	}
 	return ack(id, out.GetSeq())
+}
+
+// commitAs records ev with the caller as actor.
+func (r *Room) commitAs(ctx context.Context, caller Caller, ev *crewbov1.Event) error {
+	ev.ActorMemberId = caller.Member
+	_, err := r.commit(ctx, ev)
+	return err
 }
 
 // expire removes lapsed leases and records them, so daemons drop them too.

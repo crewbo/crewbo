@@ -27,6 +27,9 @@ message Envelope {
     ClaimRequest claim_request = 20;
     ClaimRelease claim_release = 21;
     ClaimRenew claim_renew = 22;
+    HandoffRequest handoff_request = 23;
+    HandoffAnswer handoff_answer = 24;
+    LeadOverride lead_override = 25;
     DispatchTask dispatch_task = 40;
     TaskStatus task_status = 41;
     ConflictWarning conflict_warning = 51;
