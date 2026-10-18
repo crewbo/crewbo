@@ -1,0 +1,20 @@
+{
+  "artifactDirectoryPath": "/home/user/.gemini/antigravity-cli/brain/conversation-02",
+  "conversationId": "conversation-02",
+  "modelName": "gemini-3.8-flash-medium",
+  "stepIdx": 6,
+  "toolCall": {
+    "args": {
+      "CommandLine": "echo shell >> blocked.txt",
+      "Cwd": "/home/user/work/empty/repo",
+      "WaitMsBeforeAsync": 5000,
+      "toolAction": "Running command",
+      "toolSummary": "Append to blocked.txt"
+    },
+    "name": "run_command"
+  },
+  "transcriptPath": "/home/user/.gemini/antigravity-cli/brain/conversation-02/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/home/user/work/empty/repo"
+  ]
+}

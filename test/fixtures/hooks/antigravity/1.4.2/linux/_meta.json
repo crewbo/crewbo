@@ -1,0 +1,8 @@
+{
+  "agent": "antigravity-cli",
+  "agent_version": "1.4.2",
+  "os": "Omarchy (Arch Linux) x86_64",
+  "captured": "2026-10-18",
+  "method": "crewbo/spikes S9b probe via workspace .agents/hooks.json with agy -p --dangerously-skip-permissions in a throwaway repository; scrubbed: home paths, conversation ids",
+  "spikes_commit": "see crewbo/spikes s9b-antigravity-135"
+}

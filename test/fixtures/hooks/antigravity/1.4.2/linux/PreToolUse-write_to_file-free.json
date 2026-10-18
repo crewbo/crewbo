@@ -1,0 +1,21 @@
+{
+  "artifactDirectoryPath": "/home/user/.gemini/antigravity-cli/brain/conversation-02",
+  "conversationId": "conversation-02",
+  "modelName": "gemini-3.8-flash-medium",
+  "stepIdx": 4,
+  "toolCall": {
+    "args": {
+      "CodeContent": "changed\n",
+      "Description": "Replace the contents of free.txt with changed",
+      "Overwrite": true,
+      "TargetFile": "/home/user/work/empty/repo/free.txt",
+      "toolAction": "Writing file",
+      "toolSummary": "Write free.txt"
+    },
+    "name": "write_to_file"
+  },
+  "transcriptPath": "/home/user/.gemini/antigravity-cli/brain/conversation-02/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/home/user/work/empty/repo"
+  ]
+}

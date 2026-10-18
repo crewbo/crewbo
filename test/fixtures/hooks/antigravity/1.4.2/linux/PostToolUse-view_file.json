@@ -1,0 +1,19 @@
+{
+  "artifactDirectoryPath": "/home/user/.gemini/antigravity-cli/brain/conversation-01",
+  "conversationId": "conversation-01",
+  "error": "",
+  "modelName": "gemini-3.8-flash-medium",
+  "stepIdx": 9,
+  "toolCall": {
+    "args": {
+      "AbsolutePath": "/home/user/work/omit142/repo/.agents/hooks.json",
+      "toolAction": "Viewing hooks.json",
+      "toolSummary": "View hooks.json"
+    },
+    "name": "view_file"
+  },
+  "transcriptPath": "/home/user/.gemini/antigravity-cli/brain/conversation-01/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/home/user/work/omit142/repo"
+  ]
+}

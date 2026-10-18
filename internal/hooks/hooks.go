@@ -1,6 +1,7 @@
 // Package hooks runs `crewbo hook`: it turns an agent's hook payload into a
 // normalised event, asks the daemon, and answers the agent. Enforcement lives
-// here (ADR 0004); the claudecode and codex packages adapt each agent's JSON
+// here (ADR 0004); the claudecode, codex and antigravity packages adapt
+// each agent's JSON
 // (docs/architecture/hooks.md).
 //
 // The hook fails open: when anything goes wrong it allows the action and
@@ -34,7 +35,7 @@ const (
 // Event is one hook call in agent-independent form.
 type Event struct {
 	Kind    Kind
-	Agent   string // "claude-code", "codex"
+	Agent   string // "claude-code", "codex", "antigravity"
 	Session string
 	Cwd     string   // the agent's working directory
 	Paths   []string // pre_edit: target files, absolute or relative to Cwd

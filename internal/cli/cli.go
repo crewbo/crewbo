@@ -14,6 +14,7 @@ import (
 
 	"github.com/crewbo/crewbo/internal/daemon"
 	"github.com/crewbo/crewbo/internal/hooks"
+	"github.com/crewbo/crewbo/internal/hooks/antigravity"
 	"github.com/crewbo/crewbo/internal/hooks/claudecode"
 	"github.com/crewbo/crewbo/internal/hooks/codex"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -195,6 +196,8 @@ func adapterFor(name string) (hooks.Adapter, bool) {
 		return claudecode.Adapter{}, true
 	case codex.Name:
 		return codex.Adapter{PowerShell: platform.AgentShellIsPowerShell()}, true
+	case antigravity.Name:
+		return antigravity.Adapter{PowerShell: platform.AgentShellIsPowerShell()}, true
 	}
 	return nil, false
 }

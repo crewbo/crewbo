@@ -1,0 +1,20 @@
+{
+  "artifactDirectoryPath": "/home/user/.gemini/antigravity-cli/brain/conversation-01",
+  "conversationId": "conversation-01",
+  "modelName": "gemini-3.8-flash-medium",
+  "stepIdx": 3,
+  "toolCall": {
+    "args": {
+      "CommandLine": "ls -la",
+      "Cwd": "/home/user/work/omit142/repo",
+      "WaitMsBeforeAsync": 2000,
+      "toolAction": "Listing directory contents",
+      "toolSummary": "List files"
+    },
+    "name": "run_command"
+  },
+  "transcriptPath": "/home/user/.gemini/antigravity-cli/brain/conversation-01/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/home/user/work/omit142/repo"
+  ]
+}

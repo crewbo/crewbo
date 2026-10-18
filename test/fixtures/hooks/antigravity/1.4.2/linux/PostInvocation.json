@@ -1,0 +1,11 @@
+{
+  "artifactDirectoryPath": "/home/user/.gemini/antigravity-cli/brain/conversation-01",
+  "conversationId": "conversation-01",
+  "initialNumSteps": 1,
+  "invocationNum": 0,
+  "modelName": "gemini-3.8-flash-medium",
+  "transcriptPath": "/home/user/.gemini/antigravity-cli/brain/conversation-01/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/home/user/work/omit142/repo"
+  ]
+}
