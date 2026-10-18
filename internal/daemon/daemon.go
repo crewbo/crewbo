@@ -81,7 +81,8 @@ type Daemon struct {
 	renewEvery time.Duration // ClaimRenew interval for running agents
 
 	runsMu sync.Mutex
-	runs   map[string]string // running task's worktree (pathKey) to its agent session
+	runs   map[string]string             // running task's worktree (pathKey) to its agent session
+	stops  map[string]context.CancelFunc // running dispatched task id to what stops its agent
 
 	ownMu             sync.Mutex           // own task checkpoints, one at a time
 	lastOwnCheckpoint map[string]time.Time // own task id to its last checkpoint
@@ -101,7 +102,7 @@ func New(cfg Config) *Daemon {
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, verifyKick: make(chan struct{}, 1), renewEvery: claimRenewEvery, runs: map[string]string{}, lastOwnCheckpoint: map[string]time.Time{}, ownEvery: ownCheckpointEvery, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
+	d := &Daemon{cfg: cfg, calls: make(chan call), funcs: make(chan func()), sessions: map[string]*Session{}, verifyKick: make(chan struct{}, 1), renewEvery: claimRenewEvery, runs: map[string]string{}, stops: map[string]context.CancelFunc{}, lastOwnCheckpoint: map[string]time.Time{}, ownEvery: ownCheckpointEvery, claims: map[string]*claims.Set{}, snapshots: map[string]*snapshot{}}
 	for repo, set := range cfg.Claims {
 		d.claims[RepoKey(repo)] = set
 	}
@@ -491,6 +492,8 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 			resp = d.mergeTask(ctx, req)
 		case req.Method == MethodTaskStart:
 			resp = d.startOwnTask(ctx, req)
+		case req.Method == MethodTaskCancel:
+			resp = d.cancelTask(ctx, req)
 		case req.Method == MethodTaskCheckpoint:
 			resp = d.checkpointOwnTask(ctx, req)
 		case req.Method == MethodDashboard:

@@ -82,12 +82,13 @@ type Status struct {
 // Fold returns a task's state as the room sees it: from dispatched, each
 // status in log order that the state machine allows and that came from
 // the assignee, or from the task's author (the lead who sent it) for a
-// merge (data-model.md: the lead merges). Statuses from anyone else, and
-// impossible moves, are ignored. last is the status that set the state.
+// merge or a cancel (data-model.md: the lead merges; lead or teammate
+// cancels). Statuses from anyone else, and impossible moves, are ignored.
+// last is the status that set the state.
 func Fold(assignee, author string, statuses []Status) (last Status) {
 	last = Status{State: StateDispatched}
 	for _, s := range statuses {
-		byLead := s.Actor == author && (s.State == StateMerging || s.State == StateMerged)
+		byLead := s.Actor == author && (s.State == StateMerging || s.State == StateMerged || s.State == StateCancelled)
 		if (s.Actor == assignee || byLead) && CanMove(last.State, s.State) {
 			last = s
 		}

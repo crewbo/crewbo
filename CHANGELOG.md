@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `crewbo task cancel ID [--reason TEXT]` stops a running or checkpointed task, yours or one you sent as the lead: the agent stops, the task's claims are released, and the room sees it cancelled. Its worktree and branch are kept.
 - `crewbo dashboard` prints the address of a read-only dashboard the daemon serves on this computer: claims, tasks with their conflicts, and handoff requests, refreshed every 2 seconds. The address holds a token and works until the daemon stops.
 - Crewbo for VS Code, v0 (run from source with `task ext:run`): a Crewbo view in the Explorer lists the room's claims with their task, your tasks and their conflict warnings, and handoff requests; claimed files show the holder's initials; the status bar counts claims, open handoff requests and conflicts. You can ask for a file, answer with Hand off or Not yet, release a claim as the room lead, and review a task, which you then approve in a terminal with `crewbo task approve`.
 - `crewbo api` passes requests to the local daemon over stdin and stdout as JSON lines, for editor extensions. It cannot approve tasks; use `crewbo task approve` in a terminal.

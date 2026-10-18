@@ -80,6 +80,20 @@ func (d *Daemon) runSession(repo string) (string, bool) {
 	return s, ok
 }
 
+// setStop records how to stop a running task's agent, or forgets it.
+func (d *Daemon) setStop(id string, stop context.CancelFunc) {
+	d.runsMu.Lock()
+	defer d.runsMu.Unlock()
+	if old := d.stops[id]; old != nil && stop == nil {
+		old() // release the context
+	}
+	if stop == nil {
+		delete(d.stops, id)
+		return
+	}
+	d.stops[id] = stop
+}
+
 func (d *Daemon) setRun(worktree, session string) {
 	d.runsMu.Lock()
 	defer d.runsMu.Unlock()
@@ -189,13 +203,17 @@ func (d *Daemon) startRun(ctx context.Context, r *taskRun) (string, error) {
 	if r.agent == dispatch.AgentCodex {
 		command = dispatch.CodexCommand
 	}
-	cmd := command(ctx, dispatch.Launch{
+	// runCtx stops this agent alone when the task is cancelled.
+	runCtx, stopRun := context.WithCancel(ctx)
+	cmd := command(runCtx, dispatch.Launch{
 		Bin: d.agentBin(r.agent), Worktree: wt, Session: session, Text: r.body.GetText(), Env: os.Environ(), KeepAPIKey: r.keepAPIKey,
 	})
 	cmd.Stdout, cmd.Stderr = logf, logf
 	d.setRun(wt, session)
+	d.setStop(id, stopRun)
 	if err := cmd.Start(); err != nil {
 		d.setRun(wt, "")
+		d.setStop(id, nil)
 		_ = logf.Close()
 		release()
 		return failed(fmt.Errorf("start %s: %w", agentName(r.agent), err))
@@ -212,11 +230,15 @@ func (d *Daemon) startRun(ctx context.Context, r *taskRun) (string, error) {
 		defer d.agents.Done()
 		defer func() { _ = logf.Close() }()
 		err := d.superviseRun(ctx, r, cmd, session, len(claimIDs) > 0)
+		stopped := runCtx.Err() != nil // read before setStop releases runCtx
 		d.setRun(wt, "")
+		d.setStop(id, nil)
 		release()
 		switch {
 		case ctx.Err() != nil:
 			d.finishRun(ctx, r, taskFailed, "stopped because the Crewbo daemon stopped")
+		case stopped:
+			d.cfg.Log.Info("task agent stopped: the task was cancelled", "task_id", id) // state already recorded
 		case err != nil && r.agent == dispatch.AgentCodex && codexFailure(logPath) != "":
 			d.finishRun(ctx, r, taskFailed, "Codex: "+codexFailure(logPath))
 		case err != nil:

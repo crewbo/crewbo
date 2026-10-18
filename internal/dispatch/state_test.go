@@ -74,7 +74,18 @@ func TestFold(t *testing.T) {
 			{Actor: "lead", State: "merging"},
 			{Actor: "lead", State: "merged", Detail: "main at abc"},
 		}, "merged", "main at abc"},
-		"lead cannot run it": {[]Status{{Actor: "gav", State: "approved"}, {Actor: "lead", State: "running"}}, "approved", ""},
+		"lead cancels": {[]Status{
+			{Actor: "gav", State: "approved"},
+			{Actor: "gav", State: "running"},
+			{Actor: "lead", State: "cancelled", Detail: "plans changed"},
+		}, "cancelled", "plans changed"},
+		"another member cannot cancel": {[]Status{
+			{Actor: "gav", State: "approved"},
+			{Actor: "gav", State: "running"},
+			{Actor: "mallory", State: "cancelled"},
+		}, "running", ""},
+		"lead cannot cancel a waiting task": {[]Status{{Actor: "lead", State: "cancelled"}}, "dispatched", ""},
+		"lead cannot run it":                {[]Status{{Actor: "gav", State: "approved"}, {Actor: "lead", State: "running"}}, "approved", ""},
 		"another member cannot merge": {[]Status{
 			{Actor: "gav", State: "approved"},
 			{Actor: "gav", State: "running"},
