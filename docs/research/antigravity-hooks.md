@@ -74,3 +74,16 @@ Run with `crewbo/spikes` `s9-antigravity/run.sh`: hooks in the throwaway repo's 
 ## Before any commitment (original list; items 1 to 5 done in S9)
 
 A live spike like Phase 0 S1 and S2, on Omarchy first: install `agy`, log in, run the probe from `crewbo/spikes` as a global hook, and record (1) a deny on `write_to_file` and `run_command`, (2) what `{}` and a missing `decision` do (U-27), (3) whether `ephemeralMessage` reaches the model, (4) whether hooks need any trust step, (5) captured payloads for fixtures.
+
+## Docs re-check (2026-10-18, before Gate C for M5b)
+
+[AG-H] fetched again; the installed CLI is now `agy` 1.3.5. Differences from the 2026-10-11 reading, all UNVERIFIED live until M5b-01 reruns the probe:
+
+| Topic | 2026-10-11 | 2026-10-18 |
+| --- | --- | --- |
+| Session start | No dedicated event; first `PreInvocation` | A `SessionStart` event exists (handlers directly under the event key, like `PreInvocation`, `PostInvocation` and `Stop`) |
+| After a model call | Not listed | `PostInvocation` |
+| `PreToolUse` decisions | `allow`, `deny`, `ask`, `force_ask`, `deny_unless_prior_grant` | Adds `auto_approve` (Crewbo must never answer it); optional `overwrite` (merged into `toolCall.args`) and `permissionOverrides` |
+| `PreInvocation` output | `injectSteps` with `ephemeralMessage` | `injectSteps` entries may also hold `systemMessage`, `userMessage` or `toolCall`; Crewbo uses `ephemeralMessage` only |
+| Global hooks file | `~/.gemini/config/hooks.json`; the CLI also reads `~/.gemini/antigravity-cli/settings.json` | Same |
+| Hook trust | None documented | Still none; `/hooks` in the TUI lists loaded hooks |
