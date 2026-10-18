@@ -78,4 +78,4 @@ Add to this list instead of guessing. Each item needs an owner decision before i
 4. ~~Model display for Claude Code.~~ Resolved by BDR-017.
 5. ~~Tertiary text contrast on dark.~~ Resolved by BDR-016 (`gray.450`).
 6. ~~Reference canvases load Google Fonts.~~ Resolved: the canvases now use the self-hosted files in `assets/fonts/` (BDR-014).
-7. **Explorer badge and status bar mark in VS Code (M5-05).** VS Code's file decoration API shows at most two characters of text and a theme colour, not an image, so the 16 px badge Bo (`05-interface.md` §3.1) cannot be drawn there. Extension v0 shows the holder's first two letters, uncoloured, with the full holder in the tooltip (no bare coloured dot, per `03-color.md`). The status bar shows the word `crewbo` without the 18 px mark, which needs a contributed icon font. Needs an owner decision: keep, or draw the badge another way (a custom tree view, or an icon font).
+7. ~~Explorer badge and status bar mark in VS Code.~~ Resolved by BDR-018 (initials, no mark).
