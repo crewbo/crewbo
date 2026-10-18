@@ -115,6 +115,26 @@ var Daemon = Schema{
 	// <data>/worktrees/<task id>: the member's own checkout of a branch
 	// they registered (M5-07).
 	`ALTER TABLE tasks ADD COLUMN worktree TEXT NOT NULL DEFAULT '';`,
+	// 9: the room's escalation ladder (M5-03, flows.md flow 4): handoff
+	// requests with the holder's answer, and lead overrides. path and
+	// holder are the claim's when the event arrived, so the row still
+	// reads after the claim is gone.
+	`CREATE TABLE handoff (
+		room_id       TEXT    NOT NULL,
+		seq           INTEGER NOT NULL,
+		kind          TEXT    NOT NULL CHECK (kind IN ('request', 'override')),
+		request_id    TEXT    NOT NULL DEFAULT '',
+		claim_id      TEXT    NOT NULL,
+		path          TEXT    NOT NULL DEFAULT '',
+		holder        TEXT    NOT NULL DEFAULT '',
+		actor         TEXT    NOT NULL,
+		reason        TEXT    NOT NULL DEFAULT '',
+		answer        TEXT    NOT NULL DEFAULT '' CHECK (answer IN ('', 'approved', 'declined')),
+		answer_reason TEXT    NOT NULL DEFAULT '',
+		at_unix_ms    INTEGER NOT NULL,
+		PRIMARY KEY (room_id, seq)
+	) WITHOUT ROWID;
+	CREATE INDEX handoff_request ON handoff (room_id, request_id);`,
 }
 
 // Server is the schema of the sync server's database (`crewbo serve`).

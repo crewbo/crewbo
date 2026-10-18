@@ -480,6 +480,8 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 			resp = d.startOwnTask(ctx, req)
 		case req.Method == MethodTaskCheckpoint:
 			resp = d.checkpointOwnTask(ctx, req)
+		case req.Method == MethodClaimRequest || req.Method == MethodClaimRequests || req.Method == MethodClaimHandoff || req.Method == MethodClaimOverride:
+			resp = d.handoff(ctx, req)
 		case d.shared(req):
 			resp = d.sharedClaim(ctx, req)
 		default:

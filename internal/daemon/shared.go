@@ -42,6 +42,9 @@ func (d *Daemon) applyEvent(ctx context.Context, b auth.Binding, ev *crewbov1.Ev
 	if ev.GetConflictWarning() != nil {
 		return d.recordWarning(ctx, b, ev)
 	}
+	if ev.GetHandoffRequested() != nil || ev.GetHandoffAnswered() != nil || ev.GetClaimOverridden() != nil {
+		return d.recordHandoff(ctx, b, ev)
+	}
 	return d.onOwner(ctx, func() {
 		roomstate.Apply(d.set(b.Repo), ev, clock, d.cfg.Now())
 	})

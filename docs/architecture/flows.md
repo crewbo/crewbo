@@ -152,16 +152,18 @@ sequenceDiagram
     H-->>A: exit 0, no decision
   else held by another session
     DB-->>H: deny(holder, task, lease expiry)
-    H-->>A: deny, reason "src/auth.ts is claimed by A's agent for task 12. Options: wait, work on other files, or run crewbo claim request-handoff src/auth.ts"
+    H-->>A: deny, reason "src/auth.ts is claimed by A's agent for task 12. Options: wait, work on other files, or run crewbo claim request src/auth.ts"
     DB->>S: ConflictObserved(path, requester)
     S->>DA: Event(ConflictObserved)
     DA-->>O: notify (extension, CLI)
     opt agent or teammate requests handoff
-      DB->>S: HandoffRequest(path, reason)
+      DB->>S: HandoffRequest(claim, reason)
       S->>DA: Event(HandoffRequested)
       alt owner approves
         O->>DA: approve handoff
-        DA->>S: ClaimRelease(path) then ClaimGrant to requester
+        DA->>S: HandoffAnswer(approve)
+        Note over S: logs the answer, then ClaimsReleased
+        DB->>S: ClaimRequest(path) when the requester claims it
       else owner declines or no answer within lease
         O->>DA: decline
         opt lead override
@@ -171,6 +173,8 @@ sequenceDiagram
     end
   end
 ```
+
+As built (M5-03): the holder sees requests with `crewbo claim requests` (the extension, M5-05, will show them); ConflictObserved is not sent yet. An approval only releases the claim, and the requester then claims the file as usual, so a claim is never granted to someone who did not ask for it at that moment.
 
 Shell edits follow the same path through `pre_shell`. After a shell command runs, `post_edit` compares hashes of claimed files; a change to a file claimed by someone else produces `ClaimViolation` (alert and record, no revert).
 

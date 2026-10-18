@@ -102,6 +102,44 @@ func TestClaimCommands(t *testing.T) {
 	if code, _, _ := run("add"); code != ExitUsage {
 		t.Errorf("add without paths exit %d", code)
 	}
+
+	// The escalation ladder needs a room; the daemon here has none.
+	for _, args := range [][]string{{"request"}, {"request", "a", "b"}, {"override", "a"}, {"handoff", "r-1"}, {"handoff", "r-1", "maybe"}} {
+		if code, _, _ := run(args...); code != ExitUsage {
+			t.Errorf("%q exit %d, want usage", args, code)
+		}
+	}
+	for _, args := range [][]string{{"request", "web/app.ts", "--reason", "x"}, {"requests"}, {"handoff", "r-1", "approve"}, {"override", "--reason", "x", "web/app.ts"}} {
+		if code, _, errOut := run(args...); code != ExitError || !strings.Contains(errOut, "not in a room") {
+			t.Errorf("%q: %d %q", args, code, errOut)
+		}
+	}
+}
+
+func TestPrintHandoffs(t *testing.T) {
+	var out bytes.Buffer
+	printHandoffs(&out, []daemon.Handoff{
+		{Kind: "override", Path: "b.go", Holder: "gavriel953", Actor: "RM1338", Reason: "demo"},
+		{Kind: "request", RequestID: "r-3", Path: "a.go", Holder: "gavriel953", Actor: "priya", Open: true},
+		{Kind: "request", RequestID: "r-2", Path: "a.go", Holder: "gavriel953", Actor: "RM1338", Reason: "need it", Answer: "declined", AnswerReason: "busy"},
+		{Kind: "request", RequestID: "r-1", Path: "a.go", Holder: "gavriel953", Actor: "RM1338", Reason: "two\nlines\x1b[2J"},
+	})
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	want := [][]string{
+		{"REQUEST", "PATH", "HELD", "BY", "BY", "STATE", "REASON"},
+		{"-", "b.go", "gavriel953", "RM1338", "overridden", "by", "lead", "demo"},
+		{"r-3", "a.go", "gavriel953", "priya", "open"},
+		{"r-2", "a.go", "gavriel953", "RM1338", "declined", "need", "it", "/", "busy"},
+		{"r-1", "a.go", "gavriel953", "RM1338", "closed", `two\nlines\x1b[2J`},
+	}
+	if len(lines) != len(want) {
+		t.Fatalf("%d lines:\n%s", len(lines), out.String())
+	}
+	for i, l := range lines {
+		if got := strings.Fields(l); !reflect.DeepEqual(got, want[i]) {
+			t.Errorf("line %d = %q, want %q", i, got, want[i])
+		}
+	}
 }
 
 func TestClaimOutsideRepoAndWithoutDaemon(t *testing.T) {

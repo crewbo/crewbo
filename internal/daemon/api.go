@@ -31,6 +31,10 @@ const (
 	MethodTaskMerge      = "task_merge"
 	MethodTaskStart      = "task_start"
 	MethodTaskCheckpoint = "task_checkpoint"
+	MethodClaimRequest   = "claim_request"
+	MethodClaimRequests  = "claim_requests"
+	MethodClaimHandoff   = "claim_handoff"
+	MethodClaimOverride  = "claim_override"
 )
 
 // TerminalSession holds claims made with `crewbo claim add`. It is not an
@@ -86,8 +90,12 @@ type Request struct {
 	// task_merge: other tasks whose conflicting checkpoints the member
 	// confirmed merging over (ADR 0015).
 	Despite []string `json:"despite,omitempty"`
-	// claim_release: claim ids.
+	// claim_release: claim ids; claim_handoff: the request answered.
 	IDs []string `json:"ids,omitempty"`
+	// claim_handoff: hand the claim over (true) or keep it. Text is the
+	// reason for claim_request, claim_handoff and claim_override, and
+	// Paths[0] the path asked for or overridden.
+	Approve bool `json:"approve,omitempty"`
 	// task_create: the teammate's GitHub login, the task text and how long
 	// it stays valid; Patterns are the owned paths.
 	Assignee   string `json:"assignee,omitempty"`
@@ -120,6 +128,9 @@ type Response struct {
 	TaskID string `json:"task_id,omitempty"`
 	// task_list: tasks sent to this member, newest first.
 	Tasks []Task `json:"tasks,omitempty"`
+	// claim_request (the request sent) and claim_requests (the room's
+	// escalation ladder, newest first).
+	Handoffs []Handoff `json:"handoffs,omitempty"`
 	// Note tells the member what happened beyond the result, for example
 	// that a claim is queued for the sync server.
 	Note string `json:"note,omitempty"`
@@ -127,6 +138,25 @@ type Response struct {
 	// event post_edit: claimed files the session's last shell command
 	// changed although another session holds them.
 	Violations []Violation `json:"violations,omitempty"`
+}
+
+// Handoff is a step of a room's escalation ladder (flows.md flow 4): a
+// request to hand a claim over, with the holder's answer, or a lead
+// override.
+type Handoff struct {
+	Kind      string `json:"kind"` // "request" or "override"
+	RequestID string `json:"request_id,omitempty"`
+	ClaimID   string `json:"claim_id"`
+	Path      string `json:"path,omitempty"`   // the claim's pattern
+	Holder    string `json:"holder,omitempty"` // who held the claim
+	Actor     string `json:"actor"`            // who asked, or the lead
+	Reason    string `json:"reason,omitempty"`
+	Answer    string `json:"answer,omitempty"` // "approved", "declined"
+	// AnswerReason is the holder's reason for their answer.
+	AnswerReason string `json:"answer_reason,omitempty"`
+	// Open marks a request not yet answered whose claim is still held.
+	Open bool      `json:"open,omitempty"`
+	At   time.Time `json:"at"`
 }
 
 // Violation is a claimed file changed by a session that does not hold it,
