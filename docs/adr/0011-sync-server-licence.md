@@ -1,6 +1,6 @@
 # 0011. Sync server licence
 
-- Status: Proposed
+- Status: Accepted (Ronel, 2026-10-18): AGPL-3.0
 - Date: 2026-10-11
 - Decision owner: Ronel Abraham Mathew
 
@@ -30,4 +30,11 @@ The PRD plans Apache-2.0 for adapters, protocol and extension, AGPL or FSL for t
 
 ## Decision
 
-Not decided. Owner: Ronel, before the first public release.
+Accepted by Ronel on 2026-10-18, before the repository goes public for the M6 dogfood: the sync server (`internal/server`, run as `crewbo serve`) is licensed under **AGPL-3.0**; everything else stays Apache-2.0.
+
+## Consequences
+
+- `internal/server` gets its own `LICENSE` with the AGPL-3.0 text, and the README states which licence covers which code (M6-01).
+- Crewbo ships as one binary (ADR 0002). Apache-2.0 code may be combined with AGPL-3.0 code, so each released `crewbo` binary is covered by AGPL-3.0 as a whole; the Apache-2.0 parts stay reusable on their own. The release notes and README say so.
+- Outside contributions to the server need a contribution policy that keeps a future commercial licence possible (a DCO or a CLA); decided in M6-01 before the repository goes public.
+- Choosing AGPL does not stop a competitor from hosting the unmodified server; the v3 paid tier competes on the hosted service.

@@ -193,7 +193,7 @@ Open core priced by buyer: coordination stays free, the team lead pays for contr
 | Hosted Team | About $8 to $20 per user per month (to validate); PPP pricing for India | Hosted relay, lead policies, agent activity analytics, conflict reports |
 | Enterprise | Custom | SSO, SCIM, audit export, on-prem support |
 
-**Licensing:** Apache-2.0 for adapters, protocol and extension; AGPL or FSL for the sync server (decision pending, owner decides before first public release); commercial licence for enterprise features.
+**Licensing:** Apache-2.0 for adapters, protocol and extension; AGPL-3.0 for the sync server (ADR 0011, decided 2026-10-18; the single binary is therefore AGPL-3.0 as a whole); commercial licence for enterprise features.
 
 ## Unknowns register and fallbacks
 
