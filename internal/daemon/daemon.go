@@ -252,7 +252,7 @@ func (d *Daemon) handle(req Request) Response {
 		return Response{ID: req.ID, Status: &Status{
 			Version: d.cfg.Version, PID: os.Getpid(), Started: d.started,
 			ActiveClaims: d.activeClaims(now), Sessions: len(d.sessions), Violations: len(d.violations),
-			Sync: d.syncState(), Refused: d.refused,
+			Sync: d.syncState(), Refused: d.refused, Login: d.login(),
 		}}
 	default:
 		return Response{ID: req.ID, Error: fmt.Sprintf("unknown method %q", req.Method)}
@@ -337,6 +337,14 @@ func newClaimID() string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b) // crypto/rand.Read never returns an error (Go 1.24+)
 	return "c-" + hex.EncodeToString(b)
+}
+
+// login is the GitHub login this machine is signed in with, if any.
+func (d *Daemon) login() string {
+	if d.sync == nil {
+		return ""
+	}
+	return d.sync.session().GitHubLogin
 }
 
 func (d *Daemon) syncState() string {
