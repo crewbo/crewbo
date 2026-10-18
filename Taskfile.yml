@@ -61,3 +61,10 @@ tasks:
     cmds:
       - npm ci --ignore-scripts
       - npm test
+
+  ext:run:
+    desc: Open VS Code with the extension loaded from source
+    dir: extension
+    cmds:
+      - npm run build
+      - code --extensionDevelopmentPath={{.TASKFILE_DIR}}/extension {{.CLI_ARGS}}

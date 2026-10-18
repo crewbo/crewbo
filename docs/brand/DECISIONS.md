@@ -107,3 +107,9 @@ Format: `BDR-NNN · title · date · status`.
 **Decision:** The crew panel shows a model only when Crewbo has read it. Codex: the `model` field in hook events. Claude Code sessions launched by the daemon: the `model` in the first `system/init` event of `--output-format stream-json`, shown as the raw ID (for example `claude-opus-5-5`). Claude Code sessions started by a teammate: `Claude Code` only, because hooks carry no model.
 **Rejected:** Mapping model IDs to marketing names (a lookup table goes stale and would guess); inferring the model from user settings.
 **Why:** P5, honest and specific. Phase 0 (`docs/research/phase0-findings.md`) captured no `model` in any Claude Code hook payload, while the `init` event of a daemon-launched run reported `claude-opus-5-5`.
+
+## BDR-018 · Initials as the VS Code explorer badge · 2026-10-18 · Accepted
+
+**Decision:** In VS Code's explorer, a claimed file shows the holder's first two letters as plain text, uncoloured, with the holder named in full in the tooltip (two or more holders: their count). The status bar shows the word `crewbo` without the mark.
+**Rejected:** A bare coloured dot (`03-color.md`: never a bare dot that could be read either way); a custom tree view or icon font to draw the 16 px badge Bo, too much for v1.
+**Why:** VS Code's file decoration API holds at most two characters of text and a theme colour, not an image, so the badge Bo in `05-interface.md` §3.1 cannot be drawn there. Initials still name the person (P5) and work without colour (P1). Ronel, M5-05.

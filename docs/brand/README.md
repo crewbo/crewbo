@@ -78,3 +78,4 @@ Add to this list instead of guessing. Each item needs an owner decision before i
 4. ~~Model display for Claude Code.~~ Resolved by BDR-017.
 5. ~~Tertiary text contrast on dark.~~ Resolved by BDR-016 (`gray.450`).
 6. ~~Reference canvases load Google Fonts.~~ Resolved: the canvases now use the self-hosted files in `assets/fonts/` (BDR-014).
+7. ~~Explorer badge and status bar mark in VS Code.~~ Resolved by BDR-018 (initials, no mark).
