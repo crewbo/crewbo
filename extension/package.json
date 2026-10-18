@@ -1,7 +1,7 @@
 {
   "name": "crewbo",
   "displayName": "Crewbo",
-  "description": "See who is working on which files, and hand claims over, when your team's coding agents share a repository.",
+  "description": "See which files your teammates' AI coding agents are working on, ask for a file, and follow tasks and merge conflicts, with Crewbo.",
   "version": "0.0.1",
   "private": true,
   "publisher": "crewbo",
@@ -9,6 +9,30 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/crewbo/crewbo"
+  },
+  "homepage": "https://github.com/crewbo/crewbo#readme",
+  "bugs": {
+    "url": "https://github.com/crewbo/crewbo/issues"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "claude code",
+    "codex",
+    "antigravity",
+    "collaboration",
+    "multiplayer",
+    "claims",
+    "hackathon",
+    "git",
+    "merge conflicts",
+    "crewbo"
+  ],
+  "preview": true,
+  "qna": false,
+  "galleryBanner": {
+    "color": "#0A0A0A",
+    "theme": "dark"
   },
   "icon": "media/icon.png",
   "files": [
