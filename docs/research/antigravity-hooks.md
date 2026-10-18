@@ -87,3 +87,22 @@ A live spike like Phase 0 S1 and S2, on Omarchy first: install `agy`, log in, ru
 | `PreInvocation` output | `injectSteps` with `ephemeralMessage` | `injectSteps` entries may also hold `systemMessage`, `userMessage` or `toolCall`; Crewbo uses `ephemeralMessage` only |
 | Global hooks file | `~/.gemini/config/hooks.json`; the CLI also reads `~/.gemini/antigravity-cli/settings.json` | Same |
 | Hook trust | None documented | Still none; `/hooks` in the TUI lists loaded hooks |
+
+## Live spike S9b results (agy 1.3.5 then 1.4.2, Omarchy, 2026-10-18)
+
+Same method as S9 (`crewbo/spikes` `s9-antigravity/run.sh`, workspace `.agents/hooks.json`, `~/.gemini` not modified), with `SessionStart` and `PostInvocation` added. `agy` updated itself from 1.3.5 to 1.4.2 between runs; every fixture in `test/fixtures/hooks/antigravity/1.4.2/linux/` comes from 1.4.2.
+
+| Question | Result |
+| --- | --- |
+| Does `SessionStart` fire? | Yes, once per run, before the first `PreInvocation`; payload has the common fields only |
+| Does `PostInvocation` fire? | Yes, after every model call |
+| Deny on `write_to_file` and `run_command` | Still works; the edit and the shell write to `blocked.txt` were refused |
+| No output for an unblocked call | Still passes through (`free.txt` changed) |
+| `{}` for an unblocked call | Still blocks (`free.txt` unchanged) |
+| `ephemeralMessage` claim notice | Still reaches the model: it left `blocked.txt` alone without a single denied call |
+| Event name in the payload | None; the event must come from the hook's command line |
+| Working directory | No `cwd` field; `run_command` carries `Cwd` in its arguments, other events only `workspacePaths` |
+| Tools that write | `write_to_file` (whole-file writes now use it with `Overwrite`), `replace_file_content`, `multi_replace_file_content`; 1.4.2 also lists `sed_file` and `notebook_edit` (arguments not captured, U-33) |
+| `--mode accept-edits` in headless mode | Writes are still refused when the agent first runs a shell command (`a tool required the "command" permission that headless mode cannot prompt for`); U-28 stays open |
+
+Caution for future spikes: in one run asked to use `sed_file`, the agent, running under `--dangerously-skip-permissions`, spent five minutes exploring outside the throwaway repository with read-only commands (listing `~/Work/spikes`, reading the `agy` binary's strings and a transcript under `~/.gemini`). Nothing was written, but spikes should not ask the model for tools it may not have, and should keep runs short.

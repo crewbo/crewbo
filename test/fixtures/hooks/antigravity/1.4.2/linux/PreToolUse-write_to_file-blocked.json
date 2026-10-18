@@ -1,0 +1,21 @@
+{
+  "artifactDirectoryPath": "/home/user/.gemini/antigravity-cli/brain/conversation-02",
+  "conversationId": "conversation-02",
+  "modelName": "gemini-3.8-flash-medium",
+  "stepIdx": 2,
+  "toolCall": {
+    "args": {
+      "CodeContent": "changed\n",
+      "Description": "Replace the contents of blocked.txt with changed",
+      "Overwrite": true,
+      "TargetFile": "/home/user/work/empty/repo/blocked.txt",
+      "toolAction": "Writing file",
+      "toolSummary": "Write blocked.txt"
+    },
+    "name": "write_to_file"
+  },
+  "transcriptPath": "/home/user/.gemini/antigravity-cli/brain/conversation-02/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/home/user/work/empty/repo"
+  ]
+}
