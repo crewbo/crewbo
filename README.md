@@ -30,7 +30,7 @@ Crewbo lets every teammate run their own AI coding agent on a shared repository 
 
 ## What leaves your machine
 
-The sync server receives file paths and globs, task text and status, branch and commit names, handoff reasons and your GitHub login. File contents never leave your machine, and Crewbo sends no telemetry. You can run the sync server yourself (`crewbo serve`).
+The sync server receives file paths and globs, task text and status, branch and commit names, handoff reasons, your GitHub login, and your computer's name and OS. File contents never leave your machine, and Crewbo sends no telemetry. You can run the sync server yourself (`crewbo serve`). Details: [what Crewbo shares and stores](docs/user/privacy.md).
 
 ## Quick start
 
@@ -40,7 +40,7 @@ There is no release yet: build from source. You need Go (the version in `go.mod`
 task build                                   # builds ./bin/crewbo
 ```
 
-One teammate runs the sync server where everyone can reach it (with TLS, a tunnel, or `--insecure-lan` on a trusted network):
+One teammate runs the sync server where everyone can reach it (behind a tunnel or with TLS; see [running the sync server](docs/user/getting-started.md#running-the-sync-server)):
 
 ```sh
 crewbo serve
@@ -68,6 +68,7 @@ Notes:
 
 ## Documentation
 
+- [Getting started](docs/user/getting-started.md), [troubleshooting](docs/user/troubleshooting.md) and [what Crewbo shares](docs/user/privacy.md)
 - [Product requirements](docs/product/PRD.md) and [architecture](docs/architecture/overview.md)
 - [Decisions](docs/adr/) and the [engineering docs](docs/engineering/)
 - [Brand](docs/brand/README.md)
