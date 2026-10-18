@@ -37,4 +37,8 @@ For Antigravity, `crewbo hooks install` registers the MCP server for you.
 
 ## License
 
-Apache-2.0 for now. The sync server licence is undecided; see the PRD.
+- The sync server, `internal/server` (`crewbo serve`), is licensed under the [GNU Affero General Public License v3.0](internal/server/LICENSE) (ADR 0011).
+- Everything else, including the daemon, hooks, CLI, protocol, VS Code extension and dashboard, is licensed under the [Apache License 2.0](LICENSE).
+- `crewbo` is a single binary that includes the sync server, so each released binary is covered by the AGPL-3.0 as a whole. The Apache-2.0 parts stay reusable on their own.
+
+See [NOTICE](NOTICE).

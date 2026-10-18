@@ -1,0 +1,17 @@
+Crewbo
+Copyright 2026 Ronel Abraham Mathew and the Crewbo contributors
+
+Licensing:
+
+- internal/server/ (the sync server, `crewbo serve`) is licensed under the
+  GNU Affero General Public License, version 3 (internal/server/LICENSE).
+- Everything else in this repository is licensed under the Apache License,
+  version 2.0 (LICENSE).
+
+The `crewbo` binary includes the sync server, so a binary built from this
+repository is covered by the GNU Affero General Public License, version 3,
+as a whole.
+
+The fonts in web/fonts/ and docs/brand/assets/fonts/ (Instrument Sans and
+JetBrains Mono) are licensed under the SIL Open Font License 1.1; their
+licences are next to them.
