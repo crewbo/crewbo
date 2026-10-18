@@ -9,13 +9,18 @@ Shows the state of your Crewbo room inside VS Code, read from your local daemon:
 
 It talks to the daemon through `crewbo api`, so `crewbo` must be on your `PATH`, or set `crewbo.path` in your **user** settings (a workspace cannot set it). Start the daemon with `crewbo daemon`.
 
-Not in v0: the Bo crew panel, claim tags and line highlights in the editor (they need presence and agent activity from other machines, which Crewbo does not share yet), and a packaged `.vsix`.
+## Install
+
+Download `crewbo-<version>.vsix` from the release (or build it with `task ext:package`), then in VS Code open the Extensions view, click the `...` menu, choose "Install from VSIX..." and pick the file. From a terminal: `code --install-extension crewbo-<version>.vsix`.
+
+Not in v0: the Bo crew panel, claim tags and line highlights in the editor (they need presence and agent activity from other machines, which Crewbo does not share yet).
 
 ## Develop
 
 ```sh
 task ext:test             # npm ci, compile, unit tests (client and model)
 task ext:run -- <folder>  # open VS Code with the extension loaded from source
+task ext:package          # build crewbo-<version>.vsix
 ```
 
 ## Manual test plan

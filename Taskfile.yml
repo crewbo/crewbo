@@ -62,6 +62,14 @@ tasks:
       - npm ci --ignore-scripts
       - npm test
 
+  ext:package:
+    desc: Build the VS Code extension into extension/crewbo-<version>.vsix
+    dir: extension
+    cmds:
+      # prepackage copies the icon and licence from their single sources.
+      - npm ci --ignore-scripts
+      - npm run package
+
   ext:run:
     desc: Open VS Code with the extension loaded from source
     dir: extension

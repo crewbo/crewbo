@@ -29,3 +29,6 @@ node_modules/
 
 # Extension build output
 /extension/out/
+/extension/media/
+/extension/LICENSE
+/extension/*.vsix
