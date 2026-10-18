@@ -258,7 +258,7 @@ func (d *Daemon) handle(req Request) Response {
 		return Response{ID: req.ID, Status: &Status{
 			Version: d.cfg.Version, PID: os.Getpid(), Started: d.started,
 			ActiveClaims: d.activeClaims(now), Sessions: len(d.sessions), Violations: len(d.violations),
-			Sync: d.syncState(), Refused: d.refused, Login: d.login(),
+			Sync: d.syncState(), Refused: d.refused, Login: d.login(), Agents: d.agentsSeen(),
 		}}
 	default:
 		return Response{ID: req.ID, Error: fmt.Sprintf("unknown method %q", req.Method)}
@@ -343,6 +343,18 @@ func newClaimID() string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b) // crypto/rand.Read never returns an error (Go 1.24+)
 	return "c-" + hex.EncodeToString(b)
+}
+
+// agentsSeen returns when each agent last sent a hook event. It runs on
+// the owner goroutine, like every reader of d.sessions.
+func (d *Daemon) agentsSeen() map[string]time.Time {
+	out := map[string]time.Time{}
+	for _, s := range d.sessions {
+		if s.Agent != "" && s.LastSeen.After(out[s.Agent]) {
+			out[s.Agent] = s.LastSeen
+		}
+	}
+	return out
 }
 
 // login is the GitHub login this machine is signed in with, if any.

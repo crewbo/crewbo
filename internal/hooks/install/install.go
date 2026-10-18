@@ -147,6 +147,10 @@ func Uninstall(agent string, cfg []byte) (out []byte, changed bool, err error) {
 	return render(cfg, root)
 }
 
+// Installed reports whether cfg (an agent's config file, as ConfigPath
+// names it) holds Crewbo's hooks for agent.
+func Installed(agent string, cfg []byte) bool { return installed(agent, cfg) }
+
 // installed reports whether cfg holds any Crewbo hook for agent.
 func installed(agent string, cfg []byte) bool {
 	if agent == Antigravity || agent == AntigravityMCP {

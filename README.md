@@ -56,7 +56,7 @@ crewbo room join CODE                        # everyone else
 crewbo hooks install                         # Claude Code, Codex and Antigravity; your own hooks are kept
 ```
 
-Then work as usual with your agent. Try `crewbo claim add src/auth.go`, `crewbo claim list` and `crewbo task start "Build the login page"`; `crewbo help` lists everything.
+Run `crewbo doctor` to check the setup: it prints a fix for anything missing. Then work as usual with your agent. Try `crewbo claim add src/auth.go`, `crewbo claim list` and `crewbo task start "Build the login page"`; `crewbo help` lists everything.
 
 Notes:
 
