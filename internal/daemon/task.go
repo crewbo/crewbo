@@ -513,13 +513,18 @@ func (d *Daemon) recordStatus(ctx context.Context, b auth.Binding, ev *crewbov1.
 		b.RoomID, ev.GetSeq(), st.GetTaskId(), ev.GetActorMemberId(), state, truncate(st.GetDetail(), maxReason), st.GetRef(), st.GetCommit()); err != nil {
 		return err
 	}
-	// The lead who sent one of this member's tasks may merge it: follow
-	// that on the task's own row (a replay of the same status moves nothing).
-	if state == dispatch.StateMerging || state == dispatch.StateMerged {
+	// The lead who sent one of this member's tasks may merge or cancel it:
+	// follow that on the task's own row (a replay of the same status moves
+	// nothing).
+	if state == dispatch.StateMerging || state == dispatch.StateMerged || state == dispatch.StateCancelled {
 		var signed []byte
 		err := d.sync.db.QueryRowContext(ctx, `SELECT signed FROM tasks WHERE task_id = ? AND state != ?`, st.GetTaskId(), taskOther).Scan(&signed)
 		if err == nil && taskAuthor(signed) == ev.GetActorMemberId() {
-			d.setTaskState(ctx, st.GetTaskId(), state, truncate(st.GetDetail(), maxReason))
+			if state == dispatch.StateCancelled {
+				d.stopTask(ctx, st.GetTaskId(), truncate(st.GetDetail(), maxReason))
+			} else {
+				d.setTaskState(ctx, st.GetTaskId(), state, truncate(st.GetDetail(), maxReason))
+			}
 		}
 	}
 	return nil

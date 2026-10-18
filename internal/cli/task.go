@@ -27,6 +27,7 @@ const taskUsage = `Usage:
   crewbo task decline ID [--reason TEXT]
   crewbo task checkpoint ID
   crewbo task merge ID [--despite OTHER-ID]...
+  crewbo task cancel ID [--reason TEXT]
 
 create sends a signed task to a teammate's agent in this repository's room.
 Only the room lead can send tasks. --path names the files or globs the task
@@ -55,6 +56,10 @@ merge puts a checkpointed task of yours into the remote's main branch. It
 is refused when the task conflicts with main, or with another task's
 checkpoint; after talking to that task's owner, --despite OTHER-ID merges
 anyway, and they update their task.
+
+cancel stops a running or checkpointed task: yours, or one you sent as
+the lead. The agent stops and the task's claims are released; its
+worktree and branch stay, so nothing is lost.
 `
 
 // paths is a repeatable --path flag.
@@ -90,6 +95,8 @@ func runTask(ctx context.Context, args []string, stdin io.Reader, stdout, stderr
 		return taskAnswer(ctx, args, stdin, stdout, stderr)
 	case "merge":
 		return taskMerge(ctx, args, stdout, stderr)
+	case "cancel":
+		return taskCancel(ctx, args[1:], stdout, stderr)
 	case "checkpoint":
 		if len(args) != 2 {
 			return write(stderr, ExitUsage, "%s", taskUsage)
@@ -386,4 +393,31 @@ func taskMerge(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		return code
 	}
 	return write(stdout, ExitOK, "Task %s: %s\n", t.ID, resp.Note)
+}
+
+// taskCancel stops a running or checkpointed task (M5-09).
+func taskCancel(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("task cancel", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	reason := fs.String("reason", "", "why, shown to the room")
+	rest, err := parseInterspersed(fs, args)
+	if err != nil {
+		return ExitUsage
+	}
+	if len(rest) != 1 {
+		return write(stderr, ExitUsage, "%s", taskUsage)
+	}
+	tasks, code := listTasks(ctx, stderr)
+	if code != ExitOK {
+		return code
+	}
+	t, err := resolveTask(tasks, rest[0])
+	if err != nil {
+		return write(stderr, ExitError, "crewbo: %v\n", err)
+	}
+	resp, code := callTaskDaemon(ctx, daemon.Request{Method: daemon.MethodTaskCancel, Task: t.ID, Text: *reason}, stderr)
+	if code != ExitOK {
+		return code
+	}
+	return write(stdout, ExitOK, "Cancelled task %s. %s\n", t.ID, resp.Note)
 }

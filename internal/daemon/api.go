@@ -36,6 +36,7 @@ const (
 	MethodClaimHandoff   = "claim_handoff"
 	MethodClaimOverride  = "claim_override"
 	MethodDashboard      = "dashboard"
+	MethodTaskCancel     = "task_cancel"
 )
 
 // TerminalSession holds claims made with `crewbo claim add`. It is not an
