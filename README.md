@@ -1,39 +1,77 @@
-# Crewbo
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/assets/svg/logo/lockup-dark.svg">
+    <img src="docs/brand/assets/svg/logo/lockup-light.svg" alt="Crewbo" width="280">
+  </picture>
+</p>
 
-Crewbo lets every teammate run their own AI coding agent on a shared codebase at the same time, across machines and operating systems, with each agent aware of what the others are doing.
+<p align="center"><strong>Every agent, one crew.</strong></p>
 
-Status: early development (M2 complete, M3 next), no release yet. See [docs/product/PRD.md](docs/product/PRD.md).
+Crewbo lets every teammate run their own AI coding agent on a shared repository at the same time, on their own machine and operating system. Each agent knows which files the others are working on, is stopped before it edits one of them, and conflicts between branches show up before anyone merges.
 
-## Try it locally
+**Status:** pre-release (v0.x), being tested with real teams. Expect rough edges and breaking changes. Built and tested on Linux; the main flows have also run on macOS; Windows is partly tested.
 
-Requires Go (version in `go.mod`), git 2.38+ and [Task](https://taskfile.dev).
+## How it works
+
+- **Claims.** A file or glob is claimed by the agent working on it, or by you with `crewbo claim add`. Claims are leases: an agent's claims lapse a few minutes after it stops.
+- **Hooks block edits.** Crewbo installs a hook in each agent. Before the agent edits a file, or runs a shell command that writes one, the hook asks the local Crewbo daemon; an edit to a file a teammate has claimed is refused with a message naming the file and the person.
+- **A small sync server shares metadata.** Everyone in a room sees everyone's claims within seconds. Code moves only through your git remote.
+- **Handoffs, not fights.** Ask the holder for a file (`crewbo claim request`), they hand it off or say not yet, and the room lead can step in.
+- **Tasks and merging.** Each piece of work is a task on its own branch and worktree. Crewbo checkpoints it, warns when two tasks change the same lines, and merges a task into main only through that check. A lead can send signed tasks for a teammate's agent to run, after the teammate reads and approves them.
+- **See it all** in a VS Code view, a local dashboard (`crewbo dashboard`) or the CLI.
+
+## Supported agents
+
+| Agent | Claims enforced | Context and MCP tools | Runs dispatched tasks |
+| --- | --- | --- | --- |
+| Claude Code | Yes | Yes | Yes |
+| Codex | Yes | Yes | Yes |
+| Antigravity | Yes | Yes | Not yet |
+
+## What leaves your machine
+
+The sync server receives file paths and globs, task text and status, branch and commit names, handoff reasons and your GitHub login. File contents never leave your machine, and Crewbo sends no telemetry. You can run the sync server yourself (`crewbo serve`).
+
+## Quick start
+
+There is no release yet: build from source. You need Go (the version in `go.mod`), git 2.38 or later and [Task](https://taskfile.dev).
 
 ```sh
-task build                           # builds ./bin/crewbo
-./bin/crewbo daemon                  # terminal 1
-./bin/crewbo claim add src/auth.go   # terminal 2, inside a git repository
-./bin/crewbo claim list
+task build                                   # builds ./bin/crewbo
 ```
 
-To make Claude Code, Codex and Antigravity respect claims, install Crewbo's hooks (your own hooks and settings are kept, with a backup):
+One teammate runs the sync server where everyone can reach it (with TLS, a tunnel, or `--insecure-lan` on a trusted network):
 
 ```sh
-./bin/crewbo hooks install          # then, in Codex, open /hooks and trust the crewbo hooks
-./bin/crewbo hooks uninstall        # removes only Crewbo's entries
+crewbo serve
 ```
 
-For Antigravity (the `agy` CLI, the IDE and the app share `~/.gemini/config/hooks.json`), `install` adds one named hook set, `crewbo`, and Crewbo's MCP server in `~/.gemini/config/mcp_config.json`; `agy`'s `/hooks` lists it. Keep the crewbo binary in a folder without spaces: Antigravity runs hooks as shell commands.
-
-If you run other hooks that can deny a tool call (for example a plugin's edit gate), the agent may show their message instead of Crewbo's when both deny the same edit. The edit is still blocked.
-
-Optionally, let agents look up claims before they plan work, through Crewbo's read-only MCP tools (`crewbo_claims`, `crewbo_who_holds`):
+Everyone, on their own machine, inside their clone of the repository:
 
 ```sh
-claude mcp add --scope user --transport stdio crewbo /absolute/path/to/crewbo mcp
-codex mcp add crewbo -- /absolute/path/to/crewbo mcp
+crewbo daemon                                # keep this running
+crewbo login --server https://your-server    # sign in with GitHub
+crewbo room create                           # the lead, once; then: crewbo room invite
+crewbo room join CODE                        # everyone else
+crewbo hooks install                         # Claude Code, Codex and Antigravity; your own hooks are kept
 ```
 
-For Antigravity, `crewbo hooks install` registers the MCP server for you.
+Then work as usual with your agent. Try `crewbo claim add src/auth.go`, `crewbo claim list` and `crewbo task start "Build the login page"`; `crewbo help` lists everything.
+
+Notes:
+
+- Codex runs new hooks only after you trust them: open Codex, type `/hooks` and trust the crewbo hooks.
+- Keep the `crewbo` binary in a folder without spaces: Codex and Antigravity run hooks as shell commands.
+- Agents can look up claims through Crewbo's MCP tools: `claude mcp add --scope user --transport stdio crewbo /absolute/path/to/crewbo mcp` and `codex mcp add crewbo -- /absolute/path/to/crewbo mcp`. For Antigravity, `crewbo hooks install` registers them.
+- If you run other hooks that can deny a tool call, the agent may show their message instead of Crewbo's when both deny the same edit. The edit is still blocked.
+- The VS Code extension is in [`extension/`](extension/README.md).
+
+## Documentation
+
+- [Product requirements](docs/product/PRD.md) and [architecture](docs/architecture/overview.md)
+- [Decisions](docs/adr/) and the [engineering docs](docs/engineering/)
+- [Brand](docs/brand/README.md)
+- [Contributing](CONTRIBUTING.md), [security](SECURITY.md), [code of conduct](CODE_OF_CONDUCT.md)
 
 ## License
 
