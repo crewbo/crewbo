@@ -122,13 +122,15 @@ Carried over from M4, proposed for M5 if time allows (otherwise M6): `crewbo tas
 
 ## M5b: Antigravity adapter (stretch, ADR 0013)
 
-Only if M1 to M5 are on time. Contract: `docs/research/antigravity-hooks.md`; fixtures from spike S9.
+Only if M1 to M5 are on time. Contract: `docs/research/antigravity-hooks.md` (S9 on agy 1.3.3, and the docs re-check of 2026-10-18, which found a `SessionStart` event, a `PostInvocation` event and new `PreToolUse` fields). Revised for Gate C on 2026-10-18: M5b-03 no longer depends on the crew panel (deferred in M5-05) or `crewbo doctor` (never scheduled). Headless dispatch to Antigravity stays out of v1 (ADR 0013; U-28 open).
 
 | ID | Issue | Acceptance criteria | Test plan | Deps |
 | --- | --- | --- | --- | --- |
-| M5b-01 | `hooks/antigravity` decode and encode | Decodes all S9 fixtures (`TargetFile`, `CommandLine`, `Cwd`, camelCase common fields); deny prints `{"decision":"deny","reason":...}`; unblocked calls print nothing (never `{}`, never `allow`); `PreInvocation` returns `injectSteps` with an `ephemeralMessage` | Golden fixture tests | M2-01 |
-| M5b-02 | Install and uninstall one named `crewbo` entry in `~/.gemini/config/hooks.json`; MCP entry in `~/.gemini/config/mcp_config.json` | Idempotent; other named hooks untouched; refuses a binary path with spaces | Unit tests on sample configs | M5b-01, M2-07 |
-| M5b-03 | Crew panel and doctor support for Antigravity sessions (`conversationId`, `modelName`) | Antigravity sessions appear with their model; doctor detects hooks that never fire | Unit tests; manual run with agy | M5b-02, M5-05 |
+| M5b-01 | `hooks/antigravity` decode and encode, with fixtures recaptured on the installed agy (1.3.5) | Decodes every fixture (`TargetFile` absolute, `CommandLine`, `Cwd`, camelCase common fields, `SessionStart` if it fires); `SessionStart` (or the first `PreInvocation`) maps to `session_start`, `PreInvocation` to `prompt`, `PreToolUse` on the write tools to `pre_edit` and on `run_command` to `pre_shell`, `PostToolUse` to `post_edit`, `Stop` to `stop`; a deny prints `{"decision":"deny","reason":...}`; an unblocked call prints nothing (never `{}`, never `allow` or `auto_approve`); `PreInvocation` returns `injectSteps` with an `ephemeralMessage` only when there is something to say | Golden fixture tests; the S9 probe rerun on agy 1.3.5 (Omarchy), recording what changed | M2-01 |
+| M5b-02 | `crewbo hooks install` / `uninstall --agent antigravity` (and `all`): one named `crewbo` entry in `~/.gemini/config/hooks.json`; MCP entry in `~/.gemini/config/mcp_config.json` | Idempotent; other named hooks and MCP servers untouched; backup as for the other agents; refuses a binary path with spaces (shell-form commands only); uninstall leaves no empty file | Unit tests on sample configs; one live install on Omarchy with the real file backed up first | M5b-01, M2-07 |
+| M5b-03 | Live check and docs: an Antigravity agent blocked by a teammate's claim | With the hooks installed, an `agy` session on Omarchy is denied an edit to a file claimed in the room (Crewbo's reason reaches the model), edits a free file, and the daemon log records its session (`agent session registered ... agent=antigravity`); README and the user docs cover install and MCP registration; Windows run if Ronel boots Windows, else marked untested | Manual run with agy, recorded in `docs/research/` | M5b-02 |
+
+Crew panel rows and `crewbo doctor` checks for Antigravity move to whenever those features are built (not scheduled).
 
 ## M6: dogfood
 
