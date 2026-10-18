@@ -316,11 +316,20 @@ func fetchRoomKeys(ctx context.Context, sess auth.Session, roomID string) (serve
 	return rk, nil
 }
 
-// listTasks returns the tasks sent to this member, newest first. It runs
-// on the connection goroutine and reads only the database.
+// listTasks returns the tasks sent to this member, newest first, only
+// those of req.Repo's room when Repo is set. It runs on the connection
+// goroutine and reads only the database.
 func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
 	if d.sync == nil {
 		return Response{ID: req.ID, Error: "task_list: the daemon is not ready"}
+	}
+	room := ""
+	if req.Repo != "" {
+		b, _, _, ok := d.sync.binding(req.Repo)
+		if !ok {
+			return Response{ID: req.ID, Tasks: []Task{}}
+		}
+		room = b.RoomID
 	}
 	rows, err := d.sync.db.QueryContext(ctx, `SELECT room_id, signed, state, detail, received_unix_ms FROM tasks
 		WHERE state NOT IN (?, ?) OR (state = ? AND task_id IS NOT NULL) ORDER BY received_unix_ms DESC`, taskPending, taskOther, taskOther)
@@ -335,6 +344,9 @@ func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
 		var received int64
 		if err := rows.Scan(&t.Room, &signed, &t.State, &t.Detail, &received); err != nil {
 			return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
+		}
+		if room != "" && t.Room != room {
+			continue
 		}
 		t.Received = time.UnixMilli(received)
 		if t.State != taskRejected {
