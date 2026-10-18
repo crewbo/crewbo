@@ -73,8 +73,12 @@ type Daemon struct {
 	refused    int           // claims the server refused after the fact
 	verifyKick chan struct{} // received tasks to verify
 
-	agents     sync.WaitGroup // supervisors of running task agents
-	renewEvery time.Duration  // ClaimRenew interval for running agents
+	agents sync.WaitGroup // supervisors of running task agents
+	// The dashboard (M5-06), started on the first `crewbo dashboard`.
+	webMu      sync.Mutex
+	webURL     string
+	web        sync.WaitGroup
+	renewEvery time.Duration // ClaimRenew interval for running agents
 
 	runsMu sync.Mutex
 	runs   map[string]string // running task's worktree (pathKey) to its agent session
@@ -168,6 +172,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	cancel()
 	conns.Wait()
+	d.web.Wait()
 	<-ownerDone
 	<-syncDone
 	<-verifyDone
@@ -488,6 +493,8 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 			resp = d.startOwnTask(ctx, req)
 		case req.Method == MethodTaskCheckpoint:
 			resp = d.checkpointOwnTask(ctx, req)
+		case req.Method == MethodDashboard:
+			resp = d.dashboard(ctx, req)
 		case req.Method == MethodClaimRequest || req.Method == MethodClaimRequests || req.Method == MethodClaimHandoff || req.Method == MethodClaimOverride:
 			resp = d.handoff(ctx, req)
 		case d.shared(req):

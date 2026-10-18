@@ -9,6 +9,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -425,6 +426,16 @@ func (s *syncer) binding(repo string) (b auth.Binding, deviceKey, login string, 
 		}
 	}
 	return auth.Binding{}, "", "", false
+}
+
+// bindings returns this machine's repositories bound to rooms, if signed in.
+func (s *syncer) bindings() []auth.Binding {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.current.session.DeviceKeyID == "" {
+		return nil
+	}
+	return slices.Clone(s.current.bindings)
 }
 
 // roomBinding returns this machine's repository bound to a room on the
