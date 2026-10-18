@@ -1,7 +1,8 @@
 // Package install adds and removes Crewbo's user-level hook entries for
-// Claude Code (settings.json, exec form) and Codex (hooks.json). It changes
-// only entries that run the crewbo binary with `hook <agent>`, so the user's
-// own hooks and settings are kept.
+// Claude Code (settings.json, exec form), Codex (hooks.json) and
+// Antigravity (one named hook set, plus its MCP server). It changes only
+// entries that run the crewbo binary, so the user's own hooks and settings
+// are kept.
 //
 // Contracts: https://code.claude.com/docs/en/hooks and
 // https://learn.chatgpt.com/docs/hooks (verified 2026-10-11).
@@ -32,14 +33,20 @@ const (
 var ErrUnsafePath = errors.New("install: binary path contains a space or '&'")
 
 // ConfigPath returns the file each agent reads user hooks from:
-// $CLAUDE_CONFIG_DIR/settings.json (default ~/.claude) and
-// $CODEX_HOME/hooks.json (default ~/.codex).
+// $CLAUDE_CONFIG_DIR/settings.json (default ~/.claude),
+// $CODEX_HOME/hooks.json (default ~/.codex), and for Antigravity
+// ~/.gemini/config/hooks.json and mcp_config.json (the docs give only the
+// ~ form; on Windows the home is assumed, UNVERIFIED).
 func ConfigPath(agent string, env platform.Env) string {
 	get := env.Getenv
 	if get == nil {
 		get = func(string) string { return "" }
 	}
 	switch agent {
+	case Antigravity:
+		return filepath.Join(env.Home, ".gemini", "config", "hooks.json")
+	case AntigravityMCP:
+		return filepath.Join(env.Home, ".gemini", "config", "mcp_config.json")
 	case ClaudeCode:
 		dir := get("CLAUDE_CONFIG_DIR")
 		if dir == "" {
@@ -89,6 +96,9 @@ func Install(agent string, cfg []byte, bin string) (out []byte, changed bool, er
 		bin = strings.ReplaceAll(bin, `\`, "/")
 	}
 	bin = filepath.ToSlash(bin)
+	if agent == Antigravity || agent == AntigravityMCP {
+		return installAntigravity(agent, cfg, bin)
+	}
 	if agent == Codex && strings.ContainsAny(bin, " &") {
 		return nil, false, fmt.Errorf("%w: %s", ErrUnsafePath, bin)
 	}
@@ -118,6 +128,9 @@ func Install(agent string, cfg []byte, bin string) (out []byte, changed bool, er
 // nothing else is left in the config, so the caller can remove the file
 // (Codex hooks.json is usually created by the install).
 func Uninstall(agent string, cfg []byte) (out []byte, changed bool, err error) {
+	if agent == Antigravity || agent == AntigravityMCP {
+		return uninstallAntigravity(agent, cfg)
+	}
 	root, hooks, err := parse(cfg)
 	if err != nil {
 		return nil, false, err
@@ -136,6 +149,10 @@ func Uninstall(agent string, cfg []byte) (out []byte, changed bool, err error) {
 
 // installed reports whether cfg holds any Crewbo hook for agent.
 func installed(agent string, cfg []byte) bool {
+	if agent == Antigravity || agent == AntigravityMCP {
+		_, parent, err := antigravityParent(agent, cfg)
+		return err == nil && antigravityOurs(agent, parent.get(antigravityKey))
+	}
 	_, hooks, err := parse(cfg)
 	return err == nil && remove(agent, hooks) > 0
 }

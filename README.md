@@ -15,12 +15,14 @@ task build                           # builds ./bin/crewbo
 ./bin/crewbo claim list
 ```
 
-To make Claude Code and Codex respect claims, install Crewbo's hooks (your own hooks and settings are kept, with a backup):
+To make Claude Code, Codex and Antigravity respect claims, install Crewbo's hooks (your own hooks and settings are kept, with a backup):
 
 ```sh
 ./bin/crewbo hooks install          # then, in Codex, open /hooks and trust the crewbo hooks
 ./bin/crewbo hooks uninstall        # removes only Crewbo's entries
 ```
+
+For Antigravity (the `agy` CLI, the IDE and the app share `~/.gemini/config/hooks.json`), `install` adds one named hook set, `crewbo`, and Crewbo's MCP server in `~/.gemini/config/mcp_config.json`; `agy`'s `/hooks` lists it. Keep the crewbo binary in a folder without spaces: Antigravity runs hooks as shell commands.
 
 If you run other hooks that can deny a tool call (for example a plugin's edit gate), the agent may show their message instead of Crewbo's when both deny the same edit. The edit is still blocked.
 
@@ -30,6 +32,8 @@ Optionally, let agents look up claims before they plan work, through Crewbo's re
 claude mcp add --scope user --transport stdio crewbo /absolute/path/to/crewbo mcp
 codex mcp add crewbo -- /absolute/path/to/crewbo mcp
 ```
+
+For Antigravity, `crewbo hooks install` registers the MCP server for you.
 
 ## License
 

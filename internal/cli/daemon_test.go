@@ -27,6 +27,7 @@ func isolate(t *testing.T) platform.Paths {
 	case "windows":
 		t.Setenv("LOCALAPPDATA", root+`\local`)
 		t.Setenv("APPDATA", root+`\roaming`)
+		t.Setenv("USERPROFILE", root) // the home directory (~/.gemini for Antigravity)
 	case "darwin":
 		t.Setenv("HOME", root)
 		t.Setenv("TMPDIR", root)
