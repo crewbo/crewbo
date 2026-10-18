@@ -171,7 +171,7 @@ func denyReason(resp daemon.Response) string {
 			until = " until at least " + c.LeaseExpires.Local().Format("15:04")
 		}
 	}
-	return fmt.Sprintf("%s is claimed by %s%s (Crewbo). Work on other files, or ask them to release it.", resp.Path, holder, until)
+	return fmt.Sprintf("%s is claimed by %s%s (Crewbo). Work on other files, or ask them to hand it over: crewbo claim request %s", resp.Path, holder, until, resp.Path)
 }
 
 // RepoRoot walks up from dir to the nearest directory containing .git (a

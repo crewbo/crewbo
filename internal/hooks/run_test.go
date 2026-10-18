@@ -117,7 +117,7 @@ func payload(t *testing.T, e Event) string {
 func TestDenyClaimedFile(t *testing.T) {
 	e := setup(t, true)
 	r := run(t, e, PreEdit, payload(t, Event{Session: "bob", Cwd: e.repo, Paths: []string{filepath.Join(e.repo, "src", "auth.go")}}))
-	if !r.Deny || !strings.Contains(r.Reason, "src/auth.go is claimed by priya's agent for task 12") {
+	if !r.Deny || !strings.Contains(r.Reason, "src/auth.go is claimed by priya's agent for task 12") || !strings.HasSuffix(r.Reason, "crewbo claim request src/auth.go") {
 		t.Fatalf("result = %+v", r)
 	}
 	if strings.Contains(r.Reason, "handoff") {
