@@ -46,7 +46,7 @@ Commands:
   daemon    Run the Crewbo daemon in the foreground
   status    Show whether the daemon is running
   claim     Claim files in this repository so agents leave them alone
-  hooks     Install or remove Crewbo's hooks in Claude Code and Codex
+  hooks     Install or remove Crewbo's hooks in Claude Code, Codex and Antigravity
   mcp       Serve Crewbo's read-only MCP tools over stdio
   serve     Run the Crewbo sync server in the foreground
   login     Sign in with GitHub to a Crewbo sync server
@@ -55,7 +55,7 @@ Commands:
   task      Send a signed task (room lead); list, read, approve or decline yours
   dashboard Print the address of the daemon's read-only dashboard
   api       Speak the daemon's local API on stdin and stdout (for editor extensions)
-  hook      Handle an agent hook call (run by Claude Code and Codex)
+  hook      Handle an agent hook call (run by the agents)
   version   Print the version and commit
   help      Show this help
 `
