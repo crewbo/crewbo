@@ -2,11 +2,10 @@
 
 Crewbo is pre-release (v0.x). Issues and pull requests are welcome; read this first.
 
-## Licences and sign-off
+## Licences and the CLA
 
 - Code in `internal/server/` (the sync server) is licensed under the AGPL-3.0; everything else under the Apache-2.0 (see `NOTICE`). Your contribution is licensed under the licence of the files it changes.
-- Every commit must carry a `Signed-off-by:` line certifying the [Developer Certificate of Origin 1.1](https://developercertificate.org/). `git commit -s` adds it, using your configured name and email.
-- A pull request that changes `internal/server/` also needs a signed Contributor License Agreement, which lets the maintainer offer the server under another licence in future (ADR 0011). A bot asks for it on the pull request. Until the CLA is set up, server changes from outside contributors wait.
+- Before your first pull request can be merged, you sign the [Crewbo Contributor License Agreement](docs/legal/CLA.md) once: the CLA assistant bot comments on the pull request with a link, and signing takes one click with your GitHub account. The CLA lets the maintainer also offer Crewbo under other licences in future (ADR 0011); your contribution always stays available under its open source licence.
 
 ## Setup
 

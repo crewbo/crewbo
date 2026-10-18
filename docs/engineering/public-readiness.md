@@ -22,7 +22,7 @@ The GitHub OAuth app's client ID is in the code and docs. Device-flow client IDs
 | Item | Where | Verdict |
 | --- | --- | --- |
 | Interview results | ADR 0013, PRD, decision log, worklog | Totals only (10 teams, 41 members, vendor counts); no names. Fine |
-| `gavriel953` (a teammate's GitHub login) | Check reports, worklog, about 120 test lines as a sample member | Ronel asks him; if he declines, the login is replaced with a placeholder in current files before going public |
+| `gavriel953` (a teammate's GitHub login) | Check reports, worklog, about 120 test lines as a sample member | He agreed to be named (via Ronel, 2026-10-18) |
 | Ronel's laptop model and OS | Phase 0 findings | Fine |
 | University network | M4 check ("a university network"), no name | Fine |
 
@@ -34,10 +34,11 @@ The GitHub OAuth app's client ID is in the code and docs. Device-flow client IDs
 
 ## Before Ronel flips the repository to public
 
-- [ ] gavriel953 has said yes to being named, or his login is replaced in current files
-- [ ] `CODE_OF_CONDUCT.md`: replace `[INSERT CONTACT METHOD]` with a real contact
-- [ ] Repository settings: turn on private vulnerability reporting (`SECURITY.md` points to it)
-- [ ] Contributor licence: choose the CLA text, add a CLA bot for `internal/server/`, and a DCO check for every pull request (both are GitHub apps, org settings)
-- [ ] Commit email: `git config --global user.email <id>+RM1338@users.noreply.github.com` and GitHub's "Block command line pushes that expose my email"
-- [ ] Once public, branch protection works on GitHub Free: protect `main` (required review, required CI) as `docs/engineering/repo-settings.md` planned
+- [x] gavriel953 agreed to be named
+- [x] `CODE_OF_CONDUCT.md` contact: `conduct@crewbo.dev` (works once Ronel owns crewbo.dev and its mail is set up)
+- [x] CLA text: `docs/legal/CLA.md`, adapted from the Apache ICLA V2.2; one CLA for every contribution, no separate DCO (CLA assistant cannot limit the CLA to some folders)
+- [ ] Buy crewbo.dev and set up mail for `conduct@crewbo.dev`
+- [ ] CLA bot: put `docs/legal/CLA.md` in a GitHub gist, sign in at https://cla-assistant.io with GitHub, and link the gist to `crewbo/crewbo`
+- [ ] Commit email: `git config --global user.email "88648314+RM1338@users.noreply.github.com"`, and in GitHub, Settings, Emails, select "Keep my email addresses private"
 - [ ] Flip the visibility (Settings, General, Danger Zone)
+- [ ] After going public: Settings, Advanced Security, "Private vulnerability reporting", Enable (the docs describe it for public repositories); and protect `main` (required review, required CI) as `docs/engineering/repo-settings.md` planned
