@@ -274,8 +274,9 @@ func (d *Daemon) touch(req Request, event string, now time.Time) {
 		d.sessions[req.Session] = s
 		d.cfg.Log.Info("agent session registered", "session", req.Session, "agent", req.Agent)
 	}
-	if req.Agent != "" {
+	if req.Agent != "" && s.Agent != req.Agent {
 		s.Agent = req.Agent
+		d.recordAgent(req.Agent, now)
 	}
 	if req.Repo != "" {
 		s.Repo = req.Repo
@@ -343,6 +344,23 @@ func newClaimID() string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b) // crypto/rand.Read never returns an error (Go 1.24+)
 	return "c-" + hex.EncodeToString(b)
+}
+
+// recordAgent counts a new session of agent for `crewbo report`, off the
+// owner goroutine so hook decisions do not wait for the database.
+func (d *Daemon) recordAgent(agent string, now time.Time) {
+	if d.sync == nil {
+		return
+	}
+	d.agents.Add(1)
+	go func() {
+		defer d.agents.Done()
+		ms := now.UnixMilli()
+		if _, err := d.sync.db.Exec(`INSERT INTO agent_seen (agent, first_unix_ms, last_unix_ms, sessions) VALUES (?, ?, ?, 1)
+			ON CONFLICT (agent) DO UPDATE SET last_unix_ms = max(last_unix_ms, excluded.last_unix_ms), sessions = sessions + 1`, agent, ms, ms); err != nil {
+			d.cfg.Log.Warn("record agent", "agent", agent, "err", err)
+		}
+	}()
 }
 
 // agentsSeen returns when each agent last sent a hook event. It runs on
@@ -508,6 +526,8 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 			resp = d.cancelTask(ctx, req)
 		case req.Method == MethodTaskCheckpoint:
 			resp = d.checkpointOwnTask(ctx, req)
+		case req.Method == MethodReport:
+			resp = d.report(ctx, req)
 		case req.Method == MethodDashboard:
 			resp = d.dashboard(ctx, req)
 		case req.Method == MethodClaimRequest || req.Method == MethodClaimRequests || req.Method == MethodClaimHandoff || req.Method == MethodClaimOverride:

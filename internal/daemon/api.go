@@ -37,6 +37,7 @@ const (
 	MethodClaimOverride  = "claim_override"
 	MethodDashboard      = "dashboard"
 	MethodTaskCancel     = "task_cancel"
+	MethodReport         = "report"
 )
 
 // TerminalSession holds claims made with `crewbo claim add`. It is not an
@@ -133,6 +134,8 @@ type Response struct {
 	// claim_request (the request sent) and claim_requests (the room's
 	// escalation ladder, newest first).
 	Handoffs []Handoff `json:"handoffs,omitempty"`
+	// Report is what `crewbo report` prints (report).
+	Report *Report `json:"report,omitempty"`
 	// URL is the dashboard's address, with its token (dashboard).
 	URL string `json:"url,omitempty"`
 	// Note tells the member what happened beyond the result, for example

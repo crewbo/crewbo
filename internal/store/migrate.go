@@ -135,6 +135,14 @@ var Daemon = Schema{
 		PRIMARY KEY (room_id, seq)
 	) WITHOUT ROWID;
 	CREATE INDEX handoff_request ON handoff (room_id, request_id);`,
+	// 10: the agents this daemon has seen, for `crewbo report` (M6-03):
+	// counts and dates only, kept on this machine.
+	`CREATE TABLE agent_seen (
+		agent         TEXT    PRIMARY KEY,
+		first_unix_ms INTEGER NOT NULL,
+		last_unix_ms  INTEGER NOT NULL,
+		sessions      INTEGER NOT NULL DEFAULT 0
+	) WITHOUT ROWID;`,
 }
 
 // Server is the schema of the sync server's database (`crewbo serve`).
