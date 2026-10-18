@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Crewbo</title>
+<link rel="stylesheet" href="/tokens.css">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header>
+  <img src="/lockup-light.svg" alt="Crewbo" class="lockup">
+  <div id="pills" class="pills" aria-live="polite"></div>
+</header>
+<main>
+  <p id="message" class="message" hidden></p>
+  <section class="card">
+    <h2>Claims</h2>
+    <table>
+      <thead><tr><th>Path</th><th>Held by</th><th>Task</th><th>Until</th></tr></thead>
+      <tbody id="claims"></tbody>
+    </table>
+  </section>
+  <section class="card">
+    <h2>Tasks</h2>
+    <table>
+      <thead><tr><th>Task</th><th>State</th><th>With</th><th>Conflicts</th></tr></thead>
+      <tbody id="tasks"></tbody>
+    </table>
+  </section>
+  <section class="card">
+    <h2>Handoff requests</h2>
+    <table>
+      <thead><tr><th>Request</th><th>State</th><th>Reason</th></tr></thead>
+      <tbody id="handoffs"></tbody>
+    </table>
+  </section>
+  <p class="foot">Read only. Answer handoffs with <code>crewbo claim handoff</code> or the VS Code extension, and approve tasks with <code>crewbo task approve</code> in a terminal.</p>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

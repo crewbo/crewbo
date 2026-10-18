@@ -51,6 +51,7 @@ Commands:
   login     Sign in with GitHub to a Crewbo sync server
   room      Create, join or leave the room for this repository
   task      Send a signed task (room lead); list, read, approve or decline yours
+  dashboard Print the address of the daemon's read-only dashboard
   api       Speak the daemon's local API on stdin and stdout (for editor extensions)
   hook      Handle an agent hook call (run by Claude Code and Codex)
   version   Print the version and commit
@@ -91,6 +92,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runTask(ctx, args[1:], stdin, stdout, stderr)
 	case "api":
 		return runAPI(ctx, stdin, stdout, stderr)
+	case "dashboard":
+		return runDashboard(ctx, stdout, stderr)
 	default:
 		return write(stderr, ExitUsage, "crewbo: unknown command %q\n\n%s", args[0], usage)
 	}
@@ -127,6 +130,27 @@ func runDaemon(ctx context.Context, stderr io.Writer, info BuildInfo) int {
 		return write(stderr, ExitError, "crewbo: %v\n", err)
 	}
 	return ExitOK
+}
+
+// runDashboard prints the address of the dashboard the daemon serves on
+// localhost (M5-06), starting it if needed.
+func runDashboard(ctx context.Context, stdout, stderr io.Writer) int {
+	p, err := paths()
+	if err != nil {
+		return write(stderr, ExitError, "crewbo: %v\n", err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	c, err := daemon.Dial(ctx, p)
+	if err != nil {
+		return write(stderr, ExitError, "crewbo: the daemon is not running; start it with `crewbo daemon`\n")
+	}
+	defer func() { _ = c.Close() }()
+	resp, err := c.Call(ctx, daemon.Request{Method: daemon.MethodDashboard})
+	if err != nil {
+		return write(stderr, ExitError, "crewbo: %v\n", err)
+	}
+	return write(stdout, ExitOK, "Open this address in your browser (only on this computer; it works until the daemon stops):\n%s\n", resp.URL)
 }
 
 func runStatus(ctx context.Context, stdout, stderr io.Writer) int {
