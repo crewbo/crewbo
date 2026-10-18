@@ -10,6 +10,12 @@
     "type": "git",
     "url": "https://github.com/crewbo/crewbo"
   },
+  "icon": "media/icon.png",
+  "files": [
+    "out/src/**",
+    "media/icon.png",
+    "LICENSE"
+  ],
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -186,7 +192,9 @@
   },
   "scripts": {
     "build": "tsc -p .",
-    "test": "tsc -p . && node --test out/test/"
+    "test": "tsc -p . && node --test out/test/",
+    "prepackage": "node -e \"const fs=require('fs');fs.mkdirSync('media',{recursive:true});fs.copyFileSync('../docs/brand/assets/png/app-icon-128.png','media/icon.png');fs.copyFileSync('../LICENSE','LICENSE')\"",
+    "package": "tsc -p . && vsce package --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

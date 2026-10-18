@@ -120,7 +120,7 @@ Approving shows the whole task again and waits for you to type `yes`; then your 
 
 ### Seeing it all
 
-- **VS Code:** the Crewbo view in the Explorer lists claims, tasks and handoff requests; claimed files show the holder's initials. See [`extension/README.md`](../../extension/README.md).
+- **VS Code:** install `crewbo-<version>.vsix` (Extensions view, `...` menu, "Install from VSIX..."). The Crewbo view in the Explorer lists claims, tasks and handoff requests; claimed files show the holder's initials. See [`extension/README.md`](../../extension/README.md).
 - **Dashboard:** `crewbo dashboard` prints an address for a read-only page on this computer.
 - **CLI:** `crewbo claim list`, `crewbo task list`, `crewbo claim requests`, `crewbo status`.
 

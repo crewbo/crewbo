@@ -24,5 +24,8 @@ changelog:
   disable: true
 
 release:
+  # The VS Code extension, built by the release workflow before GoReleaser.
+  extra_files:
+    - glob: ./extension/*.vsix
   draft: true
   prerelease: auto
