@@ -50,6 +50,7 @@ Commands:
   serve     Run the Crewbo sync server in the foreground
   login     Sign in with GitHub to a Crewbo sync server
   room      Create, join or leave the room for this repository
+  device    List your device keys, or revoke a lost computer's key
   task      Send a signed task (room lead); list, read, approve or decline yours
   dashboard Print the address of the daemon's read-only dashboard
   api       Speak the daemon's local API on stdin and stdout (for editor extensions)
@@ -92,6 +93,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runTask(ctx, args[1:], stdin, stdout, stderr)
 	case "api":
 		return runAPI(ctx, stdin, stdout, stderr)
+	case "device":
+		return runDevice(ctx, args[1:], stdout, stderr)
 	case "dashboard":
 		return runDashboard(ctx, stdout, stderr)
 	default:

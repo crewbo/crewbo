@@ -86,8 +86,8 @@ Codex trust covers the hook entry, not the executable (Phase 0, U-02), and Claud
 
 ## Key compromise
 
-- Device key stolen: attacker can sign tasks as that device. If it is the lead's device, teammates still see the text and must approve. Response: `crewbo device revoke`, which writes a revocation event; daemons reject that key from then on. Runbook: `docs/runbooks/key-rotation.md` (to be written in M3).
-- Server session token stolen: attacker can act as that member on the server (claims, intents) but cannot sign tasks. Tokens are short-lived and bound to a device key.
+- Device key stolen: attacker can sign tasks as that device. If it is the lead's device, teammates still see the text and must approve. Response (M5-10): `crewbo device revoke`, run from another of the member's computers, marks the key revoked on the server, which then refuses it at connect and at dispatch; daemons see the revocation in the room's keys and reject tasks signed with it. Tasks already waiting for approval are not withdrawn. Runbook: `docs/runbooks/device-key-rotation.md`.
+- Server session token stolen: attacker can act as that member on the server (claims, intents) but cannot sign tasks. Tokens last 7 days and are not bound to a device key (as built); revoking a device key therefore ends all of the member's sessions and closes their live connections.
 
 ## Malicious teammate
 
