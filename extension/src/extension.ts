@@ -81,9 +81,15 @@ export function activate(ctx: vscode.ExtensionContext): Api {
   const poll = async () => {
     try {
       const st = await client.call({ method: "status" });
-      const tasks = await client.call({ method: "task_list" });
-      const next: State = { status: st.status ?? { version: "" }, tasks: tasks.tasks ?? [], repos: [] };
+      const next: State = { status: st.status ?? { version: "" }, tasks: [], repos: [] };
       for (const root of repos()) {
+        // Only the tasks of this window's rooms; two folders can share a room.
+        const ts = await client.call({ method: "task_list", repo: root });
+        for (const t of ts.tasks ?? []) {
+          if (!t.id || !next.tasks.some((x) => x.id === t.id)) {
+            next.tasks.push(t);
+          }
+        }
         const cl = await client.call({ method: "claim_list", repo: root });
         const ho = await client.call({ method: "claim_requests", repo: root });
         // A repository outside a room has no handoff steps; that is not an error.
@@ -385,9 +391,9 @@ class CrewTree implements vscode.TreeDataProvider<Node> {
       }
       case "task": {
         const t = n.task;
-        const it = new vscode.TreeItem(`${t.id}`, t.conflicts?.some((c) => c.paths.length) ? vscode.TreeItemCollapsibleState.Expanded : None);
+        const it = new vscode.TreeItem(visible((t.text ?? "").split("\n")[0] || `${t.id}`), t.conflicts?.some((c) => c.paths.length) ? vscode.TreeItemCollapsibleState.Expanded : None);
         it.description = t.sent ? `${t.state} · sent to ${t.assignee}` : `${t.state} · from ${t.author}`;
-        it.tooltip = visible(`${t.text ?? ""}${t.detail ? `\n\n${t.detail}` : ""}`);
+        it.tooltip = visible(`${t.text ?? ""}\n\nTask ${t.id}${t.detail ? `\n\n${t.detail}` : ""}`);
         it.contextValue = needsApproval(t) ? "task.approvable" : "task";
         it.command = { command: "crewbo.reviewTask", title: "Read task", arguments: [n] };
         if (!needsApproval(t)) {
