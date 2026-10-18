@@ -162,6 +162,9 @@ func (m *machine) agentMay(path string) (bool, claims.Claim) {
 func TestClaimOnOneMachineBlocksTheOther(t *testing.T) {
 	f := newCrossFixture(t)
 	a, b := f.a, f.b
+	if a.status().Login != "RM1338" || b.status().Login != "gavriel953" {
+		t.Errorf("status logins: %q, %q", a.status().Login, b.status().Login)
+	}
 
 	resp, err := a.claim("src/a.go")
 	if err != nil || !strings.Contains(resp.Note, "Shared with room crewbo") || resp.Claims[0].Holder.MemberID != "RM1338" {

@@ -54,3 +54,10 @@ tasks:
     desc: Run the sync server locally
     cmds:
       - go run ./cmd/crewbo serve {{.CLI_ARGS}}
+
+  ext:test:
+    desc: Build the VS Code extension and run its unit tests
+    dir: extension
+    cmds:
+      - npm ci --ignore-scripts
+      - npm test

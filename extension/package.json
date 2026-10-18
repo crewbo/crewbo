@@ -1,0 +1,25 @@
+{
+  "name": "crewbo",
+  "displayName": "Crewbo",
+  "description": "See who is working on which files, and hand claims over, when your team's coding agents share a repository.",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "crewbo",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crewbo/crewbo"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "tsc -p . && node --test out/test/"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/vscode": "1.95.0",
+    "typescript": "6.0.3"
+  }
+}

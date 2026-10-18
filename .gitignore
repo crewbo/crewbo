@@ -26,3 +26,6 @@ Thumbs.db
 
 # Node (extension, web)
 node_modules/
+
+# Extension build output
+/extension/out/

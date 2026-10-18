@@ -182,6 +182,9 @@ type Status struct {
 	// Refused counts claims the sync server turned down after they were
 	// granted locally (made offline, taken by someone else meanwhile).
 	Refused int `json:"refused,omitempty"`
+	// Login is the GitHub login this machine is signed in with, so an
+	// editor can tell which claims and handoff requests are the member's.
+	Login string `json:"login,omitempty"`
 }
 
 // Task is a task sent to this member. A rejected task has only its State,
