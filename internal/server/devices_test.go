@@ -2,16 +2,22 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
+
 	"github.com/crewbo/crewbo/internal/keys"
+	crewbov1 "github.com/crewbo/crewbo/internal/protocol/crewbo/v1"
 )
 
 func registerKey(t *testing.T, url, token string, req DeviceRequest) (int, string) {
@@ -108,5 +114,106 @@ func TestRegisterDeviceConcurrently(t *testing.T) {
 	var n int
 	if err := s.sessions.db.QueryRow(`SELECT count(*) FROM device_keys`).Scan(&n); err != nil || n != 1 {
 		t.Errorf("rows = %d %v", n, err)
+	}
+}
+
+// devicesCall sends method to url+path with token and returns the status
+// and, for a list, the devices.
+func devicesCall(t *testing.T, method, url, token string) (int, []Device) {
+	t.Helper()
+	r, _ := http.NewRequest(method, url, nil)
+	r.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var out []Device
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	return resp.StatusCode, out
+}
+
+// helloWith opens a connection presenting a session and a device key and
+// returns it with the server's first answer.
+func helloWith(t *testing.T, wsURL, token, key string) (*websocket.Conn, *crewbov1.Envelope) {
+	t.Helper()
+	c := dial(t, wsURL)
+	sendEnv(t, c, &crewbov1.Envelope{Id: "h1", Body: &crewbov1.Envelope_Hello{Hello: &crewbov1.Hello{ProtocolVersion: ProtocolVersion, SessionToken: token, DeviceKeyId: key}}})
+	env, err := recv(t, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c, env
+}
+
+func TestRevokeDevice(t *testing.T) {
+	s := newTestServer(t)
+	other := "cbs_other"
+	if _, err := s.sessions.db.Exec(`INSERT INTO sessions VALUES (?, 2, 'gavriel953', 0, ?)`, hashToken(other), time.Now().Add(time.Hour).UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/v1/ws"
+	newKey := func(token string) string {
+		_, priv, _ := ed25519.GenerateKey(rand.Reader)
+		code, id := registerKey(t, ts.URL, token, signedRequest(t, priv, token))
+		if code != http.StatusOK {
+			t.Fatalf("register: %d", code)
+		}
+		return id
+	}
+	kept, lost, theirs := newKey(testToken), newKey(testToken), newKey(other)
+
+	if code, ds := devicesCall(t, http.MethodGet, ts.URL+"/v1/devices", testToken); code != http.StatusOK || len(ds) != 2 || ds[0].KeyID != kept || ds[1].KeyID != lost || ds[0].RevokedUnixMs != 0 || ds[0].Name != "laptop" {
+		t.Fatalf("list: %d %+v", code, ds)
+	}
+	live, welcome := helloWith(t, wsURL, testToken, lost)
+	if welcome.GetWelcome() == nil {
+		t.Fatalf("hello with the key: %v", welcome)
+	}
+
+	for name, id := range map[string]string{"another member's key": theirs, "an unknown key": "ed25519:nope"} {
+		if code, _ := devicesCall(t, http.MethodPost, ts.URL+"/v1/devices/"+id+"/revoke", testToken); code != http.StatusNotFound {
+			t.Errorf("%s: %d", name, code)
+		}
+	}
+	if code, _ := devicesCall(t, http.MethodPost, ts.URL+"/v1/devices/"+lost+"/revoke", testToken); code != http.StatusNoContent {
+		t.Fatalf("revoke: %d", code)
+	}
+
+	// Every session of the member ended, and their live connection closed;
+	// other members are untouched.
+	if _, err := recv(t, live); err == nil || errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("the live connection stayed open: %v", err)
+	}
+	if code, _ := devicesCall(t, http.MethodGet, ts.URL+"/v1/devices", testToken); code != http.StatusUnauthorized {
+		t.Errorf("the old session still works: %d", code)
+	}
+	if code, ds := devicesCall(t, http.MethodGet, ts.URL+"/v1/devices", other); code != http.StatusOK || len(ds) != 1 || ds[0].RevokedUnixMs != 0 {
+		t.Errorf("another member's devices: %d %+v", code, ds)
+	}
+
+	// Signed in again: the key is listed as revoked and refused for good.
+	again := "cbs_again"
+	if _, err := s.sessions.db.Exec(`INSERT INTO sessions VALUES (?, 1, 'tester', 0, ?)`, hashToken(again), time.Now().Add(time.Hour).UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	_, ds := devicesCall(t, http.MethodGet, ts.URL+"/v1/devices", again)
+	if len(ds) != 2 || ds[0].RevokedUnixMs != 0 || ds[1].RevokedUnixMs == 0 {
+		t.Fatalf("after revoking: %+v", ds)
+	}
+	if _, env := helloWith(t, wsURL, again, lost); env.GetError().GetCode() != crewbov1.ErrorCode_ERROR_CODE_UNAUTHENTICATED {
+		t.Errorf("hello with the revoked key: %v", env)
+	}
+	if _, env := helloWith(t, wsURL, again, kept); env.GetWelcome() == nil {
+		t.Errorf("hello with the kept key: %v", env)
+	}
+	if code, _ := devicesCall(t, http.MethodPost, ts.URL+"/v1/devices/"+lost+"/revoke", again); code != http.StatusNoContent {
+		t.Errorf("revoking again: %d", code)
+	}
+	var at int64
+	if err := s.sessions.db.QueryRow(`SELECT revoked_unix_ms FROM device_keys WHERE key_id = ?`, lost).Scan(&at); err != nil || at != ds[1].RevokedUnixMs {
+		t.Errorf("revoking again moved the revocation time: %d, was %d (%v)", at, ds[1].RevokedUnixMs, err)
 	}
 }

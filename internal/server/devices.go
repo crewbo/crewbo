@@ -91,3 +91,104 @@ func (s *Server) devicePublicKey(ctx context.Context, keyID string, userID int64
 	err := s.sessions.db.QueryRowContext(ctx, `SELECT public_key FROM device_keys WHERE key_id = ? AND github_user_id = ? AND revoked_unix_ms IS NULL`, keyID, userID).Scan(&pub)
 	return pub, err
 }
+
+// Device is one of the caller's registered device keys (GET /v1/devices).
+type Device struct {
+	KeyID         string `json:"key_id"`
+	Name          string `json:"name"`
+	OS            string `json:"os"`
+	CreatedUnixMs int64  `json:"created_unix_ms"`
+	RevokedUnixMs int64  `json:"revoked_unix_ms,omitempty"`
+}
+
+// serveListDevices lists the caller's device keys, revoked ones included.
+func (s *Server) serveListDevices(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.authenticate(w, r)
+	if !ok {
+		return
+	}
+	rows, err := s.sessions.db.QueryContext(r.Context(), `SELECT key_id, name, os, created_unix_ms, coalesce(revoked_unix_ms, 0) FROM device_keys WHERE github_user_id = ? ORDER BY created_unix_ms`, u.ID)
+	if err != nil {
+		s.log.Error("devices: list", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	defer func() { _ = rows.Close() }()
+	out := []Device{}
+	for rows.Next() {
+		var d Device
+		if err := rows.Scan(&d.KeyID, &d.Name, &d.OS, &d.CreatedUnixMs, &d.RevokedUnixMs); err != nil {
+			s.log.Error("devices: list", "err", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		out = append(out, d)
+	}
+	if err := rows.Err(); err != nil {
+		s.log.Error("devices: list", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	reply(w, out)
+}
+
+// serveRevokeDevice revokes one of the caller's device keys for good
+// (data-model.md: revoked keys are never accepted again), then ends all
+// of the caller's sessions and closes their live connections: a session
+// is not bound to a key, so a lost device's session would otherwise keep
+// working until it expires. The caller signs in again on each device they
+// still have.
+func (s *Server) serveRevokeDevice(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.authenticate(w, r)
+	if !ok {
+		return
+	}
+	id := r.PathValue("id")
+	res, err := s.sessions.db.ExecContext(r.Context(), `UPDATE device_keys SET revoked_unix_ms = coalesce(revoked_unix_ms, ?) WHERE key_id = ? AND github_user_id = ?`,
+		s.sessions.now().UnixMilli(), id, u.ID)
+	if err != nil {
+		s.log.Error("devices: revoke", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		http.Error(w, "no device key "+id+" is registered to you", http.StatusNotFound)
+		return
+	}
+	if err := s.sessions.EndAll(r.Context(), u.ID); err != nil {
+		s.log.Error("devices: end sessions", "err", err)
+		http.Error(w, "the key is revoked, but ending your sessions failed; try again", http.StatusInternalServerError)
+		return
+	}
+	s.closeConns(u.ID)
+	s.log.Info("devices: revoked", "github_login", u.Login, "key_id", id)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// track registers a live connection of a member until the returned func
+// is called.
+func (s *Server) track(userID int64, cancel *context.CancelFunc) func() {
+	s.connsMu.Lock()
+	defer s.connsMu.Unlock()
+	if s.conns == nil {
+		s.conns = map[int64]map[*context.CancelFunc]struct{}{}
+	}
+	if s.conns[userID] == nil {
+		s.conns[userID] = map[*context.CancelFunc]struct{}{}
+	}
+	s.conns[userID][cancel] = struct{}{}
+	return func() {
+		s.connsMu.Lock()
+		defer s.connsMu.Unlock()
+		delete(s.conns[userID], cancel)
+	}
+}
+
+// closeConns closes every live connection of a member.
+func (s *Server) closeConns(userID int64) {
+	s.connsMu.Lock()
+	defer s.connsMu.Unlock()
+	for cancel := range s.conns[userID] {
+		(*cancel)()
+	}
+}

@@ -64,6 +64,11 @@ type Server struct {
 	PingEvery, PongWait time.Duration
 
 	wg sync.WaitGroup // connection handlers, including hijacked ones
+
+	// connsMu guards conns: each member's live connections, so revoking a
+	// device key can close them.
+	connsMu sync.Mutex
+	conns   map[int64]map[*context.CancelFunc]struct{}
 }
 
 // New returns a Server over a database opened with store.Server, with the
@@ -144,6 +149,8 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("POST /v1/auth/session", s.serveSession)
 	mux.HandleFunc("POST /v1/devices", s.serveDevice)
+	mux.HandleFunc("GET /v1/devices", s.serveListDevices)
+	mux.HandleFunc("POST /v1/devices/{id}/revoke", s.serveRevokeDevice)
 	mux.HandleFunc("POST /v1/rooms", s.serveCreateRoom)
 	mux.HandleFunc("GET /v1/rooms", s.serveListRooms)
 	mux.HandleFunc("POST /v1/rooms/join", s.serveJoin)
@@ -196,6 +203,7 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	caller := Caller{Member: u.Login}
+	defer s.track(u.ID, &cancel)()
 	if key := hello.GetDeviceKeyId(); key != "" {
 		ok, err := s.deviceOwned(ctx, key, u.ID)
 		if err != nil || !ok {

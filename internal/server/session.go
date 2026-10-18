@@ -75,6 +75,12 @@ func (s *Sessions) Lookup(ctx context.Context, token string) (auth.User, error) 
 	return u, nil
 }
 
+// EndAll ends every session of a member.
+func (s *Sessions) EndAll(ctx context.Context, userID int64) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE github_user_id = ?`, userID)
+	return err
+}
+
 // SessionRequest is the body of POST /v1/auth/session.
 type SessionRequest struct {
 	GitHubToken string `json:"github_token"`
