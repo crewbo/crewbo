@@ -39,9 +39,9 @@ Task runner is [Task](https://taskfile.dev) (`Taskfile.yml`). On Arch Linux the 
 | Generate Protobuf | `task generate` (`buf generate`) |
 | Run daemon | `task daemon` |
 | Run sync server locally | `task serve` |
-| Extension dev | Not set up yet (M5) |
+| Extension unit tests | `task ext:test` (`npm ci`, `tsc`, `node --test`; run with Node 26.8.2) |
 
-All commands except `task test:e2e` and extension dev work since M1-03. `task generate` runs `buf generate`, which runs protoc-gen-go through `go run` at the version pinned in `go.mod`. Toolchain: Go 1.27.2 (go.mod toolchain directive), buf, golangci-lint v2, gofumpt, goreleaser, Task.
+All commands except `task test:e2e` work since M1-03; the extension tasks since M5-05. `task generate` runs `buf generate`, which runs protoc-gen-go through `go run` at the version pinned in `go.mod`. Toolchain: Go 1.27.2 (go.mod toolchain directive), buf, golangci-lint v2, gofumpt, goreleaser, Task.
 
 ## Repo map
 
