@@ -40,6 +40,7 @@ Task runner is [Task](https://taskfile.dev) (`Taskfile.yml`). On Arch Linux the 
 | Run daemon | `task daemon` |
 | Run sync server locally | `task serve` |
 | Extension unit tests | `task ext:test` (`npm ci`, `tsc`, `node --test`; run with Node 26.8.2) |
+| Extension in VS Code | `task ext:run -- <folder>`; in-editor check: see `extension/README.md` |
 
 All commands except `task test:e2e` work since M1-03; the extension tasks since M5-05. `task generate` runs `buf generate`, which runs protoc-gen-go through `go run` at the version pinned in `go.mod`. Toolchain: Go 1.27.2 (go.mod toolchain directive), buf, golangci-lint v2, gofumpt, goreleaser, Task.
 

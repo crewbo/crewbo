@@ -13,6 +13,177 @@
   "engines": {
     "vscode": "^1.95.0"
   },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/src/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true,
+      "description": "Crewbo only reads claims and tasks from your local daemon. The crewbo.path setting is machine-scoped, so a workspace cannot change which binary runs."
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "configuration": {
+      "title": "Crewbo",
+      "properties": {
+        "crewbo.path": {
+          "type": "string",
+          "default": "crewbo",
+          "scope": "machine",
+          "description": "Path to the crewbo binary. Set it here in your user settings; a workspace cannot change it."
+        }
+      }
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "crewbo.crew",
+          "name": "Crewbo"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "crewbo.refresh",
+        "title": "Refresh",
+        "category": "Crewbo",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "crewbo.requestHandoff",
+        "title": "Ask for this file",
+        "category": "Crewbo"
+      },
+      {
+        "command": "crewbo.override",
+        "title": "Release this claim (room lead)",
+        "category": "Crewbo"
+      },
+      {
+        "command": "crewbo.handOff",
+        "title": "Hand off",
+        "category": "Crewbo"
+      },
+      {
+        "command": "crewbo.notYet",
+        "title": "Not yet",
+        "category": "Crewbo"
+      },
+      {
+        "command": "crewbo.reviewTask",
+        "title": "Review and approve",
+        "category": "Crewbo"
+      },
+      {
+        "command": "crewbo.declineTask",
+        "title": "Decline",
+        "category": "Crewbo"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "crewbo.handOff",
+          "when": "false"
+        },
+        {
+          "command": "crewbo.notYet",
+          "when": "false"
+        },
+        {
+          "command": "crewbo.reviewTask",
+          "when": "false"
+        },
+        {
+          "command": "crewbo.declineTask",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "crewbo.refresh",
+          "when": "view == crewbo.crew",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "crewbo.requestHandoff",
+          "when": "view == crewbo.crew && viewItem == claim.other",
+          "group": "1_ladder@1"
+        },
+        {
+          "command": "crewbo.override",
+          "when": "view == crewbo.crew && viewItem =~ /^claim\\./",
+          "group": "1_ladder@2"
+        },
+        {
+          "command": "crewbo.handOff",
+          "when": "view == crewbo.crew && viewItem == handoff.answerable",
+          "group": "inline@1"
+        },
+        {
+          "command": "crewbo.notYet",
+          "when": "view == crewbo.crew && viewItem == handoff.answerable",
+          "group": "inline@2"
+        },
+        {
+          "command": "crewbo.reviewTask",
+          "when": "view == crewbo.crew && viewItem == task.approvable",
+          "group": "inline@1"
+        },
+        {
+          "command": "crewbo.declineTask",
+          "when": "view == crewbo.crew && viewItem == task.approvable",
+          "group": "inline@2"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "crewbo.requestHandoff",
+          "when": "!explorerResourceIsFolder",
+          "group": "7_crewbo"
+        }
+      ]
+    },
+    "colors": [
+      {
+        "id": "crewbo.claimed",
+        "description": "Signal colour for a claimed file (docs/brand tokens: color.signal.claimed).",
+        "defaults": {
+          "dark": "#15803D",
+          "light": "#15803D",
+          "highContrast": "#15803D",
+          "highContrastLight": "#15803D"
+        }
+      },
+      {
+        "id": "crewbo.handoff",
+        "description": "Signal colour for a handoff request (docs/brand tokens: color.signal.handoff).",
+        "defaults": {
+          "dark": "#F59E0B",
+          "light": "#F59E0B",
+          "highContrast": "#F59E0B",
+          "highContrastLight": "#F59E0B"
+        }
+      },
+      {
+        "id": "crewbo.conflict",
+        "description": "Signal colour for a real conflict (docs/brand tokens: color.signal.conflict).",
+        "defaults": {
+          "dark": "#DC2626",
+          "light": "#DC2626",
+          "highContrast": "#DC2626",
+          "highContrastLight": "#DC2626"
+        }
+      }
+    ]
+  },
   "scripts": {
     "build": "tsc -p .",
     "test": "tsc -p . && node --test out/test/"
