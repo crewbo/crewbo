@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Antigravity support: `crewbo hooks install --agent antigravity` (also part of `--agent all` when `agy` is installed) adds a named `crewbo` hook set to `~/.gemini/config/hooks.json` and Crewbo's MCP server to `~/.gemini/config/mcp_config.json`. An Antigravity agent is then denied edits and shell writes to files a teammate has claimed, with the same message as Claude Code and Codex, and sees a note before its model calls when Crewbo has something to say. Tested with `agy` 1.4.2 on Linux.
 - `crewbo device list` shows the device keys registered to your account, and `crewbo device revoke KEY-ID` retires the key of a lost or replaced computer: teammates reject tasks signed with it, and you are signed out everywhere. See `docs/runbooks/device-key-rotation.md`.
 - `crewbo task cancel ID [--reason TEXT]` stops a running or checkpointed task, yours or one you sent as the lead: the agent stops, the task's claims are released, and the room sees it cancelled. Its worktree and branch are kept.
 - `crewbo dashboard` prints the address of a read-only dashboard the daemon serves on this computer: claims, tasks with their conflicts, and handoff requests, refreshed every 2 seconds. The address holds a token and works until the daemon stops.

@@ -72,7 +72,41 @@ func TestHooksInstallUninstall(t *testing.T) {
 			t.Errorf("%s left behind; Crewbo created hooks.json", p)
 		}
 	}
-	for _, args := range [][]string{{}, {"frob"}, {"install", "--agent", "cursor"}} {
+	// Antigravity: one named hook set and one MCP server under ~/.gemini,
+	// next to the member's own.
+	home, _ := os.UserHomeDir()
+	agHooks := filepath.Join(home, ".gemini", "config", "hooks.json")
+	agMCP := filepath.Join(home, ".gemini", "config", "mcp_config.json")
+	if err := os.MkdirAll(filepath.Dir(agHooks), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(agHooks, []byte(`{"lint": {"PostToolUse": [{"matcher": "write_to_file", "hooks": [{"command": "make lint"}]}]}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errOut = run("install", "--agent", "antigravity", "--binary", "/opt/crewbo/crewbo")
+	if code != ExitOK || !strings.Contains(out, "Antigravity: hooks installed in "+agHooks) || !strings.Contains(out, "Antigravity MCP: MCP server installed in "+agMCP) || strings.Contains(out, "type /hooks") {
+		t.Fatalf("antigravity install: %d %q %q", code, out, errOut)
+	}
+	if b, _ := os.ReadFile(agHooks); !strings.Contains(string(b), `"lint"`) || !strings.Contains(string(b), `"command": "/opt/crewbo/crewbo hook antigravity pre_edit"`) {
+		t.Errorf("hooks.json:\n%s", b)
+	}
+	if b, _ := os.ReadFile(agMCP); !strings.Contains(string(b), `"mcpServers"`) || !strings.Contains(string(b), `"args": [`) {
+		t.Errorf("mcp_config.json:\n%s", b)
+	}
+	if code, _, errOut = run("install", "--agent", "antigravity", "--binary", "/opt/my tools/crewbo"); code != ExitError || !strings.Contains(errOut, "space") {
+		t.Errorf("antigravity spaced path: %d %q", code, errOut)
+	}
+	if code, out, _ = run("uninstall", "--agent", "antigravity"); code != ExitOK || !strings.Contains(out, "Antigravity: hooks removed") {
+		t.Errorf("antigravity uninstall: %d %q", code, out)
+	}
+	if b, _ := os.ReadFile(agHooks); strings.Contains(string(b), "crewbo") || !strings.Contains(string(b), `"lint"`) {
+		t.Errorf("hooks.json after uninstall:\n%s", b)
+	}
+	if _, err := os.Stat(agMCP); err == nil {
+		t.Error("mcp_config.json left behind; Crewbo created it")
+	}
+
+	for _, args := range [][]string{{}, {"frob"}, {"install", "--agent", "cursor"}, {"install", "--agent", "antigravity-mcp"}} {
 		if code, _, _ := run(args...); code != ExitUsage {
 			t.Errorf("hooks %v: exit %d, want usage", args, code)
 		}

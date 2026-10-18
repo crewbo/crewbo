@@ -18,12 +18,14 @@ import (
 )
 
 const hooksUsage = `Usage:
-  crewbo hooks install   [--agent all|claude-code|codex] [--dry-run] [--binary PATH]
-  crewbo hooks uninstall [--agent all|claude-code|codex] [--dry-run]
+  crewbo hooks install   [--agent all|claude-code|codex|antigravity] [--dry-run] [--binary PATH]
+  crewbo hooks uninstall [--agent all|claude-code|codex|antigravity] [--dry-run]
 
 Adds or removes Crewbo's hooks in your user-level Claude Code settings
-(~/.claude/settings.json) and Codex hooks (~/.codex/hooks.json). Your own
-hooks and settings are kept, and a backup is written next to each file.
+(~/.claude/settings.json), Codex hooks (~/.codex/hooks.json) and
+Antigravity hooks (~/.gemini/config/hooks.json, plus Crewbo's MCP server
+in ~/.gemini/config/mcp_config.json). Your own hooks and settings are
+kept, and a backup is written next to each file.
 `
 
 // minClaudeVersion is the first Claude Code release with exec-form hooks
@@ -36,17 +38,19 @@ func runHooksCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	}
 	fs := flag.NewFlagSet("hooks "+args[0], flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	agent := fs.String("agent", "all", "all, claude-code or codex")
+	agent := fs.String("agent", "all", "all, claude-code, codex or antigravity")
 	dry := fs.Bool("dry-run", false, "print the resulting config instead of writing it")
 	binFlag := fs.String("binary", "", "path to the crewbo binary the hooks should run")
 	if err := fs.Parse(args[1:]); err != nil {
 		return ExitUsage
 	}
-	agents := []string{install.ClaudeCode, install.Codex}
+	agents := []string{install.ClaudeCode, install.Codex, install.Antigravity, install.AntigravityMCP}
 	switch *agent {
 	case "all":
 	case install.ClaudeCode, install.Codex:
 		agents = []string{*agent}
+	case install.Antigravity:
+		agents = []string{install.Antigravity, install.AntigravityMCP}
 	default:
 		return write(stderr, ExitUsage, "crewbo: unknown agent %q\n\n%s", *agent, hooksUsage)
 	}
@@ -64,7 +68,7 @@ func runHooksCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	for _, a := range agents {
 		path := install.ConfigPath(a, env)
 		if args[0] == "install" && *agent == "all" && !agentPresent(a, path) {
-			_ = write(stdout, ExitOK, "%s: not found, skipped (use --agent %s to install anyway)\n", agentName(a), a)
+			_ = write(stdout, ExitOK, "%s: not found, skipped (use --agent %s to install anyway)\n", agentName(a), strings.TrimSuffix(a, "-mcp"))
 			continue
 		}
 		if a == install.ClaudeCode && args[0] == "install" {
@@ -100,7 +104,11 @@ func runHooksCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		}
 		verb := map[bool]string{true: args[0] + "ed", false: "already " + args[0] + "ed, unchanged"}[changed]
 		verb = strings.Replace(verb, "uninstalled", "removed", 1)
-		_ = write(stdout, ExitOK, "%s: hooks %s in %s\n", agentName(a), verb, path)
+		what := "hooks"
+		if a == install.AntigravityMCP {
+			what = "MCP server"
+		}
+		_ = write(stdout, ExitOK, "%s: %s %s in %s\n", agentName(a), what, verb, path)
 		if _, err := os.Stat(path + ".crewbo.bak"); changed && err == nil {
 			_ = write(stdout, ExitOK, "  backup of your config before Crewbo: %s.crewbo.bak\n", path)
 		}
@@ -112,10 +120,10 @@ func runHooksCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 }
 
 func agentName(a string) string {
-	if a == install.ClaudeCode {
-		return "Claude Code"
-	}
-	return "Codex"
+	return map[string]string{
+		install.ClaudeCode: "Claude Code", install.Codex: "Codex",
+		install.Antigravity: "Antigravity", install.AntigravityMCP: "Antigravity MCP",
+	}[a]
 }
 
 // selfPath is the running binary, refusing temporary `go run` builds whose
@@ -137,7 +145,7 @@ func selfPath() (string, error) {
 // agentPresent reports whether the agent seems installed: its CLI on PATH
 // or its config directory present.
 func agentPresent(agent, configPath string) bool {
-	name := map[string]string{install.ClaudeCode: "claude", install.Codex: "codex"}[agent]
+	name := map[string]string{install.ClaudeCode: "claude", install.Codex: "codex", install.Antigravity: "agy", install.AntigravityMCP: "agy"}[agent]
 	if _, err := exec.LookPath(name); err == nil {
 		return true
 	}
