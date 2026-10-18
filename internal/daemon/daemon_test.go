@@ -206,3 +206,33 @@ func TestConnectionsDoNotLeakGoroutines(t *testing.T) {
 		t.Errorf("goroutines grew by %d after 200 connections", grown)
 	}
 }
+
+// Status lists when each agent last sent a hook event (crewbo doctor).
+func TestStatusListsAgentsSeen(t *testing.T) {
+	p := testPaths(t)
+	start(t, Config{Paths: p, Log: quietLog()})
+	c, err := dial(t, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	resp, err := c.Call(ctx, Request{Method: MethodStatus})
+	if err != nil || len(resp.Status.Agents) != 0 {
+		t.Fatalf("before any event: %+v %v", resp.Status, err)
+	}
+	for _, ev := range []Request{
+		{Method: MethodEvent, Session: "s1", Agent: "codex", Event: "prompt"},
+		{Method: MethodEvent, Session: "s2", Agent: "antigravity", Event: "session_start"},
+		{Method: MethodEvent, Session: "s3", Event: "prompt"}, // no agent named
+	} {
+		if _, err := c.Call(ctx, ev); err != nil {
+			t.Fatal(err)
+		}
+	}
+	resp, _ = c.Call(ctx, Request{Method: MethodStatus})
+	if a := resp.Status.Agents; len(a) != 2 || a["codex"].IsZero() || a["antigravity"].IsZero() {
+		t.Errorf("agents = %v", a)
+	}
+}

@@ -189,6 +189,10 @@ type Status struct {
 	// Login is the GitHub login this machine is signed in with, so an
 	// editor can tell which claims and handoff requests are the member's.
 	Login string `json:"login,omitempty"`
+	// Agents is when each agent ("claude-code", "codex", "antigravity")
+	// last sent a hook event since the daemon started, so `crewbo doctor`
+	// can tell hooks that are installed but never fire.
+	Agents map[string]time.Time `json:"agents,omitempty"`
 }
 
 // Task is a task sent to this member. A rejected task has only its State,

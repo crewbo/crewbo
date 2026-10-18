@@ -82,12 +82,21 @@ func (g *Git) Fetch(ctx context.Context, repo, remote, ref string) error {
 // identity refuses when git has no user.name or user.email for dir.
 func (g *Git) identity(ctx context.Context, dir string) error {
 	for _, key := range []string{"user.name", "user.email"} {
-		out, err := g.run(ctx, dir, "config", "--get", key)
-		if err != nil || strings.TrimSpace(string(out)) == "" {
+		if g.Config(ctx, dir, key) == "" {
 			return fmt.Errorf("%w (set them with git config --global user.name and user.email)", ErrNoIdentity)
 		}
 	}
 	return nil
+}
+
+// Config returns git's value for key in dir (`git config --get`), or ""
+// when it is unset or git fails.
+func (g *Git) Config(ctx context.Context, dir, key string) string {
+	out, err := g.run(ctx, dir, "config", "--get", key)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // ErrNoRef means the remote has no such ref.
