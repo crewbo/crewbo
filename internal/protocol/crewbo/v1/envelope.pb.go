@@ -123,6 +123,7 @@ type Envelope struct {
 	//	*Envelope_TaskStatus
 	//	*Envelope_ConflictWarning
 	//	*Envelope_Event
+	//	*Envelope_Presence
 	Body          isEnvelope_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -298,6 +299,15 @@ func (x *Envelope) GetEvent() *Event {
 	return nil
 }
 
+func (x *Envelope) GetPresence() *Presence {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_Presence); ok {
+			return x.Presence
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Body interface {
 	isEnvelope_Body()
 }
@@ -358,6 +368,10 @@ type Envelope_Event struct {
 	Event *Event `protobuf:"bytes,60,opt,name=event,proto3,oneof"`
 }
 
+type Envelope_Presence struct {
+	Presence *Presence `protobuf:"bytes,61,opt,name=presence,proto3,oneof"`
+}
+
 func (*Envelope_Hello) isEnvelope_Body() {}
 
 func (*Envelope_Welcome) isEnvelope_Body() {}
@@ -386,6 +400,65 @@ func (*Envelope_ConflictWarning) isEnvelope_Body() {}
 
 func (*Envelope_Event) isEnvelope_Body() {}
 
+func (*Envelope_Presence) isEnvelope_Body() {}
+
+// Presence lists the members of a room connected to the server now
+// (M7-01). The server sends it after Welcome and whenever a member of the
+// room connects or disconnects; it is not part of the room's event log, so
+// it is never replayed. Daemons that do not know it ignore it.
+type Presence struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	RoomId string                 `protobuf:"bytes,1,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
+	// GitHub logins, sorted.
+	OnlineMemberIds []string `protobuf:"bytes,2,rep,name=online_member_ids,json=onlineMemberIds,proto3" json:"online_member_ids,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *Presence) Reset() {
+	*x = Presence{}
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Presence) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Presence) ProtoMessage() {}
+
+func (x *Presence) ProtoReflect() protoreflect.Message {
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Presence.ProtoReflect.Descriptor instead.
+func (*Presence) Descriptor() ([]byte, []int) {
+	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Presence) GetRoomId() string {
+	if x != nil {
+		return x.RoomId
+	}
+	return ""
+}
+
+func (x *Presence) GetOnlineMemberIds() []string {
+	if x != nil {
+		return x.OnlineMemberIds
+	}
+	return nil
+}
+
 // Hello is the first frame a daemon sends after connecting.
 type Hello struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -402,7 +475,7 @@ type Hello struct {
 
 func (x *Hello) Reset() {
 	*x = Hello{}
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[1]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -414,7 +487,7 @@ func (x *Hello) String() string {
 func (*Hello) ProtoMessage() {}
 
 func (x *Hello) ProtoReflect() protoreflect.Message {
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[1]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -427,7 +500,7 @@ func (x *Hello) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Hello.ProtoReflect.Descriptor instead.
 func (*Hello) Descriptor() ([]byte, []int) {
-	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{1}
+	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Hello) GetProtocolVersion() int32 {
@@ -469,7 +542,7 @@ type RoomCursor struct {
 
 func (x *RoomCursor) Reset() {
 	*x = RoomCursor{}
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[2]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -481,7 +554,7 @@ func (x *RoomCursor) String() string {
 func (*RoomCursor) ProtoMessage() {}
 
 func (x *RoomCursor) ProtoReflect() protoreflect.Message {
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[2]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -494,7 +567,7 @@ func (x *RoomCursor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoomCursor.ProtoReflect.Descriptor instead.
 func (*RoomCursor) Descriptor() ([]byte, []int) {
-	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{2}
+	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RoomCursor) GetRoomId() string {
@@ -527,7 +600,7 @@ type Welcome struct {
 
 func (x *Welcome) Reset() {
 	*x = Welcome{}
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[3]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -539,7 +612,7 @@ func (x *Welcome) String() string {
 func (*Welcome) ProtoMessage() {}
 
 func (x *Welcome) ProtoReflect() protoreflect.Message {
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[3]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -552,7 +625,7 @@ func (x *Welcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Welcome.ProtoReflect.Descriptor instead.
 func (*Welcome) Descriptor() ([]byte, []int) {
-	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{3}
+	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Welcome) GetProtocolVersion() int32 {
@@ -588,7 +661,7 @@ type RoomSnapshot struct {
 
 func (x *RoomSnapshot) Reset() {
 	*x = RoomSnapshot{}
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[4]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -600,7 +673,7 @@ func (x *RoomSnapshot) String() string {
 func (*RoomSnapshot) ProtoMessage() {}
 
 func (x *RoomSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[4]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -613,7 +686,7 @@ func (x *RoomSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoomSnapshot.ProtoReflect.Descriptor instead.
 func (*RoomSnapshot) Descriptor() ([]byte, []int) {
-	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{4}
+	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RoomSnapshot) GetRoomId() string {
@@ -649,7 +722,7 @@ type Ack struct {
 
 func (x *Ack) Reset() {
 	*x = Ack{}
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[5]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -661,7 +734,7 @@ func (x *Ack) String() string {
 func (*Ack) ProtoMessage() {}
 
 func (x *Ack) ProtoReflect() protoreflect.Message {
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[5]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -674,7 +747,7 @@ func (x *Ack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ack.ProtoReflect.Descriptor instead.
 func (*Ack) Descriptor() ([]byte, []int) {
-	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{5}
+	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Ack) GetRequestId() string {
@@ -706,7 +779,7 @@ type Error struct {
 
 func (x *Error) Reset() {
 	*x = Error{}
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[6]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -718,7 +791,7 @@ func (x *Error) String() string {
 func (*Error) ProtoMessage() {}
 
 func (x *Error) ProtoReflect() protoreflect.Message {
-	mi := &file_crewbo_v1_envelope_proto_msgTypes[6]
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -731,7 +804,7 @@ func (x *Error) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Error.ProtoReflect.Descriptor instead.
 func (*Error) Descriptor() ([]byte, []int) {
-	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{6}
+	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Error) GetRequestId() string {
@@ -766,7 +839,7 @@ var File_crewbo_v1_envelope_proto protoreflect.FileDescriptor
 
 const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"\n" +
-	"\x18crewbo/v1/envelope.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\x1a\x15crewbo/v1/event.proto\x1a\x14crewbo/v1/task.proto\"\xba\x06\n" +
+	"\x18crewbo/v1/envelope.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\x1a\x15crewbo/v1/event.proto\x1a\x14crewbo/v1/task.proto\"\xed\x06\n" +
 	"\bEnvelope\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
 	"\x05hello\x18\n" +
@@ -785,8 +858,12 @@ const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"\vtask_status\x18) \x01(\v2\x15.crewbo.v1.TaskStatusH\x00R\n" +
 	"taskStatus\x12G\n" +
 	"\x10conflict_warning\x183 \x01(\v2\x1a.crewbo.v1.ConflictWarningH\x00R\x0fconflictWarning\x12(\n" +
-	"\x05event\x18< \x01(\v2\x10.crewbo.v1.EventH\x00R\x05eventB\x06\n" +
-	"\x04body\"\xa8\x01\n" +
+	"\x05event\x18< \x01(\v2\x10.crewbo.v1.EventH\x00R\x05event\x121\n" +
+	"\bpresence\x18= \x01(\v2\x13.crewbo.v1.PresenceH\x00R\bpresenceB\x06\n" +
+	"\x04body\"O\n" +
+	"\bPresence\x12\x17\n" +
+	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12*\n" +
+	"\x11online_member_ids\x18\x02 \x03(\tR\x0fonlineMemberIds\"\xa8\x01\n" +
 	"\x05Hello\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\x05R\x0fprotocolVersion\x12#\n" +
 	"\rsession_token\x18\x02 \x01(\tR\fsessionToken\x12\"\n" +
@@ -838,53 +915,55 @@ func file_crewbo_v1_envelope_proto_rawDescGZIP() []byte {
 }
 
 var file_crewbo_v1_envelope_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_crewbo_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_crewbo_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_crewbo_v1_envelope_proto_goTypes = []any{
 	(ErrorCode)(0),          // 0: crewbo.v1.ErrorCode
 	(*Envelope)(nil),        // 1: crewbo.v1.Envelope
-	(*Hello)(nil),           // 2: crewbo.v1.Hello
-	(*RoomCursor)(nil),      // 3: crewbo.v1.RoomCursor
-	(*Welcome)(nil),         // 4: crewbo.v1.Welcome
-	(*RoomSnapshot)(nil),    // 5: crewbo.v1.RoomSnapshot
-	(*Ack)(nil),             // 6: crewbo.v1.Ack
-	(*Error)(nil),           // 7: crewbo.v1.Error
-	(*ClaimRequest)(nil),    // 8: crewbo.v1.ClaimRequest
-	(*ClaimRelease)(nil),    // 9: crewbo.v1.ClaimRelease
-	(*ClaimRenew)(nil),      // 10: crewbo.v1.ClaimRenew
-	(*HandoffRequest)(nil),  // 11: crewbo.v1.HandoffRequest
-	(*HandoffAnswer)(nil),   // 12: crewbo.v1.HandoffAnswer
-	(*LeadOverride)(nil),    // 13: crewbo.v1.LeadOverride
-	(*DispatchTask)(nil),    // 14: crewbo.v1.DispatchTask
-	(*TaskStatus)(nil),      // 15: crewbo.v1.TaskStatus
-	(*ConflictWarning)(nil), // 16: crewbo.v1.ConflictWarning
-	(*Event)(nil),           // 17: crewbo.v1.Event
-	(*Claim)(nil),           // 18: crewbo.v1.Claim
+	(*Presence)(nil),        // 2: crewbo.v1.Presence
+	(*Hello)(nil),           // 3: crewbo.v1.Hello
+	(*RoomCursor)(nil),      // 4: crewbo.v1.RoomCursor
+	(*Welcome)(nil),         // 5: crewbo.v1.Welcome
+	(*RoomSnapshot)(nil),    // 6: crewbo.v1.RoomSnapshot
+	(*Ack)(nil),             // 7: crewbo.v1.Ack
+	(*Error)(nil),           // 8: crewbo.v1.Error
+	(*ClaimRequest)(nil),    // 9: crewbo.v1.ClaimRequest
+	(*ClaimRelease)(nil),    // 10: crewbo.v1.ClaimRelease
+	(*ClaimRenew)(nil),      // 11: crewbo.v1.ClaimRenew
+	(*HandoffRequest)(nil),  // 12: crewbo.v1.HandoffRequest
+	(*HandoffAnswer)(nil),   // 13: crewbo.v1.HandoffAnswer
+	(*LeadOverride)(nil),    // 14: crewbo.v1.LeadOverride
+	(*DispatchTask)(nil),    // 15: crewbo.v1.DispatchTask
+	(*TaskStatus)(nil),      // 16: crewbo.v1.TaskStatus
+	(*ConflictWarning)(nil), // 17: crewbo.v1.ConflictWarning
+	(*Event)(nil),           // 18: crewbo.v1.Event
+	(*Claim)(nil),           // 19: crewbo.v1.Claim
 }
 var file_crewbo_v1_envelope_proto_depIdxs = []int32{
-	2,  // 0: crewbo.v1.Envelope.hello:type_name -> crewbo.v1.Hello
-	4,  // 1: crewbo.v1.Envelope.welcome:type_name -> crewbo.v1.Welcome
-	6,  // 2: crewbo.v1.Envelope.ack:type_name -> crewbo.v1.Ack
-	7,  // 3: crewbo.v1.Envelope.error:type_name -> crewbo.v1.Error
-	8,  // 4: crewbo.v1.Envelope.claim_request:type_name -> crewbo.v1.ClaimRequest
-	9,  // 5: crewbo.v1.Envelope.claim_release:type_name -> crewbo.v1.ClaimRelease
-	10, // 6: crewbo.v1.Envelope.claim_renew:type_name -> crewbo.v1.ClaimRenew
-	11, // 7: crewbo.v1.Envelope.handoff_request:type_name -> crewbo.v1.HandoffRequest
-	12, // 8: crewbo.v1.Envelope.handoff_answer:type_name -> crewbo.v1.HandoffAnswer
-	13, // 9: crewbo.v1.Envelope.lead_override:type_name -> crewbo.v1.LeadOverride
-	14, // 10: crewbo.v1.Envelope.dispatch_task:type_name -> crewbo.v1.DispatchTask
-	15, // 11: crewbo.v1.Envelope.task_status:type_name -> crewbo.v1.TaskStatus
-	16, // 12: crewbo.v1.Envelope.conflict_warning:type_name -> crewbo.v1.ConflictWarning
-	17, // 13: crewbo.v1.Envelope.event:type_name -> crewbo.v1.Event
-	3,  // 14: crewbo.v1.Hello.rooms:type_name -> crewbo.v1.RoomCursor
-	5,  // 15: crewbo.v1.Welcome.snapshots:type_name -> crewbo.v1.RoomSnapshot
-	18, // 16: crewbo.v1.RoomSnapshot.claims:type_name -> crewbo.v1.Claim
-	0,  // 17: crewbo.v1.Error.code:type_name -> crewbo.v1.ErrorCode
-	18, // 18: crewbo.v1.Error.blocking_claims:type_name -> crewbo.v1.Claim
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	3,  // 0: crewbo.v1.Envelope.hello:type_name -> crewbo.v1.Hello
+	5,  // 1: crewbo.v1.Envelope.welcome:type_name -> crewbo.v1.Welcome
+	7,  // 2: crewbo.v1.Envelope.ack:type_name -> crewbo.v1.Ack
+	8,  // 3: crewbo.v1.Envelope.error:type_name -> crewbo.v1.Error
+	9,  // 4: crewbo.v1.Envelope.claim_request:type_name -> crewbo.v1.ClaimRequest
+	10, // 5: crewbo.v1.Envelope.claim_release:type_name -> crewbo.v1.ClaimRelease
+	11, // 6: crewbo.v1.Envelope.claim_renew:type_name -> crewbo.v1.ClaimRenew
+	12, // 7: crewbo.v1.Envelope.handoff_request:type_name -> crewbo.v1.HandoffRequest
+	13, // 8: crewbo.v1.Envelope.handoff_answer:type_name -> crewbo.v1.HandoffAnswer
+	14, // 9: crewbo.v1.Envelope.lead_override:type_name -> crewbo.v1.LeadOverride
+	15, // 10: crewbo.v1.Envelope.dispatch_task:type_name -> crewbo.v1.DispatchTask
+	16, // 11: crewbo.v1.Envelope.task_status:type_name -> crewbo.v1.TaskStatus
+	17, // 12: crewbo.v1.Envelope.conflict_warning:type_name -> crewbo.v1.ConflictWarning
+	18, // 13: crewbo.v1.Envelope.event:type_name -> crewbo.v1.Event
+	2,  // 14: crewbo.v1.Envelope.presence:type_name -> crewbo.v1.Presence
+	4,  // 15: crewbo.v1.Hello.rooms:type_name -> crewbo.v1.RoomCursor
+	6,  // 16: crewbo.v1.Welcome.snapshots:type_name -> crewbo.v1.RoomSnapshot
+	19, // 17: crewbo.v1.RoomSnapshot.claims:type_name -> crewbo.v1.Claim
+	0,  // 18: crewbo.v1.Error.code:type_name -> crewbo.v1.ErrorCode
+	19, // 19: crewbo.v1.Error.blocking_claims:type_name -> crewbo.v1.Claim
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_crewbo_v1_envelope_proto_init() }
@@ -910,6 +989,7 @@ func file_crewbo_v1_envelope_proto_init() {
 		(*Envelope_TaskStatus)(nil),
 		(*Envelope_ConflictWarning)(nil),
 		(*Envelope_Event)(nil),
+		(*Envelope_Presence)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -917,7 +997,7 @@ func file_crewbo_v1_envelope_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_crewbo_v1_envelope_proto_rawDesc), len(file_crewbo_v1_envelope_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
