@@ -266,6 +266,14 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 			s.log.Debug("ws: closed", "err", err)
 			return
 		}
+		if a := env.GetActivity(); a != nil {
+			// Relayed with no answer; malformed or from outside the room: dropped.
+			if joined[a.GetRoomId()] && len(a.GetSessionId()) <= maxSession && len(a.GetAgent()) <= maxAgent && len(a.GetPath()) <= maxPath {
+				a.MemberId = caller.Member
+				_ = s.room(a.GetRoomId()).Relay(ctx, a)
+			}
+			continue
+		}
 		var roomID string
 		switch b := env.GetBody().(type) {
 		case *crewbov1.Envelope_ClaimRequest:

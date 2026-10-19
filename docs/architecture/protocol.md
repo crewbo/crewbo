@@ -37,6 +37,7 @@ message Envelope {
     ClaimViolation claim_violation = 52;
     Event event = 60;          // server to daemon: one committed log entry
     Presence presence = 61;    // server to daemon, not logged: who is connected (M7-01)
+    Activity activity = 62;    // relayed to the room, not answered or logged: what an agent is doing
   }
 }
 
@@ -79,7 +80,7 @@ Verifiers check the signature over the received `body` bytes, then decode them. 
 - Requests are idempotent by `Envelope.id`: the server keeps recent ids per device for 10 min and replays the same `Ack` or `Error`.
 - Every state change reaches daemons as an `Event`; a daemon applies events strictly in `seq` order and never applies its own request optimistically for claims (it waits for the `Event`). The hook path reads the daemon's last applied state, so enforcement may lag the server by one propagation (target under 2 s).
 - No ordering guarantee across rooms.
-- `Presence` is the exception to "every state change is an Event": the server sends a room's connected members after `Welcome` and whenever a member connects or disconnects, outside the log, so it is never replayed and a reconnect simply gets the current one.
+- `Presence` is the exception to "every state change is an Event": the server sends a room's connected members after `Welcome` and whenever a member connects or disconnects, outside the log, so it is never replayed and a reconnect simply gets the current one. `Activity` is the same kind of message from a daemon: the server sets the member, relays it to the room's connections and does not answer it.
 
 ## Reconnect and resync
 
