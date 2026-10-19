@@ -94,6 +94,15 @@ export function activate(ctx: vscode.ExtensionContext): Api {
       provideFileDecoration: (uri) => decoration(uri, state),
     }),
   );
+  // The Crewbo IDE opens the crew panel once, on first run (ADR 0016). VS Code
+  // keeps the view where the member puts it. env.appName is product.json's
+  // nameLong; Code OSS registers `<view id>.focus` for every view.
+  if (vscode.env.appName === "Crewbo IDE" && !ctx.globalState.get<boolean>("crewPanelOpened")) {
+    vscode.commands.executeCommand("crewbo.crewPanel.focus").then(
+      () => ctx.globalState.update("crewPanelOpened", true),
+      () => undefined,
+    );
+  }
 
   const repos = () => {
     const roots = (vscode.workspace.workspaceFolders ?? []).map((f) => repoRoot(f.uri.fsPath));

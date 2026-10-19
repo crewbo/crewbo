@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - A lead can ask their own agent to split the work: the new MCP tools `crewbo_crew` (who is in the room and what they are doing) and `crewbo_draft_task` let the agent draft one task per teammate. Drafts are never sent by the agent: the lead reviews, edits and sends or drops each one under **Drafted tasks** in the Crewbo view.
+- The Crewbo IDE (preview) opens the crew panel on first run.
 - The room lead can send a task from VS Code: **Send a task** at the top of the Crewbo view asks who, which files and what to do, then signs and sends it like `crewbo task create`.
 - In VS Code, a claim in the Crewbo view shows the holder's Bo in their teammate colour, and a file a teammate holds shows who has it and with which agent (`riya · Codex`) at the end of its first line.
 - The VS Code extension has a crew panel (the Crewbo icon in the activity bar): one row per member with Bo in their teammate colour, writing, idle, asleep when offline, or with a face for a conflict or a pending handoff, plus what they are doing and which agent they run.
