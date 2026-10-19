@@ -125,3 +125,9 @@ Format: `BDR-NNN · title · date · status`.
 **Decision:** Claim rows in the Crewbo view show the holder's 16 px badge Bo (`badgeSVG` in `bo.js`, generated at build time, no ring because tree rows never stack badges). A file another member holds gets the claim tag of §3.2 at the end of its first line, `riya · Codex` (or only the name for a terminal claim), as an `after` decoration in the teammate `tint` (`base` on light themes) with a 1 px `base` border, radius 999 and 13 px text.
 **Rejected:** Placing the tag on a function's line: claims are per file until symbol claims (v2). Loading Instrument Sans into the editor: VS Code decorations cannot load fonts, so the tag uses the editor's font.
 **Why:** §3.1 and §3.2, within what VS Code's tree and decoration APIs can draw (BDR-018 covers the explorer). M7-04.
+
+## BDR-021 · The mark in the Crewbo IDE · 2026-10-20 · Accepted
+
+**Decision:** The Crewbo IDE shows the mark wherever Code OSS showed its logo: the title bar and the Welcome tab use `mark-black.svg` on light themes and `mark-white.svg` on dark and high-contrast dark themes, unchanged. The empty-editor watermark (Code OSS's "letterpress", up to 256 px) is the same two files drawn faint with CSS opacity: 10% on light themes, 30% on dark and high-contrast themes, chosen from screenshots of the IDE so the mark recedes behind the shortcut list (Code OSS's grey watermark was fainter on light themes). The files stay black and white; only the watermark is drawn faint.
+**Rejected:** A full-strength 256 px mark in every empty editor (too loud for a background element); no watermark at all; a grey or tinted copy of the mark (§02 allows only the black and white versions, so no new file is drawn).
+**Why:** The IDE must not show VSCodium's or Microsoft's logo (ADR 0016), and a watermark only works if it recedes. Ronel, M8-03.
