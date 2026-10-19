@@ -77,6 +77,7 @@ test("taskText and needsApproval", () => {
     { id: "t-1", room: "r", text: "fix login", state: "dispatched", author: "ronel" },
     { id: "t-2", room: "r", state: "dispatched", sent: true, assignee: "riya" },
     { id: "t-3", room: "r", state: "running" },
+    { id: "t-4", room: "r", state: "dispatched", author: "dev", teammate: true },
   ];
   assert.equal(taskText(claim("a", "riya", "k/s", "t-1"), tasks), "fix login");
   assert.equal(taskText(claim("a", "riya", "k/s", "t-9"), tasks), undefined);

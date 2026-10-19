@@ -268,7 +268,7 @@ func resolveTask(tasks []daemon.Task, prefix string) (daemon.Task, error) {
 	}
 	switch len(found) {
 	case 0:
-		return daemon.Task{}, fmt.Errorf("no task %s (crewbo task list shows yours)", prefix)
+		return daemon.Task{}, fmt.Errorf("no task %s (crewbo task list shows the room's tasks)", prefix)
 	case 1:
 		return found[0], nil
 	}
@@ -287,11 +287,14 @@ func listLine(t daemon.Task, now time.Time) string {
 	if more {
 		first += " ..."
 	}
-	who := "from " + t.Author
-	if t.Sent {
-		who = "to " + t.Assignee
+	who := "from " + t.Author + ", " + until(t.Expires, now)
+	switch {
+	case t.Sent:
+		who = "to " + t.Assignee + ", " + until(t.Expires, now)
+	case t.Teammate:
+		who = "by " + t.Author // known from the room's statuses, no expiry
 	}
-	line := fmt.Sprintf("%s  %-10s  %s, %s  %s", t.ID, t.State, who, until(t.Expires, now), visible(first))
+	line := fmt.Sprintf("%s  %-10s  %s  %s", t.ID, t.State, who, visible(first))
 	if n := len(t.Conflicts); n > 0 {
 		line += fmt.Sprintf("  [conflicts with %d task(s); crewbo task show %s]", n, t.ID[:min(13, len(t.ID))])
 	}
@@ -309,6 +312,17 @@ func until(expires, now time.Time) string {
 // printTask prints a task in full: its text verbatim, with control
 // characters made visible so a terminal cannot hide or rewrite any of it.
 func printTask(w io.Writer, t daemon.Task, now time.Time) {
+	if t.Teammate {
+		_, _ = fmt.Fprintf(w, "Task:     %s\nBy:       %s (teammate)\nState:    %s\n", t.ID, t.Author, t.State)
+		if t.Detail != "" {
+			_, _ = fmt.Fprintf(w, "Reason:   %s\n", visible(t.Detail))
+		}
+		for _, c := range t.Conflicts {
+			_, _ = fmt.Fprintf(w, "Conflict: with task %s on %s\n", c.Task, visible(strings.Join(c.Paths, ", ")))
+		}
+		_, _ = fmt.Fprintf(w, "\n----- task text -----\n%s\n----- end of task text -----\n", visible(t.Text))
+		return
+	}
 	owned := "none"
 	if len(t.OwnedPaths) > 0 {
 		owned = strings.Join(t.OwnedPaths, ", ")

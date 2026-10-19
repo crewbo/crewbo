@@ -121,6 +121,11 @@ func TestMemberCancelsTheirOwnTask(t *testing.T) {
 	}
 	id := resp.TaskID
 	eventually(t, "the lead to see the claim", func() bool { ok, _ := f.a.agentMay("src/parse/x.go"); return !ok })
+	// The lead lists the teammate's task with its text and state.
+	eventually(t, "the lead to list the task", func() bool { return f.a.taskState(id).State == "running" })
+	if got := f.a.taskState(id); !got.Teammate || got.Author != "gavriel953" || got.Text != "Try a new parser." {
+		t.Errorf("the lead's view: %+v", got)
+	}
 	if _, err := f.a.call(Request{Method: MethodTaskCancel, Task: id}); err == nil || !strings.Contains(err.Error(), "no task") {
 		t.Errorf("the lead cancels a teammate's own task: %v", err)
 	}
@@ -134,4 +139,5 @@ func TestMemberCancelsTheirOwnTask(t *testing.T) {
 	if !cancelled(f, id, "gavriel953", "") {
 		t.Error("the room has no CANCELLED")
 	}
+	eventually(t, "the lead to see it cancelled", func() bool { return f.a.taskState(id).State == "cancelled" })
 }

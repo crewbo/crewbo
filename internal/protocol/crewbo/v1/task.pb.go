@@ -356,8 +356,12 @@ type TaskStatus struct {
 	Detail string `protobuf:"bytes,4,opt,name=detail,proto3" json:"detail,omitempty"`
 	// With CHECKPOINTED: the ref pushed to the team's remote (for example
 	// refs/crewbo/<member>/<task id>) and the commit it points at.
-	Ref           string `protobuf:"bytes,5,opt,name=ref,proto3" json:"ref,omitempty"`
-	Commit        string `protobuf:"bytes,6,opt,name=commit,proto3" json:"commit,omitempty"`
+	Ref    string `protobuf:"bytes,5,opt,name=ref,proto3" json:"ref,omitempty"`
+	Commit string `protobuf:"bytes,6,opt,name=commit,proto3" json:"commit,omitempty"`
+	// With the first RUNNING of a task a member started for themselves
+	// (`crewbo task start`): the task's text, at most 4 KiB, so teammates can
+	// see what it is. Dispatched tasks carry their text in the signed task.
+	Text          string `protobuf:"bytes,7,opt,name=text,proto3" json:"text,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -430,6 +434,13 @@ func (x *TaskStatus) GetRef() string {
 func (x *TaskStatus) GetCommit() string {
 	if x != nil {
 		return x.Commit
+	}
+	return ""
+}
+
+func (x *TaskStatus) GetText() string {
+	if x != nil {
+		return x.Text
 	}
 	return ""
 }
@@ -642,7 +653,7 @@ const file_crewbo_v1_task_proto_rawDesc = "" +
 	"\x06key_id\x18\x03 \x01(\tR\x05keyId\"R\n" +
 	"\fDispatchTask\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12)\n" +
-	"\x04task\x18\x02 \x01(\v2\x15.crewbo.v1.SignedTaskR\x04task\"\xac\x01\n" +
+	"\x04task\x18\x02 \x01(\v2\x15.crewbo.v1.SignedTaskR\x04task\"\xc0\x01\n" +
 	"\n" +
 	"TaskStatus\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x17\n" +
@@ -650,7 +661,8 @@ const file_crewbo_v1_task_proto_rawDesc = "" +
 	"\x05state\x18\x03 \x01(\x0e2\x14.crewbo.v1.TaskStateR\x05state\x12\x16\n" +
 	"\x06detail\x18\x04 \x01(\tR\x06detail\x12\x10\n" +
 	"\x03ref\x18\x05 \x01(\tR\x03ref\x12\x16\n" +
-	"\x06commit\x18\x06 \x01(\tR\x06commit\"\xb8\x01\n" +
+	"\x06commit\x18\x06 \x01(\tR\x06commit\x12\x12\n" +
+	"\x04text\x18\a \x01(\tR\x04text\"\xb8\x01\n" +
 	"\x0fConflictWarning\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x16\n" +

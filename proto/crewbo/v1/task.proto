@@ -73,6 +73,10 @@ message TaskStatus {
   // refs/crewbo/<member>/<task id>) and the commit it points at.
   string ref = 5;
   string commit = 6;
+  // With the first RUNNING of a task a member started for themselves
+  // (`crewbo task start`): the task's text, at most 4 KiB, so teammates can
+  // see what it is. Dispatched tasks carry their text in the signed task.
+  string text = 7;
 }
 
 // ConflictWarning reports how two tasks' checkpoints merge (M5-02): the

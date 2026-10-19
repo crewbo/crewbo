@@ -367,6 +367,11 @@ func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
 		return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
 	}
 	_ = rows.Close() // the store has one connection: close before the next query
+	theirs, err := d.teammateTasks(ctx, room, resp.Tasks)
+	if err != nil {
+		return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
+	}
+	resp.Tasks = append(resp.Tasks, theirs...)
 	for i, t := range resp.Tasks {
 		if t.ID == "" {
 			continue
@@ -410,6 +415,56 @@ func (d *Daemon) liveConflicts(ctx context.Context, room, state, taskID string) 
 		if len(sts) == 0 || !done(sts[len(sts)-1].State) {
 			out = append(out, c)
 		}
+	}
+	return out, nil
+}
+
+// teammateTasks returns the tasks this member knows only from the room's
+// statuses, newest first: teammates' own tasks (with the text their first
+// status carries) and tasks the lead sent to someone else. A task belongs
+// to the member who sent its first status, and only their statuses count.
+// room "" means every room; known are the tasks already listed.
+func (d *Daemon) teammateTasks(ctx context.Context, room string, known []Task) ([]Task, error) {
+	rows, err := d.sync.db.QueryContext(ctx, `SELECT room_id, task_id, actor, state, detail, text FROM task_status
+		WHERE ? = '' OR room_id = ? ORDER BY room_id, seq`, room, room)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	skip := map[string]bool{}
+	for _, t := range known {
+		skip[t.ID] = true
+	}
+	byID := map[string]*Task{}
+	var order []string
+	for rows.Next() {
+		var roomID, id, actor, state, detail, text string
+		if err := rows.Scan(&roomID, &id, &actor, &state, &detail, &text); err != nil {
+			return nil, err
+		}
+		if skip[id] {
+			continue
+		}
+		t, ok := byID[id]
+		if !ok {
+			t = &Task{ID: id, Room: roomID, Author: actor, Teammate: true}
+			byID[id] = t
+			order = append(order, id)
+		}
+		if actor != t.Author {
+			continue
+		}
+		t.State, t.Detail = state, detail
+		if t.Text == "" {
+			t.Text = text
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]Task, 0, len(order))
+	for i := len(order) - 1; i >= 0; i-- {
+		out = append(out, *byID[order[i]])
 	}
 	return out, nil
 }
@@ -521,6 +576,11 @@ func (d *Daemon) answerTask(ctx context.Context, req Request) Response {
 // limit).
 const maxReason = 512
 
+// maxStatusText caps the task text a status carries. Envelopes travel as
+// JSON under the server's 64 KiB limit, and escaping can make text up to
+// six times longer, so the room gets the start of a long task's text.
+const maxStatusText = 4 << 10
+
 // sendStatus queues a TaskStatus for the room and waits up to wait for the
 // server's answer.
 func (d *Daemon) sendStatus(ctx context.Context, room, taskID string, state crewbov1.TaskState, detail string, wait time.Duration) (*crewbov1.Envelope, error) {
@@ -545,8 +605,8 @@ func (d *Daemon) recordStatus(ctx context.Context, b auth.Binding, ev *crewbov1.
 	if state == "" {
 		return nil // a state this build does not know
 	}
-	if _, err := d.sync.db.ExecContext(ctx, `INSERT INTO task_status (room_id, seq, task_id, actor, state, detail, ref, commit_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		b.RoomID, ev.GetSeq(), st.GetTaskId(), ev.GetActorMemberId(), state, truncate(st.GetDetail(), maxReason), st.GetRef(), st.GetCommit()); err != nil {
+	if _, err := d.sync.db.ExecContext(ctx, `INSERT INTO task_status (room_id, seq, task_id, actor, state, detail, ref, commit_id, text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		b.RoomID, ev.GetSeq(), st.GetTaskId(), ev.GetActorMemberId(), state, truncate(st.GetDetail(), maxReason), st.GetRef(), st.GetCommit(), truncate(st.GetText(), maxStatusText)); err != nil {
 		return err
 	}
 	// The lead who sent one of this member's tasks may merge or cancel it:

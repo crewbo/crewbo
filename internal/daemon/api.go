@@ -215,6 +215,9 @@ type Task struct {
 	// reported.
 	Sent     bool   `json:"sent,omitempty"`
 	Assignee string `json:"assignee,omitempty"`
+	// Teammate marks another member's task, known only from the room's
+	// statuses; Author is that member.
+	Teammate bool `json:"teammate,omitempty"`
 	// Conflicts lists the other tasks this task's latest checkpoint
 	// conflicts with, from the room's conflict warnings (M5-02).
 	Conflicts []Conflict `json:"conflicts,omitempty"`

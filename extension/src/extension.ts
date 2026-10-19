@@ -392,7 +392,7 @@ class CrewTree implements vscode.TreeDataProvider<Node> {
       case "task": {
         const t = n.task;
         const it = new vscode.TreeItem(visible((t.text ?? "").split("\n")[0] || `${t.id}`), t.conflicts?.some((c) => c.paths.length) ? vscode.TreeItemCollapsibleState.Expanded : None);
-        it.description = t.sent ? `${t.state} · sent to ${t.assignee}` : `${t.state} · from ${t.author}`;
+        it.description = t.sent ? `${t.state} · sent to ${t.assignee}` : `${t.state} · ${t.teammate ? "by" : "from"} ${t.author}`;
         it.tooltip = visible(`${t.text ?? ""}\n\nTask ${t.id}${t.detail ? `\n\n${t.detail}` : ""}`);
         it.contextValue = needsApproval(t) ? "task.approvable" : "task";
         it.command = { command: "crewbo.reviewTask", title: "Read task", arguments: [n] };

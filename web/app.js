@@ -86,7 +86,7 @@ function render(s) {
         const conflicts = (t.conflicts || []).filter((c) => c.paths.length).map((c) => c.task + ": " + c.paths.join(", "));
         const task = el("td");
         task.append(el("div", t.id, "mono"), el("div", t.text || "", "muted"));
-        return row([task, t.state, t.sent ? "sent to " + t.assignee : "from " + t.author, conflicts.join("; ") || "none"]);
+        return row([task, t.state, t.sent ? "sent to " + t.assignee : (t.teammate ? "by " : "from ") + t.author, conflicts.join("; ") || "none"]);
       }),
     "No tasks.",
   );

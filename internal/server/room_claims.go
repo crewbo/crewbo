@@ -24,6 +24,7 @@ const (
 	maxRef       = 255
 	maxCommit    = 64 // SHA-256 object ids in hex
 	maxPath      = 4096
+	maxText      = 4 << 10 // the start of a task's text on a status (daemon maxStatusText)
 )
 
 // reportable reports whether a member may send state in a TaskStatus:
@@ -177,6 +178,8 @@ func (r *Room) handle(ctx context.Context, caller Caller, env *crewbov1.Envelope
 			return invalid("the detail is at most %d bytes", maxDetail)
 		case len(st.GetRef()) > maxRef || len(st.GetCommit()) > maxCommit:
 			return invalid("a ref is at most %d bytes and a commit %d", maxRef, maxCommit)
+		case len(st.GetText()) > maxText:
+			return invalid("the text is at most %d bytes", maxText)
 		}
 		ev = &crewbov1.Event{Body: &crewbov1.Event_TaskStatusChanged{TaskStatusChanged: &crewbov1.TaskStatusChanged{Status: st}}}
 
