@@ -124,6 +124,7 @@ type Envelope struct {
 	//	*Envelope_ConflictWarning
 	//	*Envelope_Event
 	//	*Envelope_Presence
+	//	*Envelope_Activity
 	Body          isEnvelope_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -308,6 +309,15 @@ func (x *Envelope) GetPresence() *Presence {
 	return nil
 }
 
+func (x *Envelope) GetActivity() *Activity {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_Activity); ok {
+			return x.Activity
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Body interface {
 	isEnvelope_Body()
 }
@@ -372,6 +382,10 @@ type Envelope_Presence struct {
 	Presence *Presence `protobuf:"bytes,61,opt,name=presence,proto3,oneof"`
 }
 
+type Envelope_Activity struct {
+	Activity *Activity `protobuf:"bytes,62,opt,name=activity,proto3,oneof"`
+}
+
 func (*Envelope_Hello) isEnvelope_Body() {}
 
 func (*Envelope_Welcome) isEnvelope_Body() {}
@@ -401,6 +415,8 @@ func (*Envelope_ConflictWarning) isEnvelope_Body() {}
 func (*Envelope_Event) isEnvelope_Body() {}
 
 func (*Envelope_Presence) isEnvelope_Body() {}
+
+func (*Envelope_Activity) isEnvelope_Body() {}
 
 // Presence lists the members of a room connected to the server now
 // (M7-01). The server sends it after Welcome and whenever a member of the
@@ -835,11 +851,105 @@ func (x *Error) GetBlockingClaims() []*Claim {
 	return nil
 }
 
+// Activity is what one of a member's agents is doing now (M7-01): its
+// daemon sends it when the agent starts, works on a file or finishes a
+// reply, and the server relays it to the room's connections with the
+// member set, unanswered and unlogged, so it is never replayed. Only the
+// agent's name and a repository-relative path leave the machine.
+type Activity struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	RoomId string                 `protobuf:"bytes,1,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
+	// The agent session, qualified by the device key as in claims.
+	SessionId string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// claude-code, codex or antigravity.
+	Agent string `protobuf:"bytes,3,opt,name=agent,proto3" json:"agent,omitempty"`
+	// The file the agent is editing; empty when it is not editing one.
+	Path string `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
+	// True once the agent has finished its reply and waits for the member.
+	Idle bool `protobuf:"varint,5,opt,name=idle,proto3" json:"idle,omitempty"`
+	// Set by the server: the member whose agent it is.
+	MemberId      string `protobuf:"bytes,6,opt,name=member_id,json=memberId,proto3" json:"member_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Activity) Reset() {
+	*x = Activity{}
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Activity) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Activity) ProtoMessage() {}
+
+func (x *Activity) ProtoReflect() protoreflect.Message {
+	mi := &file_crewbo_v1_envelope_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Activity.ProtoReflect.Descriptor instead.
+func (*Activity) Descriptor() ([]byte, []int) {
+	return file_crewbo_v1_envelope_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Activity) GetRoomId() string {
+	if x != nil {
+		return x.RoomId
+	}
+	return ""
+}
+
+func (x *Activity) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *Activity) GetAgent() string {
+	if x != nil {
+		return x.Agent
+	}
+	return ""
+}
+
+func (x *Activity) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *Activity) GetIdle() bool {
+	if x != nil {
+		return x.Idle
+	}
+	return false
+}
+
+func (x *Activity) GetMemberId() string {
+	if x != nil {
+		return x.MemberId
+	}
+	return ""
+}
+
 var File_crewbo_v1_envelope_proto protoreflect.FileDescriptor
 
 const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"\n" +
-	"\x18crewbo/v1/envelope.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\x1a\x15crewbo/v1/event.proto\x1a\x14crewbo/v1/task.proto\"\xed\x06\n" +
+	"\x18crewbo/v1/envelope.proto\x12\tcrewbo.v1\x1a\x16crewbo/v1/claims.proto\x1a\x15crewbo/v1/event.proto\x1a\x14crewbo/v1/task.proto\"\xa0\a\n" +
 	"\bEnvelope\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
 	"\x05hello\x18\n" +
@@ -859,7 +969,8 @@ const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"taskStatus\x12G\n" +
 	"\x10conflict_warning\x183 \x01(\v2\x1a.crewbo.v1.ConflictWarningH\x00R\x0fconflictWarning\x12(\n" +
 	"\x05event\x18< \x01(\v2\x10.crewbo.v1.EventH\x00R\x05event\x121\n" +
-	"\bpresence\x18= \x01(\v2\x13.crewbo.v1.PresenceH\x00R\bpresenceB\x06\n" +
+	"\bpresence\x18= \x01(\v2\x13.crewbo.v1.PresenceH\x00R\bpresence\x121\n" +
+	"\bactivity\x18> \x01(\v2\x13.crewbo.v1.ActivityH\x00R\bactivityB\x06\n" +
 	"\x04body\"O\n" +
 	"\bPresence\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12*\n" +
@@ -890,7 +1001,15 @@ const file_crewbo_v1_envelope_proto_rawDesc = "" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12(\n" +
 	"\x04code\x18\x02 \x01(\x0e2\x14.crewbo.v1.ErrorCodeR\x04code\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x129\n" +
-	"\x0fblocking_claims\x18\x04 \x03(\v2\x10.crewbo.v1.ClaimR\x0eblockingClaims*\x83\x02\n" +
+	"\x0fblocking_claims\x18\x04 \x03(\v2\x10.crewbo.v1.ClaimR\x0eblockingClaims\"\x9d\x01\n" +
+	"\bActivity\x12\x17\n" +
+	"\aroom_id\x18\x01 \x01(\tR\x06roomId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x14\n" +
+	"\x05agent\x18\x03 \x01(\tR\x05agent\x12\x12\n" +
+	"\x04path\x18\x04 \x01(\tR\x04path\x12\x12\n" +
+	"\x04idle\x18\x05 \x01(\bR\x04idle\x12\x1b\n" +
+	"\tmember_id\x18\x06 \x01(\tR\bmemberId*\x83\x02\n" +
 	"\tErrorCode\x12\x1a\n" +
 	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16ERROR_CODE_UNSUPPORTED\x10\x01\x12\x17\n" +
@@ -915,7 +1034,7 @@ func file_crewbo_v1_envelope_proto_rawDescGZIP() []byte {
 }
 
 var file_crewbo_v1_envelope_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_crewbo_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_crewbo_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_crewbo_v1_envelope_proto_goTypes = []any{
 	(ErrorCode)(0),          // 0: crewbo.v1.ErrorCode
 	(*Envelope)(nil),        // 1: crewbo.v1.Envelope
@@ -926,44 +1045,46 @@ var file_crewbo_v1_envelope_proto_goTypes = []any{
 	(*RoomSnapshot)(nil),    // 6: crewbo.v1.RoomSnapshot
 	(*Ack)(nil),             // 7: crewbo.v1.Ack
 	(*Error)(nil),           // 8: crewbo.v1.Error
-	(*ClaimRequest)(nil),    // 9: crewbo.v1.ClaimRequest
-	(*ClaimRelease)(nil),    // 10: crewbo.v1.ClaimRelease
-	(*ClaimRenew)(nil),      // 11: crewbo.v1.ClaimRenew
-	(*HandoffRequest)(nil),  // 12: crewbo.v1.HandoffRequest
-	(*HandoffAnswer)(nil),   // 13: crewbo.v1.HandoffAnswer
-	(*LeadOverride)(nil),    // 14: crewbo.v1.LeadOverride
-	(*DispatchTask)(nil),    // 15: crewbo.v1.DispatchTask
-	(*TaskStatus)(nil),      // 16: crewbo.v1.TaskStatus
-	(*ConflictWarning)(nil), // 17: crewbo.v1.ConflictWarning
-	(*Event)(nil),           // 18: crewbo.v1.Event
-	(*Claim)(nil),           // 19: crewbo.v1.Claim
+	(*Activity)(nil),        // 9: crewbo.v1.Activity
+	(*ClaimRequest)(nil),    // 10: crewbo.v1.ClaimRequest
+	(*ClaimRelease)(nil),    // 11: crewbo.v1.ClaimRelease
+	(*ClaimRenew)(nil),      // 12: crewbo.v1.ClaimRenew
+	(*HandoffRequest)(nil),  // 13: crewbo.v1.HandoffRequest
+	(*HandoffAnswer)(nil),   // 14: crewbo.v1.HandoffAnswer
+	(*LeadOverride)(nil),    // 15: crewbo.v1.LeadOverride
+	(*DispatchTask)(nil),    // 16: crewbo.v1.DispatchTask
+	(*TaskStatus)(nil),      // 17: crewbo.v1.TaskStatus
+	(*ConflictWarning)(nil), // 18: crewbo.v1.ConflictWarning
+	(*Event)(nil),           // 19: crewbo.v1.Event
+	(*Claim)(nil),           // 20: crewbo.v1.Claim
 }
 var file_crewbo_v1_envelope_proto_depIdxs = []int32{
 	3,  // 0: crewbo.v1.Envelope.hello:type_name -> crewbo.v1.Hello
 	5,  // 1: crewbo.v1.Envelope.welcome:type_name -> crewbo.v1.Welcome
 	7,  // 2: crewbo.v1.Envelope.ack:type_name -> crewbo.v1.Ack
 	8,  // 3: crewbo.v1.Envelope.error:type_name -> crewbo.v1.Error
-	9,  // 4: crewbo.v1.Envelope.claim_request:type_name -> crewbo.v1.ClaimRequest
-	10, // 5: crewbo.v1.Envelope.claim_release:type_name -> crewbo.v1.ClaimRelease
-	11, // 6: crewbo.v1.Envelope.claim_renew:type_name -> crewbo.v1.ClaimRenew
-	12, // 7: crewbo.v1.Envelope.handoff_request:type_name -> crewbo.v1.HandoffRequest
-	13, // 8: crewbo.v1.Envelope.handoff_answer:type_name -> crewbo.v1.HandoffAnswer
-	14, // 9: crewbo.v1.Envelope.lead_override:type_name -> crewbo.v1.LeadOverride
-	15, // 10: crewbo.v1.Envelope.dispatch_task:type_name -> crewbo.v1.DispatchTask
-	16, // 11: crewbo.v1.Envelope.task_status:type_name -> crewbo.v1.TaskStatus
-	17, // 12: crewbo.v1.Envelope.conflict_warning:type_name -> crewbo.v1.ConflictWarning
-	18, // 13: crewbo.v1.Envelope.event:type_name -> crewbo.v1.Event
+	10, // 4: crewbo.v1.Envelope.claim_request:type_name -> crewbo.v1.ClaimRequest
+	11, // 5: crewbo.v1.Envelope.claim_release:type_name -> crewbo.v1.ClaimRelease
+	12, // 6: crewbo.v1.Envelope.claim_renew:type_name -> crewbo.v1.ClaimRenew
+	13, // 7: crewbo.v1.Envelope.handoff_request:type_name -> crewbo.v1.HandoffRequest
+	14, // 8: crewbo.v1.Envelope.handoff_answer:type_name -> crewbo.v1.HandoffAnswer
+	15, // 9: crewbo.v1.Envelope.lead_override:type_name -> crewbo.v1.LeadOverride
+	16, // 10: crewbo.v1.Envelope.dispatch_task:type_name -> crewbo.v1.DispatchTask
+	17, // 11: crewbo.v1.Envelope.task_status:type_name -> crewbo.v1.TaskStatus
+	18, // 12: crewbo.v1.Envelope.conflict_warning:type_name -> crewbo.v1.ConflictWarning
+	19, // 13: crewbo.v1.Envelope.event:type_name -> crewbo.v1.Event
 	2,  // 14: crewbo.v1.Envelope.presence:type_name -> crewbo.v1.Presence
-	4,  // 15: crewbo.v1.Hello.rooms:type_name -> crewbo.v1.RoomCursor
-	6,  // 16: crewbo.v1.Welcome.snapshots:type_name -> crewbo.v1.RoomSnapshot
-	19, // 17: crewbo.v1.RoomSnapshot.claims:type_name -> crewbo.v1.Claim
-	0,  // 18: crewbo.v1.Error.code:type_name -> crewbo.v1.ErrorCode
-	19, // 19: crewbo.v1.Error.blocking_claims:type_name -> crewbo.v1.Claim
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	9,  // 15: crewbo.v1.Envelope.activity:type_name -> crewbo.v1.Activity
+	4,  // 16: crewbo.v1.Hello.rooms:type_name -> crewbo.v1.RoomCursor
+	6,  // 17: crewbo.v1.Welcome.snapshots:type_name -> crewbo.v1.RoomSnapshot
+	20, // 18: crewbo.v1.RoomSnapshot.claims:type_name -> crewbo.v1.Claim
+	0,  // 19: crewbo.v1.Error.code:type_name -> crewbo.v1.ErrorCode
+	20, // 20: crewbo.v1.Error.blocking_claims:type_name -> crewbo.v1.Claim
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_crewbo_v1_envelope_proto_init() }
@@ -990,6 +1111,7 @@ func file_crewbo_v1_envelope_proto_init() {
 		(*Envelope_ConflictWarning)(nil),
 		(*Envelope_Event)(nil),
 		(*Envelope_Presence)(nil),
+		(*Envelope_Activity)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -997,7 +1119,7 @@ func file_crewbo_v1_envelope_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_crewbo_v1_envelope_proto_rawDesc), len(file_crewbo_v1_envelope_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

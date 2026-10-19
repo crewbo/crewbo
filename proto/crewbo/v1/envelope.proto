@@ -35,6 +35,7 @@ message Envelope {
     ConflictWarning conflict_warning = 51;
     Event event = 60;
     Presence presence = 61;
+    Activity activity = 62;
   }
 }
 
@@ -117,4 +118,23 @@ enum ErrorCode {
   // The member is not in a room named in the request (for example a Hello
   // cursor for a room they left).
   ERROR_CODE_NOT_MEMBER = 8;
+}
+
+// Activity is what one of a member's agents is doing now (M7-01): its
+// daemon sends it when the agent starts, works on a file or finishes a
+// reply, and the server relays it to the room's connections with the
+// member set, unanswered and unlogged, so it is never replayed. Only the
+// agent's name and a repository-relative path leave the machine.
+message Activity {
+  string room_id = 1;
+  // The agent session, qualified by the device key as in claims.
+  string session_id = 2;
+  // claude-code, codex or antigravity.
+  string agent = 3;
+  // The file the agent is editing; empty when it is not editing one.
+  string path = 4;
+  // True once the agent has finished its reply and waits for the member.
+  bool idle = 5;
+  // Set by the server: the member whose agent it is.
+  string member_id = 6;
 }
