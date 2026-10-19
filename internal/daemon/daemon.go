@@ -554,6 +554,8 @@ func (d *Daemon) serve(ctx context.Context, c net.Conn, token string) {
 			resp = d.checkpointOwnTask(ctx, req)
 		case req.Method == MethodReport:
 			resp = d.report(ctx, req)
+		case req.Method == MethodCrew:
+			resp = d.crewView(ctx, req)
 		case req.Method == MethodDashboard:
 			resp = d.dashboard(ctx, req)
 		case req.Method == MethodClaimRequest || req.Method == MethodClaimRequests || req.Method == MethodClaimHandoff || req.Method == MethodClaimOverride:

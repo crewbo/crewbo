@@ -38,6 +38,7 @@ const (
 	MethodDashboard      = "dashboard"
 	MethodTaskCancel     = "task_cancel"
 	MethodReport         = "report"
+	MethodCrew           = "crew"
 )
 
 // TerminalSession holds claims made with `crewbo claim add`. It is not an
@@ -136,6 +137,8 @@ type Response struct {
 	Handoffs []Handoff `json:"handoffs,omitempty"`
 	// Report is what `crewbo report` prints (report).
 	Report *Report `json:"report,omitempty"`
+	// Crew is the room's members, online state, agents and claims (crew).
+	Crew []CrewMember `json:"crew,omitempty"`
 	// URL is the dashboard's address, with its token (dashboard).
 	URL string `json:"url,omitempty"`
 	// Note tells the member what happened beyond the result, for example

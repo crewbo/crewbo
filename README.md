@@ -128,6 +128,7 @@ The full walkthrough, including Codex's hook trust step and the editor extension
 | `crewbo task merge ID` | Merge a checkpointed task into main, through the conflict check |
 | `crewbo task create --to LOGIN "TEXT"` | As the lead, send a signed task to a teammate's agent |
 | `crewbo task approve ID` | Read a task sent to you and approve it, in a terminal |
+| `crewbo crew` | See who is online in the room, what each agent is writing, and their claims |
 | `crewbo dashboard` | Open the local, read-only dashboard |
 | `crewbo doctor` | Check this computer's setup |
 | `crewbo report` | Print counts of your Crewbo use for a survey; sends nothing |
