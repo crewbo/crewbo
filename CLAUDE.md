@@ -20,7 +20,9 @@ Source precedence: Ronel's explicit instructions > PRD > accepted ADRs > `docs/r
 - M1 (protocol and daemon skeleton) and M2 (Claude Code and Codex hook adapters) complete on 2026-10-11 (PRs #20 to #54).
 - M3 (sync server and auth) complete on 2026-10-12; two-machine check passed (`docs/research/m3-two-machine-check.md`).
 - M4 (lead dispatch) complete on 2026-10-13 (PRs #98 to #114); two-machine check passed (`docs/research/m4-two-machine-check.md`). ADR 0012 (Crewbo IDE, long term) accepted.
-- M5 in progress: Gate C approved 2026-10-13 (PR #116; issues #117 to #126). ADR 0014 and ADR 0015 (merging) accepted.
+- M5 (checkpoints, conflicts, merging, handoffs, extension, dashboard) complete on 2026-10-19 (PRs #116 to #144, check fixes #178 to #181); two-machine check passed except C7, which is partly verified (`docs/research/m5-two-machine-check.md`). ADR 0014 and ADR 0015 (merging) accepted.
+- M5b (Antigravity, ADR 0013) complete on 2026-10-18.
+- M6 (public release and dogfood) in progress: Gate C approved 2026-10-18; the repository goes public under ADR 0011.
 - **Start every session with `docs/engineering/handoff.md`** (state, habits, open items), then the latest `worklog.md` entry.
 
 ## Commands
