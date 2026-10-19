@@ -26,6 +26,8 @@ export interface Task {
   state: string;
   sent?: boolean;
   assignee?: string;
+  /** Another member's task, known from the room's statuses. */
+  teammate?: boolean;
   conflicts?: Conflict[];
   detail?: string;
 }
@@ -136,7 +138,7 @@ export function taskText(c: Claim, tasks: Task[]): string | undefined {
 }
 
 /** needsApproval reports a task sent to this member and not yet answered. */
-export const needsApproval = (t: Task) => !t.sent && t.state === "dispatched" && !!t.id;
+export const needsApproval = (t: Task) => !t.sent && !t.teammate && t.state === "dispatched" && !!t.id;
 
 /** conflictPairs counts distinct pairs of conflicting tasks. */
 export function conflictPairs(tasks: Task[]): number {
