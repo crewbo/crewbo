@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A task kept showing a conflict (in `crewbo task list`, the dashboard and the editor extension) after it was merged or cancelled, or after the other task was. Those conflicts are no longer listed.
 - `crewbo doctor` failed when an installed agent had no Crewbo hooks, even if the member uses another agent with Crewbo. That is now a warning; it still fails when no agent has hooks.
 - The VS Code extension listed every task the daemon knew, from all rooms, by id. It now lists only the tasks of the rooms of the open folders, labelled by their text (`task_list` takes an optional repository).
 - `crewbo task approve` treated any character device as a terminal, so a command run by an agent (stdin on `/dev/null`) reached the "Type yes to approve" prompt instead of being refused at once. It now requires a real terminal; nothing was approved, because nothing could type `yes`.

@@ -371,23 +371,47 @@ func (d *Daemon) listTasks(ctx context.Context, req Request) Response {
 		if t.ID == "" {
 			continue
 		}
-		cs, err := d.taskConflicts(ctx, t.Room, t.ID)
+		if t.Sent {
+			// Sent by this member: the state its assignee reported.
+			sts, err := d.taskStatuses(ctx, t.Room, t.ID)
+			if err != nil {
+				return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
+			}
+			last := dispatch.Fold(t.Assignee, t.Author, sts)
+			resp.Tasks[i].State, resp.Tasks[i].Detail = last.State, last.Detail
+		}
+		cs, err := d.liveConflicts(ctx, t.Room, resp.Tasks[i].State, t.ID)
 		if err != nil {
 			return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
 		}
 		resp.Tasks[i].Conflicts = cs
-		if !t.Sent {
-			continue
-		}
-		// Sent by this member: the state its assignee reported.
-		sts, err := d.taskStatuses(ctx, t.Room, t.ID)
-		if err != nil {
-			return Response{ID: req.ID, Error: fmt.Sprintf("task_list: %v", err)}
-		}
-		last := dispatch.Fold(t.Assignee, t.Author, sts)
-		resp.Tasks[i].State, resp.Tasks[i].Detail = last.State, last.Detail
 	}
 	return resp
+}
+
+// liveConflicts is taskConflicts without the conflicts that no longer
+// matter: none for a task that is merged or cancelled, and none with a
+// task whose latest status is merged or cancelled.
+func (d *Daemon) liveConflicts(ctx context.Context, room, state, taskID string) ([]Conflict, error) {
+	done := func(s string) bool { return s == dispatch.StateMerged || s == dispatch.StateCancelled }
+	if done(state) {
+		return nil, nil
+	}
+	cs, err := d.taskConflicts(ctx, room, taskID)
+	if err != nil {
+		return nil, err
+	}
+	var out []Conflict
+	for _, c := range cs {
+		sts, err := d.taskStatuses(ctx, room, c.Task)
+		if err != nil {
+			return nil, err
+		}
+		if len(sts) == 0 || !done(sts[len(sts)-1].State) {
+			out = append(out, c)
+		}
+	}
+	return out, nil
 }
 
 // expireTasks marks tasks still waiting for an answer past their expiry
