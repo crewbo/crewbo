@@ -1,0 +1,37 @@
+/* Crew panel (docs/brand/05-interface.md 3.5, 5). Colours, radii and spacing
+   come from tokens.css; text sizes are the ones the spec names. Bo's own
+   motion is bo.css, unchanged. */
+@font-face { font-family: 'Instrument Sans'; font-weight: 400; src: url(fonts/instrument-sans-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Instrument Sans'; font-weight: 600; src: url(fonts/instrument-sans-latin-600-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Instrument Sans'; font-weight: 700; src: url(fonts/instrument-sans-latin-700-normal.woff2) format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url(fonts/jetbrains-mono-latin-400-normal.woff2) format('woff2'); }
+
+body {
+  margin: 0;
+  padding: var(--cb-space-2);
+  background: var(--cb-color-surface-dark-panel);
+  color: var(--cb-color-paper);
+  font-family: var(--cb-font-family-sans);
+}
+.head { margin: 0 0 var(--cb-space-2); font-family: var(--cb-font-family-mono); font-size: 12px; color: var(--cb-color-gray-450); }
+.head span { text-transform: uppercase; }
+.crew { display: flex; flex-direction: column; gap: 14px; }
+.row { display: flex; align-items: center; gap: 14px; padding: 10px; border-radius: var(--cb-radius-row); background: var(--cb-color-surface-dark-row); }
+.row .bo { flex: none; }
+.text { display: flex; flex-direction: column; gap: var(--cb-space-half); min-width: 0; }
+.name { font-size: 15px; font-weight: var(--cb-font-weight-semibold); }
+.status { font-size: 13px; color: var(--cb-color-gray-400); overflow-wrap: anywhere; }
+.agent { font-family: var(--cb-font-family-mono); font-size: 12px; }
+.note { font-size: 13px; color: var(--cb-color-gray-400); }
+
+/* Light themes: the specified fallback (05-interface.md 5). */
+body.vscode-light, body.vscode-high-contrast-light { background: var(--cb-color-paper); color: var(--cb-color-ink); }
+.vscode-light .head, .vscode-high-contrast-light .head,
+.vscode-light .status, .vscode-high-contrast-light .status,
+.vscode-light .note, .vscode-high-contrast-light .note { color: var(--cb-color-gray-600); }
+.vscode-light .row, .vscode-high-contrast-light .row { background: var(--cb-color-gray-100); }
+
+/* VS Code's own reduced motion setting: the same key poses as bo.css. */
+.reduce-motion .bo * { animation: none !important; transition: none !important; }
+.reduce-motion .bo .bo-wide { transform: scaleY(1.4); }
+.reduce-motion .bo .bo-read { transform: translate(0, 8px); }

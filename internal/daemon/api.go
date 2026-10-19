@@ -139,6 +139,8 @@ type Response struct {
 	Report *Report `json:"report,omitempty"`
 	// Crew is the room's members, online state, agents and claims (crew).
 	Crew []CrewMember `json:"crew,omitempty"`
+	// RoomName is the room's name (crew).
+	RoomName string `json:"room_name,omitempty"`
 	// URL is the dashboard's address, with its token (dashboard).
 	URL string `json:"url,omitempty"`
 	// Note tells the member what happened beyond the result, for example

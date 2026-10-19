@@ -203,3 +203,78 @@ export function visible(s: string): string {
     return named[ch] ?? (code < 0x80 ? `\\x${code.toString(16).padStart(2, "0")}` : `\\u${code.toString(16).padStart(4, "0")}`);
   });
 }
+
+/** A member as the daemon's crew view returns it (internal/daemon/crew.go). */
+export interface CrewMember {
+  login: string;
+  you?: boolean;
+  lead?: boolean;
+  color: number;
+  online: boolean;
+  offline_since?: string;
+  agents?: { agent: string; path?: string; idle: boolean; at: string }[];
+  claims?: string[];
+}
+
+/**
+ * CrewRow is one crew panel row: the inputs of bo.js panelView(), which
+ * picks the Bo, and the text beside it (docs/brand/05-interface.md 3.5, 4).
+ */
+export interface CrewRow {
+  name: string;
+  color: number;
+  online: boolean;
+  conflict: boolean;
+  handoffPending: boolean;
+  activity: "editing" | "none";
+  status: string;
+  agent: string;
+  /** For screen readers: the person and the state (09-checklist.md). */
+  label: string;
+}
+
+const agentNames: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", antigravity: "Antigravity" };
+
+/** base is the last part of a slash path, as the brand's "Writing auth.go". */
+const base = (p: string) => p.slice(p.lastIndexOf("/") + 1);
+
+/**
+ * crewRows maps the crew view, the tasks and the open handoff requests to
+ * panel rows. A member is in a conflict when a task of theirs has one, and
+ * has a pending handoff when they ask for or hold a requested file. No
+ * model is shown: hooks of a member's own agent carry none (BDR-017).
+ */
+export function crewRows(crew: CrewMember[], tasks: Task[], handoffs: Handoff[], time: (iso: string) => string): CrewRow[] {
+  const me = crew.find((m) => m.you)?.login;
+  const owner = (t: Task) => (t.sent ? t.assignee : t.teammate ? t.author : me);
+  return crew.map((m) => {
+    const clash = tasks.find((t) => owner(t) === m.login && t.conflicts?.some((c) => c.paths.length));
+    const handoff = handoffs.find((h) => h.kind === "request" && h.open && (h.actor === m.login || h.holder === m.login));
+    const a = m.agents?.[0];
+    const editing = !!a && !a.idle && !!a.path;
+    let status = "Idle";
+    if (!m.online) {
+      status = m.offline_since ? `Offline since ${time(m.offline_since)}` : "Offline";
+    } else if (clash) {
+      status = `Conflict in ${base(clash.conflicts?.find((c) => c.paths.length)?.paths[0] ?? "")}`;
+    } else if (handoff) {
+      status = handoffLabel(handoff);
+    } else if (editing) {
+      status = `Writing ${base(a.path ?? "")}`;
+    } else if (a && !a.idle) {
+      status = "Working";
+    }
+    const name = m.you ? `${m.login} (you)` : m.login;
+    return {
+      name,
+      color: m.color,
+      online: m.online,
+      conflict: m.online && !!clash,
+      handoffPending: m.online && !!handoff,
+      activity: m.online && editing ? "editing" : "none",
+      status: visible(status),
+      agent: m.online && a ? (agentNames[a.agent] ?? a.agent) : "",
+      label: visible(`${m.login}, ${status.charAt(0).toLowerCase()}${status.slice(1)}`),
+    };
+  });
+}

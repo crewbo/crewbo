@@ -3,6 +3,7 @@
 // through `crewbo api`. Approving a task opens a terminal running
 // `crewbo task approve`, the only approval path (ADR 0006).
 
+import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import * as vscode from "vscode";
@@ -13,6 +14,7 @@ import {
   claimsOn,
   type Claim,
   conflictPairs,
+  crewRows,
   type Handoff,
   handoffLabel,
   handoffState,
@@ -43,6 +45,7 @@ export interface Api {
   statusBar: () => string;
   tree: CrewTree;
   decoration: (uri: vscode.Uri) => vscode.FileDecoration | undefined;
+  crewPanelVisible: () => boolean;
 }
 
 export function activate(ctx: vscode.ExtensionContext): Api {
@@ -61,12 +64,14 @@ export function activate(ctx: vscode.ExtensionContext): Api {
   bar.command = "crewbo.crew.focus";
   bar.show();
   const texts = new TaskTexts(() => state);
+  const panel = new CrewPanel(vscode.Uri.joinPath(ctx.extensionUri, "media", "crew"), () => void poll());
   ctx.subscriptions.push(
     view,
     bar,
     changed,
     decoChanged,
     vscode.workspace.registerTextDocumentContentProvider("crewbo-task", texts),
+    vscode.window.registerWebviewViewProvider("crewbo.crewPanel", panel),
     vscode.window.registerFileDecorationProvider({
       onDidChangeFileDecorations: decoChanged.event,
       provideFileDecoration: (uri) => decoration(uri, state),
@@ -98,11 +103,32 @@ export function activate(ctx: vscode.ExtensionContext): Api {
       state = next;
       down = undefined;
       notify(next);
+      if (panel.visible) {
+        await showCrew(next);
+      }
     } catch (err) {
       state = undefined;
       down = (err as Error).message;
     }
     render();
+  };
+
+  // showCrew fills the crew panel for the first folder in a room.
+  const showCrew = async (s: State) => {
+    const reduceMotion = vscode.workspace.getConfiguration("workbench").get<string>("reduceMotion") === "on";
+    const root = s.repos[0]?.root;
+    if (!root) {
+      panel.post({ type: "crew", reduceMotion, note: "Open a repository to see its crew." });
+      return;
+    }
+    const resp = await client.call({ method: "crew", repo: root });
+    if (resp.error) {
+      panel.post({ type: "crew", reduceMotion, note: resp.error.replace(/^crew: /, "") });
+      return;
+    }
+    const handoffs = s.repos.find((r) => r.root === root)?.handoffs ?? [];
+    const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    panel.post({ type: "crew", reduceMotion, room: resp.room_name, rows: crewRows(resp.crew ?? [], s.tasks, handoffs, time) });
   };
 
   const render = () => {
@@ -297,7 +323,7 @@ export function activate(ctx: vscode.ExtensionContext): Api {
     { dispose: () => (clearTimeout(timer), client.stop()) },
   );
   void poll().then(schedule);
-  return { state: () => state, statusBar: () => bar.text, tree, decoration: (uri) => decoration(uri, state) };
+  return { state: () => state, statusBar: () => bar.text, tree, decoration: (uri) => decoration(uri, state), crewPanelVisible: () => panel.visible };
 }
 
 export function deactivate(): void {}
@@ -443,5 +469,41 @@ class TaskTexts implements vscode.TextDocumentContentProvider {
       "Approving runs an agent on this machine with your sign-in, in a new worktree.",
       "You approve in the terminal that opens next, after the task is shown again.",
     ].join("\n");
+  }
+}
+
+/**
+ * CrewPanel is the crew panel (docs/brand/05-interface.md 3.5): a webview
+ * that draws Bo with the brand's reference component. It runs no code
+ * from the network: scripts and fonts come from the extension's media.
+ */
+class CrewPanel implements vscode.WebviewViewProvider {
+  private view?: vscode.WebviewView;
+  constructor(
+    private readonly media: vscode.Uri,
+    private readonly shown: () => void,
+  ) {}
+
+  get visible(): boolean {
+    return !!this.view?.visible;
+  }
+
+  resolveWebviewView(view: vscode.WebviewView): void {
+    this.view = view;
+    const w = view.webview;
+    w.options = { enableScripts: true, localResourceRoots: [this.media] };
+    const uri = (f: string) => w.asWebviewUri(vscode.Uri.joinPath(this.media, f)).toString();
+    const nonce = randomBytes(16).toString("hex");
+    w.html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${w.cspSource}; font-src ${w.cspSource}; script-src 'nonce-${nonce}' ${w.cspSource};">
+<link rel="stylesheet" href="${uri("tokens.css")}"><link rel="stylesheet" href="${uri("bo.css")}"><link rel="stylesheet" href="${uri("crew.css")}">
+</head><body><p class="head" id="head"></p><div class="crew" id="crew" role="list"></div>
+<script type="module" nonce="${nonce}" src="${uri("crew.js")}"></script></body></html>`;
+    w.onDidReceiveMessage((m: { type?: string }) => m?.type === "ready" && this.shown());
+    view.onDidChangeVisibility(() => view.visible && this.shown());
+  }
+
+  post(msg: unknown): void {
+    void this.view?.webview.postMessage(msg);
   }
 }

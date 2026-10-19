@@ -26,6 +26,8 @@ export interface Response {
   claims?: import("./model").Claim[];
   tasks?: import("./model").Task[];
   handoffs?: import("./model").Handoff[];
+  crew?: import("./model").CrewMember[];
+  room_name?: string;
 }
 
 interface Waiter {

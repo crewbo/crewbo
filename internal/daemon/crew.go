@@ -90,10 +90,13 @@ func (c *crew) activity(a *crewbov1.Activity, now time.Time) {
 
 // CrewMember is one member of a room as the crew panel shows them (M7-02).
 type CrewMember struct {
-	Login  string `json:"login"`
-	You    bool   `json:"you,omitempty"`
-	Lead   bool   `json:"lead,omitempty"`
-	Online bool   `json:"online"`
+	Login string `json:"login"`
+	You   bool   `json:"you,omitempty"`
+	Lead  bool   `json:"lead,omitempty"`
+	// Color is the member's join order in the room, which picks their
+	// teammate colour (docs/brand bo.js teamColor).
+	Color  int  `json:"color"`
+	Online bool `json:"online"`
 	// OfflineSince is when this daemon last saw the member connected; zero
 	// when it has not since it started.
 	OfflineSince time.Time `json:"offline_since,omitzero"`
@@ -166,8 +169,8 @@ func (d *Daemon) crewView(ctx context.Context, req Request) Response {
 	}
 	c.mu.Lock()
 	out := make([]CrewMember, 0, len(logins))
-	for _, m := range logins {
-		cm := CrewMember{Login: m, You: m == login, Lead: m == rm.lead, Online: slices.Contains(online, m), Claims: held[m]}
+	for i, m := range logins {
+		cm := CrewMember{Login: m, You: m == login, Lead: m == rm.lead, Color: i, Online: slices.Contains(online, m), Claims: held[m]}
 		if !cm.Online {
 			cm.OfflineSince = c.left[b.RoomID][m]
 		}
@@ -201,5 +204,5 @@ func (d *Daemon) crewView(ctx context.Context, req Request) Response {
 		}
 		return cmp.Or(latest(y).Compare(latest(x)), cmp.Compare(x.Login, y.Login))
 	})
-	return Response{ID: req.ID, Crew: out}
+	return Response{ID: req.ID, Crew: out, RoomName: b.Name}
 }

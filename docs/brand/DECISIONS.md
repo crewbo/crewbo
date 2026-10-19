@@ -113,3 +113,9 @@ Format: `BDR-NNN · title · date · status`.
 **Decision:** In VS Code's explorer, a claimed file shows the holder's first two letters as plain text, uncoloured, with the holder named in full in the tooltip (two or more holders: their count). The status bar shows the word `crewbo` without the mark.
 **Rejected:** A bare coloured dot (`03-color.md`: never a bare dot that could be read either way); a custom tree view or icon font to draw the 16 px badge Bo, too much for v1.
 **Why:** VS Code's file decoration API holds at most two characters of text and a theme colour, not an image, so the badge Bo in `05-interface.md` §3.1 cannot be drawn there. Initials still name the person (P5) and work without colour (P1). Ronel, M5-05.
+
+## BDR-019 · Crew panel in VS Code · 2026-10-19 · Accepted
+
+**Decision:** The crew panel is a webview in its own activity bar container (`Crewbo`, icon `assets/svg/logo/mark-black.svg`, which VS Code tints like its other icons). It loads `bo.js`, `bo.css` and `tokens.css` themselves, copied unchanged into the extension at build time, and the self-hosted fonts. Text sizes are the ones `05-interface.md` §3.5 names, colours come from tokens, and light themes use the specified fallback (§5). Rows show no model (BDR-017) and no testing scene: the daemon does not yet tell a test run from other shell commands. VS Code's `workbench.reduceMotion` set to `on` stops Bo's motion like `prefers-reduced-motion`.
+**Rejected:** Redrawing Bo in the extension's own code. The spec's right-hand placement is left to the member, who can drag the view to VS Code's secondary side bar; whether an extension can put it there by default was not checked.
+**Why:** P7, built to a system: Bo comes from `bo.js` alone. M7-03.

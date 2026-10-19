@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The VS Code extension has a crew panel (the Crewbo icon in the activity bar): one row per member with Bo in their teammate colour, writing, idle, asleep when offline, or with a face for a conflict or a pending handoff, plus what they are doing and which agent they run.
 - `crewbo crew` shows the room of the current repository: each member, whether they are online (or since when they are not), what their agents are doing (`Writing src/auth.go`, `Idle`) and the files they hold. Daemons now share each agent's name and the file it is about to edit with the room, live and not stored (see the privacy page).
 - `crewbo task list`, `crewbo task show`, the dashboard and the editor extension list teammates' tasks too: tasks they started for themselves, with the start of their text (up to 4 KiB), and tasks the lead sent to someone else, with their latest state.
 - The VS Code extension can be installed from a `.vsix` file: `task ext:package` builds it, and each release will attach it.

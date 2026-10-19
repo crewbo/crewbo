@@ -86,7 +86,7 @@ func TestCrewView(t *testing.T) {
 		return len(g.Agents) == 1 && g.Agents[0].Path == "src/parse/x.go" && len(g.Claims) == 1
 	})
 	me, g := crew[0], crew[1]
-	if me.Login != "RM1338" || !me.You || !me.Lead || !me.Online {
+	if me.Login != "RM1338" || !me.You || !me.Lead || !me.Online || me.Color != 0 || g.Color != 1 {
 		t.Errorf("first row: %+v", me)
 	}
 	if g.Login != "gavriel953" || g.You || g.Lead || !g.Online || g.Agents[0].Agent != "codex" || g.Claims[0] != "src/parse/**" {

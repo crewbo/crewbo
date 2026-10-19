@@ -6,6 +6,8 @@ import {
   type Claim,
   claimsOn,
   conflictPairs,
+  crewRows,
+  type CrewMember,
   type Handoff,
   handoffLabel,
   handoffState,
@@ -14,6 +16,7 @@ import {
   overlaps,
   type State,
   statusText,
+  type Task,
   taskText,
   visible,
 } from "../src/model";
@@ -135,4 +138,31 @@ test("visible escapes control characters like crewbo task show", () => {
   assert.equal(visible("evil\u202Etxt.exe"), "evil\\u202etxt.exe");
   assert.equal(visible("line\u2028sep\u0085"), "line\\u2028sep\\u0085");
   assert.equal(visible("ronel · café"), "ronel · café");
+});
+
+test("crewRows follows the brand's precedence and copy", () => {
+  const time = () => "9:40 pm";
+  const crew: CrewMember[] = [
+    { login: "ronel", you: true, color: 0, online: true, agents: [{ agent: "claude-code", path: "src/auth/session.go", idle: false, at: "" }] },
+    { login: "riya", color: 1, online: true, agents: [{ agent: "codex", idle: true, at: "" }] },
+    { login: "dev", color: 2, online: true, agents: [{ agent: "codex", path: "x.go", idle: false, at: "" }] },
+    { login: "maya", color: 3, online: true },
+    { login: "arjun", color: 4, online: false, offline_since: "2026-10-20T16:10:00Z" },
+    { login: "sam", color: 5, online: false },
+  ];
+  const tasks: Task[] = [{ id: "t1", room: "r", state: "checkpointed", author: "dev", teammate: true, conflicts: [{ task: "t2", paths: ["src/token.go"] }] }];
+  const handoffs: Handoff[] = [{ kind: "request", request_id: "q", claim_id: "c", path: "api/limits.ts", holder: "riya", actor: "maya", open: true }];
+  const rows = crewRows(crew, tasks, handoffs, time);
+  assert.deepEqual(
+    rows.map((r) => [r.name, r.status, r.agent, r.activity, r.conflict, r.handoffPending]),
+    [
+      ["ronel (you)", "Writing session.go", "Claude Code", "editing", false, false],
+      ["riya", "maya wants api/limits.ts next", "Codex", "none", false, true],
+      ["dev", "Conflict in token.go", "Codex", "editing", true, false],
+      ["maya", "maya wants api/limits.ts next", "", "none", false, true],
+      ["arjun", "Offline since 9:40 pm", "", "none", false, false],
+      ["sam", "Offline", "", "none", false, false],
+    ],
+  );
+  assert.equal(rows[0].label, "ronel, writing session.go");
 });
