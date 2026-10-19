@@ -36,6 +36,10 @@ type Room struct {
 	// handoffs is the open handoff requests by request id, a projection of
 	// the log like the claims.
 	handoffs map[string]handoff
+	// online counts each member's connections to the room, and watchers
+	// receive its changes (presence.go); only the room goroutine touches them.
+	online   map[string]int
+	watchers map[chan *crewbov1.Presence]struct{}
 }
 
 // handoff is an open request to hand a claim over.
@@ -67,7 +71,7 @@ func NewRoom(id string, log *Log, now func() time.Time) *Room {
 	return &Room{
 		id: id, log: log, now: now, reqs: make(chan func()), done: make(chan struct{}),
 		subs: map[chan *crewbov1.Event]uint64{}, claims: claims.NewSet(), expireEvery: 5 * time.Second,
-		handoffs: map[string]handoff{},
+		handoffs: map[string]handoff{}, online: map[string]int{}, watchers: map[chan *crewbov1.Presence]struct{}{},
 	}
 }
 
@@ -79,6 +83,9 @@ func (r *Room) Run(ctx context.Context) {
 	defer func() {
 		close(r.done)
 		for ch := range r.subs {
+			close(ch)
+		}
+		for ch := range r.watchers {
 			close(ch)
 		}
 	}()

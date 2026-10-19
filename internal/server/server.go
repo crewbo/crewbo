@@ -245,6 +245,13 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 	for _, sub := range subs {
 		helpers.Add(1)
 		go func() { defer helpers.Done(); s.forward(ctx, c, sub) }()
+		w, err := sub.room.Connect(ctx, u.Login)
+		if err != nil {
+			return
+		}
+		defer w.Leave() // before the cleanup above waits for the forwarders
+		helpers.Add(1)
+		go func() { defer helpers.Done(); s.forwardPresence(ctx, c, w) }()
 	}
 	helpers.Add(1)
 	go func() {

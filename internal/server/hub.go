@@ -75,3 +75,12 @@ func (s *Server) forward(ctx context.Context, c *websocket.Conn, sub *Subscripti
 		_ = c.Close(websocket.StatusTryAgainLater, "fell behind; reconnect and replay")
 	}
 }
+
+// forwardPresence sends a room's presence until the watch ends.
+func (s *Server) forwardPresence(ctx context.Context, c *websocket.Conn, w *Watch) {
+	for p := range w.C {
+		if err := send(ctx, c, &crewbov1.Envelope{Body: &crewbov1.Envelope_Presence{Presence: p}}); err != nil {
+			return
+		}
+	}
+}

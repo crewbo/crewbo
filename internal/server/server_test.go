@@ -71,7 +71,19 @@ func sendEnv(t *testing.T, c *websocket.Conn, env *crewbov1.Envelope) {
 }
 
 // recv returns the next Envelope, or nil and the error once closed.
+// recv returns the next envelope other than a Presence, which tests of
+// other features ignore (presence_test.go reads them with recvAny).
 func recv(t *testing.T, c *websocket.Conn) (*crewbov1.Envelope, error) {
+	t.Helper()
+	for {
+		env, err := recvAny(t, c)
+		if err != nil || env.GetPresence() == nil {
+			return env, err
+		}
+	}
+}
+
+func recvAny(t *testing.T, c *websocket.Conn) (*crewbov1.Envelope, error) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
