@@ -1,6 +1,6 @@
 # 0016. Crewbo IDE preview at the v1 launch
 
-- Status: Proposed (Ronel chose to ship the IDE at launch on 2026-10-19; accepted when the launch plan is approved at Gate C)
+- Status: Accepted (Ronel, 2026-10-19, with the launch plan, PR #184)
 - Date: 2026-10-19
 - Decision owner: Ronel Abraham Mathew
 - Supersedes: the timeline in ADR 0012 ("revisit after the v2 exit gate"). The rest of ADR 0012 stands: the extension stays the main way to use Crewbo.
