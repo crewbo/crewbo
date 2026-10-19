@@ -18,11 +18,8 @@ var ErrNoRemote = errors.New("gitx: no remote to push to")
 
 // CommitAll stages every change in the worktree and commits it with
 // message, as the member's own git identity. It returns the new commit, or
-// "" when there was nothing to commit.
+// "" when there was nothing to commit; only then is no identity needed.
 func (g *Git) CommitAll(ctx context.Context, worktree, message string) (string, error) {
-	if err := g.identity(ctx, worktree); err != nil {
-		return "", err
-	}
 	if _, err := g.run(ctx, worktree, "add", "--all"); err != nil {
 		return "", err
 	}
@@ -33,6 +30,9 @@ func (g *Git) CommitAll(ctx context.Context, worktree, message string) (string, 
 	case err == nil:
 		return "", nil
 	case !errors.As(err, &exit) || exit.Code != 1:
+		return "", err
+	}
+	if err := g.identity(ctx, worktree); err != nil {
 		return "", err
 	}
 	if _, err := g.run(ctx, worktree, "commit", "--quiet", "--no-verify", "-m", message); err != nil {

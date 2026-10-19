@@ -38,6 +38,10 @@ func kindFor(name string) hooks.Kind {
 	return ""
 }
 
+// absolute reports an absolute path from the OS the fixture was captured
+// on: the Linux fixtures' paths are not absolute to Windows' filepath.
+func absolute(p string) bool { return strings.HasPrefix(p, "/") || filepath.IsAbs(p) }
+
 func TestDecodeFixtures(t *testing.T) {
 	files, _ := filepath.Glob(filepath.Join(fixtures, "*", "*", "*.json"))
 	n := 0
@@ -54,7 +58,7 @@ func TestDecodeFixtures(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", f, err)
 		}
-		if ev.Session == "" || !filepath.IsAbs(filepath.FromSlash(ev.Cwd)) || ev.Model == "" || ev.Agent != Name {
+		if ev.Session == "" || !absolute(ev.Cwd) || ev.Model == "" || ev.Agent != Name {
 			t.Errorf("%s: common fields: %+v", f, ev)
 		}
 		switch {
@@ -66,7 +70,7 @@ func TestDecodeFixtures(t *testing.T) {
 				t.Errorf("%s: command %q does not match the fixture name", f, ev.Command)
 			}
 		case strings.HasPrefix(name, "PreToolUse"):
-			if ev.Kind != hooks.PreEdit || len(ev.Paths) != 1 || !filepath.IsAbs(filepath.FromSlash(ev.Paths[0])) {
+			if ev.Kind != hooks.PreEdit || len(ev.Paths) != 1 || !absolute(ev.Paths[0]) {
 				t.Fatalf("%s: %+v", f, ev)
 			}
 			if (filepath.Base(ev.Paths[0]) == "blocked.txt") != strings.Contains(name, "blocked") {

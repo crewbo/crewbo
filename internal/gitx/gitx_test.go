@@ -226,6 +226,10 @@ func TestCheckpointCommitAndPush(t *testing.T) {
 	ctx := context.Background()
 	g := New("")
 
+	// Nothing to commit needs no identity.
+	if commit, err := g.CommitAll(ctx, dir, "checkpoint"); err != nil || commit != "" {
+		t.Fatalf("nothing to commit, no identity: %q, %v", commit, err)
+	}
 	write(t, dir, "new.txt", "agent work\n")
 	if _, err := g.CommitAll(ctx, dir, "checkpoint"); !errors.Is(err, ErrNoIdentity) {
 		t.Fatalf("commit without an identity: %v", err)
