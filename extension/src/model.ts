@@ -299,3 +299,22 @@ export function claimTag(c: Claim, crew: CrewMember[] | undefined, me?: string):
   const text = !isTerminal(c.Holder.SessionID) && agent ? `${who} · ${agentNames[agent] ?? agent}` : who;
   return { text: visible(text), color };
 }
+
+/** sendTaskPicks lists who a lead can send a task to: everyone but them. */
+export function sendTaskPicks(crew: CrewMember[]): { label: string; description: string }[] {
+  return crew
+    .filter((m) => !m.you)
+    .map((m) => {
+      const a = m.agents?.[0]?.agent;
+      const state = m.online ? (a ? `online · ${agentNames[a] ?? a}` : "online") : "offline: they see it when they are back";
+      return { label: m.login, description: visible(state) };
+    });
+}
+
+/** taskPaths splits "src/a/**, docs/a.md" into the paths a task may change. */
+export function taskPaths(input: string): string[] {
+  return input
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+}

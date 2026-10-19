@@ -15,9 +15,11 @@ import {
   holderLabel,
   needsApproval,
   overlaps,
+  sendTaskPicks,
   type State,
   statusText,
   type Task,
+  taskPaths,
   taskText,
   visible,
 } from "../src/model";
@@ -177,4 +179,20 @@ test("claimTag names the member and their agent, never your own claims", () => {
   assert.deepEqual(claimTag(claim("src/a.go", "riya", "k/terminal"), crew, "ronel"), { text: "riya", color: 1 });
   assert.equal(claimTag(claim("src/a.go", "ronel", "k/s1"), crew, "ronel"), undefined);
   assert.equal(claimTag(claim("src/a.go", "dev", "k/s1"), crew, "ronel"), undefined);
+});
+
+test("sendTaskPicks and taskPaths", () => {
+  const crew: CrewMember[] = [
+    { login: "ronel", you: true, lead: true, color: 0, online: true },
+    { login: "riya", color: 1, online: true, agents: [{ agent: "codex", idle: true, at: "" }] },
+    { login: "dev", color: 2, online: true },
+    { login: "maya", color: 3, online: false },
+  ];
+  assert.deepEqual(sendTaskPicks(crew), [
+    { label: "riya", description: "online · Codex" },
+    { label: "dev", description: "online" },
+    { label: "maya", description: "offline: they see it when they are back" },
+  ]);
+  assert.deepEqual(taskPaths(" src/auth/**, ,docs/a.md "), ["src/auth/**", "docs/a.md"]);
+  assert.deepEqual(taskPaths(""), []);
 });

@@ -109,7 +109,7 @@ This merges it into the remote's main branch, but only if it does not conflict w
 
 ### Tasks your lead sends you
 
-The lead can send a task for your agent to run: `crewbo task create --to LOGIN --path PATH "TEXT"`. You see it with `crewbo task list` and `crewbo task show ID`. Nothing runs until you approve it **yourself, in a terminal**:
+The lead can send a task for your agent to run: `crewbo task create --to LOGIN --path PATH "TEXT"`, or in VS Code with the send button at the top of the Crewbo view (**Send a task**: pick the teammate, the files, and what to do). You see it with `crewbo task list` and `crewbo task show ID`. Nothing runs until you approve it **yourself, in a terminal**:
 
 ```sh
 crewbo task approve ID                   # Claude Code; --agent codex for Codex

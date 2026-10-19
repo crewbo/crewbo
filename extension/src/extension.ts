@@ -17,6 +17,8 @@ import {
   colorOf,
   conflictPairs,
   crewRows,
+  sendTaskPicks,
+  taskPaths,
   type Handoff,
   handoffLabel,
   handoffState,
@@ -117,6 +119,7 @@ export function activate(ctx: vscode.ExtensionContext): Api {
       state = next;
       down = undefined;
       notify(next);
+      void vscode.commands.executeCommand("setContext", "crewbo.lead", next.repos.some((r) => r.crew?.some((m) => m.you && m.lead)));
       if (panel.visible) {
         showCrew(next);
       }
@@ -301,6 +304,35 @@ export function activate(ctx: vscode.ExtensionContext): Api {
 
   ctx.subscriptions.push(
     vscode.commands.registerCommand("crewbo.refresh", poll),
+    vscode.commands.registerCommand("crewbo.sendTask", async () => {
+      const r = state?.repos.find((x) => x.crew?.some((m) => m.you && m.lead));
+      if (!r?.crew) {
+        void vscode.window.showWarningMessage("Crewbo: only the room's lead sends tasks, from a repository in that room.");
+        return;
+      }
+      const title = `Send a task in ${r.room ?? "this room"}`;
+      const to = await vscode.window.showQuickPick(sendTaskPicks(r.crew), { title, placeHolder: "Who should do it?" });
+      if (!to) {
+        return;
+      }
+      const paths = await vscode.window.showInputBox({
+        title,
+        prompt: "Files or globs the task may change, separated by commas (optional). Their agent gets claims on them.",
+        placeHolder: "src/auth/**, docs/auth.md",
+      });
+      if (paths === undefined) {
+        return;
+      }
+      const text = await vscode.window.showInputBox({
+        title,
+        prompt: `What should ${to.label}'s agent do? They read it in full and approve it in a terminal before anything runs.`,
+        validateInput: (v) => (v.trim() ? undefined : "Write what the task is"),
+      });
+      if (!text) {
+        return;
+      }
+      await send({ method: "task_create", repo: r.root, assignee: to.label, patterns: taskPaths(paths), text }, `Sent the task to ${to.label}.`);
+    }),
     vscode.commands.registerCommand("crewbo.requestHandoff", async (arg: unknown) => {
       const p = pathOf(arg);
       if (!p) {

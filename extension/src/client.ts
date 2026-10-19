@@ -15,6 +15,8 @@ export interface Request {
   task?: string;
   text?: string;
   approve?: boolean;
+  assignee?: string;
+  patterns?: string[];
 }
 
 /** A daemon response: `error` is set when the daemon refused the request. */
