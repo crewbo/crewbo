@@ -437,6 +437,16 @@ func TestConflictWarningsAreListed(t *testing.T) {
 			return reflect.DeepEqual(m.taskState(sent.TaskID).Conflicts, want)
 		})
 	}
+
+	// Once task-y is cancelled, the conflict with it is no longer listed.
+	ev := &crewbov1.Event{ActorMemberId: "RM1338", Body: &crewbov1.Event_TaskStatusChanged{TaskStatusChanged: &crewbov1.TaskStatusChanged{
+		Status: &crewbov1.TaskStatus{RoomId: roomID, TaskId: "task-y", State: crewbov1.TaskState_TASK_STATE_CANCELLED},
+	}}}
+	if _, err := log.Append(context.Background(), roomID, ev, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	f.b.restart()
+	eventually(t, "the conflict with a cancelled task to go", func() bool { return len(f.b.taskState(sent.TaskID).Conflicts) == 0 })
 }
 
 // M5-02: when a checkpoint conflicts with another task's latest checkpoint,
