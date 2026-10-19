@@ -56,7 +56,7 @@ This folder is the single source of truth for how Crewbo looks, moves and speaks
 | GitHub organisation avatar (`github.com/crewbo`) | `assets/png/avatar-500.png` |
 | GitHub repository social preview | `assets/png/social-preview-1280x640.png` |
 | VS Code extension icon (`package.json` → `icon`) | `assets/png/app-icon-128.png` |
-| VS Code activity bar icon for the crew panel (BDR-019) | `assets/svg/logo/mark-black.svg` |
+| VS Code activity bar icon for the crew panel (BDR-019) | `assets/svg/logo/mark-cutout.svg` (eyes cut out, for one-colour masks) |
 | Desktop or tray app icon | `assets/png/app-icon-1024.png` (and 512, 256) |
 | Website favicon | `assets/png/favicon.ico`, `favicon-32.png`, `assets/svg/logo/mark-black.svg` |
 | Apple touch icon | `assets/png/apple-touch-icon-180.png` |
