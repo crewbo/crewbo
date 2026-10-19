@@ -10,7 +10,7 @@ const files = {
   [`${brand}/reference/component/bo.js`]: `${out}/bo.js`,
   [`${brand}/reference/component/bo.css`]: `${out}/bo.css`,
   [`${brand}/tokens/tokens.css`]: `${out}/tokens.css`,
-  [`${brand}/assets/svg/logo/mark-black.svg`]: "media/mark.svg",
+  [`${brand}/assets/svg/logo/mark-cutout.svg`]: "media/mark.svg",
   [`${brand}/assets/png/app-icon-128.png`]: "media/icon.png",
   "webview/crew.js": `${out}/crew.js`,
   "webview/crew.css": `${out}/crew.css`,
