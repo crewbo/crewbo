@@ -40,6 +40,7 @@
     "media/icon.png",
     "media/mark.svg",
     "media/crew/**",
+    "media/badges/**",
     "LICENSE"
   ],
   "engines": {

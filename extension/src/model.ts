@@ -57,8 +57,8 @@ export interface Status {
 export interface State {
   status: Status;
   tasks: Task[];
-  /** Per repository root: its claims and its room's handoff steps. */
-  repos: { root: string; claims: Claim[]; handoffs: Handoff[] }[];
+  /** Per repository root: its claims, its room's handoff steps and crew. */
+  repos: { root: string; claims: Claim[]; handoffs: Handoff[]; crew?: CrewMember[]; room?: string; crewError?: string }[];
 }
 
 /**
@@ -277,4 +277,25 @@ export function crewRows(crew: CrewMember[], tasks: Task[], handoffs: Handoff[],
       label: visible(`${m.login}, ${status.charAt(0).toLowerCase()}${status.slice(1)}`),
     };
   });
+}
+
+/** colorOf is a member's teammate colour index, if they are in the crew. */
+export function colorOf(login: string, crew: CrewMember[] | undefined): number | undefined {
+  return crew?.find((m) => m.login === login)?.color;
+}
+
+/**
+ * claimTag is the brand's claim tag for a file another member holds
+ * (05-interface.md 3.2): "riya · Codex", with the agent the member's agents
+ * last used; a terminal claim names only the member. No model (BDR-017).
+ */
+export function claimTag(c: Claim, crew: CrewMember[] | undefined, me?: string): { text: string; color: number } | undefined {
+  const who = c.Holder.MemberID;
+  const color = colorOf(who, crew);
+  if (!who || who === me || color === undefined) {
+    return undefined;
+  }
+  const agent = crew?.find((m) => m.login === who)?.agents?.[0]?.agent;
+  const text = !isTerminal(c.Holder.SessionID) && agent ? `${who} · ${agentNames[agent] ?? agent}` : who;
+  return { text: visible(text), color };
 }
