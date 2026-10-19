@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- `crewbo task list`, `crewbo task show`, the dashboard and the editor extension list teammates' tasks too: tasks they started for themselves, with the start of their text (up to 4 KiB), and tasks the lead sent to someone else, with their latest state.
-
 ### Fixed
 
 - A task kept showing a conflict (in `crewbo task list`, the dashboard and the editor extension) after it was merged or cancelled, or after the other task was. Those conflicts are no longer listed.
@@ -30,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `crewbo task list`, `crewbo task show`, the dashboard and the editor extension list teammates' tasks too: tasks they started for themselves, with the start of their text (up to 4 KiB), and tasks the lead sent to someone else, with their latest state.
 - The VS Code extension can be installed from a `.vsix` file: `task ext:package` builds it, and each release will attach it.
 - `crewbo report` prints counts of your Crewbo use to paste into the dogfood survey: Crewbo version and OS, which agents ran on this computer (sessions, first and last day), each room's members, merged tasks, conflict warnings, handoff requests and lead overrides, active claims and your tasks by state. It holds no file paths, task text or names, and sends nothing.
 - `crewbo doctor` checks this computer's Crewbo setup and prints a fix under each problem: the daemon, your sign-in and whether the sync server answers, the room for the current repository, your git name and email, the binary's folder, each agent's hooks and whether they have fired since the daemon started, and whether your login shell prints anything that would break hook replies. It exits with an error when something must be fixed.
