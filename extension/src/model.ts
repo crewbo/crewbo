@@ -57,6 +57,8 @@ export interface Status {
 export interface State {
   status: Status;
   tasks: Task[];
+  /** Tasks agents drafted for the lead to review and send (M7-07). */
+  drafts?: Draft[];
   /** Per repository root: its claims, its room's handoff steps and crew. */
   repos: { root: string; claims: Claim[]; handoffs: Handoff[]; crew?: CrewMember[]; room?: string; crewError?: string }[];
 }
@@ -317,4 +319,14 @@ export function taskPaths(input: string): string[] {
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean);
+}
+
+/** A task an agent drafted (internal/daemon/drafts.go); never sent by itself. */
+export interface Draft {
+  id: string;
+  repo: string;
+  assignee: string;
+  text: string;
+  patterns?: string[];
+  created: string;
 }

@@ -64,6 +64,8 @@ type Daemon struct {
 	calls   chan call
 	// Everything below is owned by the owner goroutine.
 	sessions   map[string]*Session
+	drafts     []Draft // tasks agents drafted for the lead (drafts.go)
+	draftSeq   int
 	claims     map[string]*claims.Set // keyed by RepoKey
 	snapshots  map[string]*snapshot   // session + tool use -> pre-shell hashes
 	violations []Violation
@@ -234,6 +236,8 @@ func (d *Daemon) handle(req Request) Response {
 		return resp
 	case MethodClaimAdd:
 		return d.claimAdd(req, now)
+	case MethodTaskDraft, MethodTaskDrafts, MethodTaskDraftDrop:
+		return d.draft(req, now)
 	case MethodClaimList:
 		return Response{ID: req.ID, Claims: d.set(req.Repo).Active(now)}
 	case MethodClaimRelease:

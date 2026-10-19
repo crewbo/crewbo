@@ -107,6 +107,10 @@ crewbo task merge ID
 
 This merges it into the remote's main branch, but only if it does not conflict with main or with another task's checkpoint. If it conflicts with a teammate's task, talk to them first; then `crewbo task merge ID --despite OTHER-ID` merges anyway and they update their task. `crewbo task cancel ID` stops a task and keeps its work.
 
+### Splitting the work with your agent (room lead)
+
+With Crewbo's MCP tools registered (step 6), ask your own agent to split the work, for example: "Split the login feature into tasks for my crew. Use crewbo_crew to see who is online and what they hold, then draft one task per teammate with crewbo_draft_task." The agent only **drafts**: nothing is sent. VS Code shows "Your agent drafted 3 tasks" and lists them under **Drafted tasks** in the Crewbo view. Click one to read and edit it, then press Enter to send it, or right-click it and drop it. Each teammate still reads and approves their task in a terminal. Drafts are kept until you send or drop them, or the daemon restarts.
+
 ### Tasks your lead sends you
 
 The lead can send a task for your agent to run: `crewbo task create --to LOGIN --path PATH "TEXT"`, or in VS Code with the send button at the top of the Crewbo view (**Send a task**: pick the teammate, the files, and what to do). You see it with `crewbo task list` and `crewbo task show ID`. Nothing runs until you approve it **yourself, in a terminal**:

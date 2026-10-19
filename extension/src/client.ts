@@ -29,6 +29,7 @@ export interface Response {
   tasks?: import("./model").Task[];
   handoffs?: import("./model").Handoff[];
   crew?: import("./model").CrewMember[];
+  drafts?: import("./model").Draft[];
   room_name?: string;
 }
 

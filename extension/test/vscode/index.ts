@@ -23,9 +23,12 @@ export async function run(): Promise<void> {
   assert.ok(claimed?.badge && claimed.tooltip?.includes("claimed by"), `decoration: ${JSON.stringify(claimed)}`);
   assert.equal(api.decoration(vscode.Uri.file(join(root, "src", "token.go"))), undefined);
 
-  const groups = api.tree.getChildren().map((n) => api.tree.getTreeItem(n).label);
-  assert.deepEqual(groups, ["Claims (1)", "Tasks (0, 0 conflicts)", "Handoff requests (0 open)"]);
-  const [claimNode] = api.tree.getChildren(api.tree.getChildren()[0]);
+  // Drafted tasks show first, and only when there are some.
+  const roots = api.tree.getChildren();
+  const groups = roots.map((n) => String(api.tree.getTreeItem(n).label));
+  const fixed = groups.filter((g) => !g.startsWith("Drafted tasks"));
+  assert.deepEqual(fixed, ["Claims (1)", "Tasks (0, 0 conflicts)", "Handoff requests (0 open)"]);
+  const [claimNode] = api.tree.getChildren(roots[groups.indexOf("Claims (1)")]);
   const item = api.tree.getTreeItem(claimNode);
   assert.equal(item.label, "src/auth.go");
   assert.match(String(item.description), /^claimed · .+, from a terminal$/);
@@ -36,5 +39,5 @@ export async function run(): Promise<void> {
     await new Promise((r) => setTimeout(r, 200));
   }
   assert.ok(api.crewPanelVisible(), "the crew panel is visible");
-  console.log(`crewbo extension check passed: ${api.statusBar()} | ${claimed.badge} | ${claimed.tooltip} | ${item.description}`);
+  console.log(`crewbo extension check passed: ${groups.join(" / ")} | ${api.statusBar()} | ${claimed.badge} | ${claimed.tooltip} | ${item.description}`);
 }

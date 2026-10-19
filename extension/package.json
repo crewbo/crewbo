@@ -129,6 +129,16 @@
         "title": "Send a task",
         "category": "Crewbo",
         "icon": "$(send)"
+      },
+      {
+        "command": "crewbo.sendDraft",
+        "title": "Review and send",
+        "category": "Crewbo"
+      },
+      {
+        "command": "crewbo.dropDraft",
+        "title": "Drop this draft",
+        "category": "Crewbo"
       }
     ],
     "menus": {
@@ -152,6 +162,14 @@
         {
           "command": "crewbo.sendTask",
           "when": "crewbo.lead"
+        },
+        {
+          "command": "crewbo.sendDraft",
+          "when": "false"
+        },
+        {
+          "command": "crewbo.dropDraft",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -196,6 +214,16 @@
           "command": "crewbo.declineTask",
           "when": "view == crewbo.crew && viewItem == task.approvable",
           "group": "inline@2"
+        },
+        {
+          "command": "crewbo.sendDraft",
+          "when": "view == crewbo.crew && viewItem == draft",
+          "group": "1_draft@1"
+        },
+        {
+          "command": "crewbo.dropDraft",
+          "when": "view == crewbo.crew && viewItem == draft",
+          "group": "1_draft@2"
         }
       ],
       "explorer/context": [

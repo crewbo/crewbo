@@ -13,6 +13,7 @@ import {
   canAnswer,
   claimsOn,
   type Claim,
+  type Draft,
   claimTag,
   colorOf,
   conflictPairs,
@@ -41,7 +42,8 @@ type Node =
   | { kind: "claim"; claim: Claim; root: string }
   | { kind: "task"; task: Task }
   | { kind: "conflict"; label: string }
-  | { kind: "handoff"; handoff: Handoff; root: string };
+  | { kind: "handoff"; handoff: Handoff; root: string }
+  | { kind: "draft"; draft: Draft };
 
 /** What activate returns: read-only hooks for the in-editor test (test/vscode). */
 export interface Api {
@@ -101,7 +103,8 @@ export function activate(ctx: vscode.ExtensionContext): Api {
   const poll = async () => {
     try {
       const st = await client.call({ method: "status" });
-      const next: State = { status: st.status ?? { version: "" }, tasks: [], repos: [] };
+      const dr = await client.call({ method: "task_drafts" });
+      const next: State = { status: st.status ?? { version: "" }, tasks: [], repos: [], drafts: dr.drafts ?? [] };
       for (const root of repos()) {
         // Only the tasks of this window's rooms; two folders can share a room.
         const ts = await client.call({ method: "task_list", repo: root });
@@ -201,6 +204,13 @@ export function activate(ctx: vscode.ExtensionContext): Api {
           }
         });
       }
+    }
+    const fresh = (s.drafts ?? []).filter((d) => !notified.has(`d:${d.id}`));
+    if (fresh.length > 0) {
+      fresh.forEach((d) => notified.add(`d:${d.id}`));
+      void vscode.window
+        .showInformationMessage(`Your agent drafted ${fresh.length === 1 ? "a task" : `${fresh.length} tasks`} for the crew. Nothing is sent until you review and send.`, "Review")
+        .then((pick) => pick && vscode.commands.executeCommand("crewbo.crew.focus"));
     }
     for (const t of s.tasks.filter(needsApproval)) {
       once(`t:${t.id}`, async () => {
@@ -304,6 +314,31 @@ export function activate(ctx: vscode.ExtensionContext): Api {
 
   ctx.subscriptions.push(
     vscode.commands.registerCommand("crewbo.refresh", poll),
+    vscode.commands.registerCommand("crewbo.sendDraft", async (n: Node) => {
+      if (n?.kind !== "draft") {
+        return;
+      }
+      const d = n.draft;
+      const text = await vscode.window.showInputBox({
+        title: `Review the drafted task for ${d.assignee}`,
+        prompt: `Edit it if needed. Enter sends it to ${d.assignee}${d.patterns?.length ? ` with claims on ${d.patterns.join(", ")}` : ""}; they read it and approve it themselves.`,
+        value: d.text,
+        validateInput: (v) => (v.trim() ? undefined : "Write what the task is"),
+      });
+      if (!text) {
+        return;
+      }
+      if (await send({ method: "task_create", repo: d.repo, assignee: d.assignee, patterns: d.patterns, text }, `Sent the task to ${d.assignee}.`)) {
+        await client.call({ method: "task_draft_drop", ids: [d.id] });
+        void poll();
+      }
+    }),
+    vscode.commands.registerCommand("crewbo.dropDraft", async (n: Node) => {
+      if (n?.kind === "draft") {
+        await client.call({ method: "task_draft_drop", ids: [n.draft.id] });
+        void poll();
+      }
+    }),
     vscode.commands.registerCommand("crewbo.sendTask", async () => {
       const r = state?.repos.find((x) => x.crew?.some((m) => m.you && m.lead));
       if (!r?.crew) {
@@ -460,7 +495,9 @@ class CrewTree implements vscode.TreeDataProvider<Node> {
     const tasks: Node[] = s.tasks.filter((t) => t.id).map((task) => ({ kind: "task" as const, task }));
     const handoffs: Node[] = s.repos.flatMap((r) => r.handoffs.map((handoff) => ({ kind: "handoff" as const, handoff, root: r.root })));
     const pairs = conflictPairs(s.tasks);
+    const drafts: Node[] = (s.drafts ?? []).map((draft) => ({ kind: "draft" as const, draft }));
     return [
+      ...(drafts.length > 0 ? [{ kind: "group" as const, label: `Drafted tasks (${drafts.length}, not sent)`, children: drafts }] : []),
       { kind: "group", label: `Claims (${claims.length})`, children: claims },
       { kind: "group", label: `Tasks (${tasks.length}, ${pairs} ${pairs === 1 ? "conflict" : "conflicts"})`, children: tasks },
       { kind: "group", label: `Handoff requests (${openHandoffs(s).length} open)`, children: handoffs },
@@ -508,6 +545,16 @@ class CrewTree implements vscode.TreeDataProvider<Node> {
         const it = new vscode.TreeItem(visible(n.label), None);
         it.description = "conflict";
         it.iconPath = new vscode.ThemeIcon("warning", new vscode.ThemeColor("crewbo.conflict"));
+        return it;
+      }
+      case "draft": {
+        const d = n.draft;
+        const it = new vscode.TreeItem(visible(d.text.split("\n")[0]), None);
+        it.description = `to ${d.assignee}${d.patterns?.length ? ` · ${d.patterns.join(", ")}` : ""}`;
+        it.tooltip = visible(`Drafted by an agent for ${d.assignee}; not sent.\n\n${d.text}`);
+        it.iconPath = new vscode.ThemeIcon("edit");
+        it.contextValue = "draft";
+        it.command = { command: "crewbo.sendDraft", title: "Review and send", arguments: [n] };
         return it;
       }
       case "handoff": {

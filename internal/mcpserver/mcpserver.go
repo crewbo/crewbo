@@ -1,8 +1,10 @@
-// Package mcpserver serves Crewbo's read-only MCP tools over stdio
-// (`crewbo mcp`): agents can ask which files are claimed before they plan
-// work. MCP is a query surface only; enforcement stays in the hooks
-// (ADR 0004). Tools are plain Go structs with the official SDK
-// (github.com/modelcontextprotocol/go-sdk, ADR 0007).
+// Package mcpserver serves Crewbo's MCP tools over stdio (`crewbo mcp`):
+// agents can ask which files are claimed and who is in the crew before
+// they plan work, and draft tasks for teammates. MCP is a query and draft
+// surface only: enforcement stays in the hooks (ADR 0004), and a draft is
+// sent only by the room lead, from the editor (M7-07). Tools are plain Go
+// structs with the official SDK (github.com/modelcontextprotocol/go-sdk,
+// ADR 0007).
 package mcpserver
 
 import (
@@ -59,7 +61,26 @@ type WhoHoldsOut struct {
 	Results []PathHolder `json:"results"`
 }
 
-// New returns the MCP server with Crewbo's read-only tools.
+// CrewOut is the result of crewbo_crew.
+type CrewOut struct {
+	Room    string              `json:"room"`
+	Members []daemon.CrewMember `json:"members" jsonschema:"each member: online or not, their agents' latest activity, the files they hold"`
+}
+
+// DraftIn is the input of crewbo_draft_task.
+type DraftIn struct {
+	To    string   `json:"to" jsonschema:"the teammate's GitHub login, from crewbo_crew"`
+	Text  string   `json:"text" jsonschema:"the task for their agent, complete enough to act on without asking back"`
+	Paths []string `json:"paths,omitempty" jsonschema:"repository-relative files or globs the task may change; their agent gets claims on them"`
+}
+
+// DraftOut is the result of crewbo_draft_task.
+type DraftOut struct {
+	Draft daemon.Draft `json:"draft"`
+	Note  string       `json:"note"`
+}
+
+// New returns the MCP server with Crewbo's tools.
 func New(cfg Config) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "crewbo", Version: cfg.Version}, nil)
 	mcp.AddTool(s, &mcp.Tool{
@@ -106,7 +127,46 @@ func New(cfg Config) *mcp.Server {
 		}
 		return nil, out, nil
 	})
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "crewbo_crew",
+		Description: "List the members of this repository's room: who is online, what their agents are doing, and which files they hold. Use it to split work around what teammates are already doing.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, CrewOut, error) {
+		_, resp, err := ask(ctx, cfg, daemon.Request{Method: daemon.MethodCrew})
+		if err != nil {
+			return nil, CrewOut{}, err
+		}
+		return nil, CrewOut{Room: resp.RoomName, Members: resp.Crew}, nil
+	})
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "crewbo_draft_task",
+		Description: "Draft a task for one teammate's agent. It is NOT sent: the room lead reviews every draft in the editor, may edit or drop it, and sends it; the teammate then reads and approves it themselves. " +
+			"Use crewbo_crew first, give each teammate a separate piece of work with its own paths, and avoid files others hold.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in DraftIn) (*mcp.CallToolResult, DraftOut, error) {
+		_, resp, err := ask(ctx, cfg, daemon.Request{Method: daemon.MethodTaskDraft, Assignee: in.To, Text: in.Text, Patterns: in.Paths})
+		if err != nil {
+			return nil, DraftOut{}, err
+		}
+		return nil, DraftOut{Draft: resp.Drafts[0], Note: "Drafted, not sent. The room lead reviews it in the Crewbo view before it goes to " + in.To + "."}, nil
+	})
 	return s
+}
+
+// ask sends req to the daemon for the agent's repository.
+func ask(ctx context.Context, cfg Config, req daemon.Request) (string, daemon.Response, error) {
+	repo, ok := hooks.RepoRoot(cfg.Cwd)
+	if !ok {
+		return "", daemon.Response{}, errors.New("crewbo: this agent is not working inside a git repository")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	c, err := daemon.Dial(ctx, cfg.Paths)
+	if err != nil {
+		return "", daemon.Response{}, errors.New("crewbo: the Crewbo daemon is not running; start it with `crewbo daemon`")
+	}
+	defer func() { _ = c.Close() }()
+	req.Repo = repo
+	resp, err := c.Call(ctx, req)
+	return repo, resp, err
 }
 
 // list returns the repository root and its active claims from the daemon.

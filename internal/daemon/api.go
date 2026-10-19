@@ -39,6 +39,9 @@ const (
 	MethodTaskCancel     = "task_cancel"
 	MethodReport         = "report"
 	MethodCrew           = "crew"
+	MethodTaskDraft      = "task_draft"
+	MethodTaskDrafts     = "task_drafts"
+	MethodTaskDraftDrop  = "task_draft_drop"
 )
 
 // TerminalSession holds claims made with `crewbo claim add`. It is not an
@@ -139,6 +142,8 @@ type Response struct {
 	Report *Report `json:"report,omitempty"`
 	// Crew is the room's members, online state, agents and claims (crew).
 	Crew []CrewMember `json:"crew,omitempty"`
+	// Drafts are tasks agents drafted for the lead (task_draft, task_drafts).
+	Drafts []Draft `json:"drafts,omitempty"`
 	// RoomName is the room's name (crew).
 	RoomName string `json:"room_name,omitempty"`
 	// URL is the dashboard's address, with its token (dashboard).

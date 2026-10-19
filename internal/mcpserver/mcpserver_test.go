@@ -100,7 +100,7 @@ func TestTools(t *testing.T) {
 	cs := session(t, repo, cl)
 
 	tools, err := cs.ListTools(context.Background(), nil)
-	if err != nil || len(tools.Tools) != 2 {
+	if err != nil || len(tools.Tools) != 4 {
 		t.Fatalf("tools = %+v, %v", tools, err)
 	}
 	for _, tool := range tools.Tools {
@@ -161,4 +161,21 @@ func text(r *mcp.CallToolResult) string {
 		}
 	}
 	return b.String()
+}
+
+// M7-07: an agent drafts a task through MCP; it only waits in the daemon.
+// The crew needs a room, so outside one the tool says so.
+func TestDraftAndCrewTools(t *testing.T) {
+	repo, cl := repoWithClaims(t)
+	cs := session(t, repo, cl)
+	out, res := call[DraftOut](t, cs, "crewbo_draft_task", map[string]any{"to": "riya", "text": "Build the login page", "paths": []string{"src/auth/**"}})
+	if res.IsError || out.Draft.Assignee != "riya" || out.Draft.Repo != repo || !strings.Contains(out.Note, "not sent") {
+		t.Fatalf("draft = %+v (%+v)", out, res.Content)
+	}
+	if _, res := call[DraftOut](t, cs, "crewbo_draft_task", map[string]any{"to": "riya", "text": " "}); !res.IsError {
+		t.Error("an empty task was drafted")
+	}
+	if _, res := call[CrewOut](t, cs, "crewbo_crew", map[string]any{}); !res.IsError {
+		t.Error("a crew outside a room")
+	}
 }
