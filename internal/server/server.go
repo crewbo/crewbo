@@ -229,6 +229,18 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 	for _, cur := range hello.GetRooms() {
 		joined[cur.GetRoomId()] = true
 	}
+	// Join each room's presence before Welcome: a daemon acts on Welcome, and
+	// activity relayed before its watch exists would reach no one. Presence
+	// and activity wait in the watch's channels until forwardPresence runs.
+	watches := make([]*Watch, 0, len(subs))
+	for _, sub := range subs {
+		w, err := sub.room.Connect(ctx, u.Login)
+		if err != nil {
+			return
+		}
+		defer w.Leave() // before the cleanup above waits for the forwarders
+		watches = append(watches, w)
+	}
 	welcome := &crewbov1.Welcome{ProtocolVersion: ProtocolVersion, ServerTimeUnixMs: time.Now().UnixMilli()}
 	if err := send(ctx, c, &crewbov1.Envelope{Body: &crewbov1.Envelope_Welcome{Welcome: welcome}}); err != nil {
 		return
@@ -242,16 +254,10 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	for _, sub := range subs {
-		helpers.Add(1)
+	for i, sub := range subs {
+		helpers.Add(2)
 		go func() { defer helpers.Done(); s.forward(ctx, c, sub) }()
-		w, err := sub.room.Connect(ctx, u.Login)
-		if err != nil {
-			return
-		}
-		defer w.Leave() // before the cleanup above waits for the forwarders
-		helpers.Add(1)
-		go func() { defer helpers.Done(); s.forwardPresence(ctx, c, w) }()
+		go func() { defer helpers.Done(); s.forwardPresence(ctx, c, watches[i]) }()
 	}
 	helpers.Add(1)
 	go func() {
