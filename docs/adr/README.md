@@ -16,10 +16,11 @@ To change an accepted decision, write a new ADR that supersedes it and set the o
 | [0008](0008-sync-server-websocket-hub-sqlite.md) | Sync server: in-binary WebSocket hub with SQLite | Accepted |
 | [0009](0009-github-oauth-device-flow.md) | GitHub OAuth device flow for authentication | Accepted |
 | [0010](0010-monorepo-layout-and-toolchain.md) | Monorepo layout and toolchain | Accepted |
-| [0011](0011-sync-server-licence.md) | Sync server licence | Proposed |
+| [0011](0011-sync-server-licence.md) | Sync server licence | Accepted |
 | [0012](0012-crewbo-ide-long-term.md) | Crewbo IDE as a long-term product | Accepted |
 | [0015](0015-merge-despite-a-conflicting-task.md) | A member may merge over another task's conflicting checkpoint after confirming | Accepted |
 | [0014](0014-members-merge-through-the-conflict-check.md) | Members merge their own work through the conflict check; every piece of work is a task | Accepted |
 | [0013](0013-antigravity-v1-stretch.md) | Antigravity adapter as a v1 stretch goal | Accepted |
+| [0016](0016-crewbo-ide-preview-at-launch.md) | Crewbo IDE preview at the v1 launch (supersedes ADR 0012's timeline) | Proposed |
 
 "Accepted" for 0002 to 0010 means accepted in the PRD (2026-10-10) and pending Ronel's review of this package at Gate A.
