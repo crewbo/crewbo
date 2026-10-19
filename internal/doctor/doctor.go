@@ -110,9 +110,13 @@ func Run(ctx context.Context, d Deps) []Result {
 		add(Result{Name: "binary path", Level: OK, Detail: d.Binary})
 	}
 
+	hooked := false
+	for _, a := range Agents {
+		hooked = hooked || install.Installed(a, d.HookConfig(a))
+	}
 	shellAgents := false
 	for _, a := range Agents {
-		add(hookCheck(d, a, st, derr == nil))
+		add(hookCheck(d, a, st, derr == nil, hooked))
 		if a != install.ClaudeCode && d.AgentPresent(a) {
 			shellAgents = true
 		}
@@ -171,13 +175,17 @@ func gitIdentity(ctx context.Context, d Deps) Result {
 
 // hookCheck reports whether an agent's hooks are installed and whether the
 // daemon has heard from them (decision log 2026-10-11: hooks configured but
-// never firing are found from the absence of any hook event).
-func hookCheck(d Deps, agent string, st daemon.Status, daemonUp bool) Result {
+// never firing are found from the absence of any hook event). Missing hooks
+// fail only when no agent has them (hooked false): a member who uses one
+// agent with Crewbo may have others installed for other work.
+func hookCheck(d Deps, agent string, st daemon.Status, daemonUp, hooked bool) Result {
 	name := "hooks: " + agent
 	cfg := d.HookConfig(agent)
 	switch {
 	case !d.AgentPresent(agent) && cfg == nil:
 		return Result{Name: name, Level: Skip, Detail: "agent not found"}
+	case !install.Installed(agent, cfg) && hooked:
+		return Result{Name: name, Level: Warn, Detail: "installed, without Crewbo hooks", Fix: "if you use " + agent + " in this repository: `crewbo hooks install --agent " + agent + "`"}
 	case !install.Installed(agent, cfg):
 		return Result{Name: name, Level: Fail, Detail: "not installed", Fix: "`crewbo hooks install --agent " + agent + "`"}
 	case !daemonUp:
