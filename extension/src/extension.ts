@@ -97,11 +97,33 @@ export function activate(ctx: vscode.ExtensionContext): Api {
   // The Crewbo IDE opens the crew panel once, on first run (ADR 0016). VS Code
   // keeps the view where the member puts it. env.appName is product.json's
   // nameLong; Code OSS registers `<view id>.focus` for every view.
-  if (vscode.env.appName === "Crewbo IDE" && !ctx.globalState.get<boolean>("crewPanelOpened")) {
+  const ide = vscode.env.appName === "Crewbo IDE";
+  if (ide && !ctx.globalState.get<boolean>("crewPanelOpened")) {
     vscode.commands.executeCommand("crewbo.crewPanel.focus").then(
       () => ctx.globalState.update("crewPanelOpened", true),
       () => undefined,
     );
+  }
+  // The Crewbo IDE offers the agents' own extensions once (M8-05): a click
+  // installs the publisher's build from Open VSX. They are never bundled:
+  // both are proprietary, and members sign in to them themselves.
+  const agents = [
+    { id: "anthropic.claude-code", name: "Claude Code" },
+    { id: "openai.chatgpt", name: "Codex" },
+  ].filter((a) => !vscode.extensions.getExtension(a.id));
+  if (ide && agents.length > 0 && !ctx.globalState.get<boolean>("agentsOffered")) {
+    void ctx.globalState.update("agentsOffered", true);
+    void vscode.window
+      .showInformationMessage(
+        "Prompt your agent here, next to the crew panel. Install its extension from Open VSX.",
+        ...agents.map((a) => `Install ${a.name}`),
+      )
+      .then((pick) => {
+        const a = agents.find((x) => `Install ${x.name}` === pick);
+        if (a) {
+          void vscode.commands.executeCommand("workbench.extensions.installExtension", a.id);
+        }
+      });
   }
 
   const repos = () => {
