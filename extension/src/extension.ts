@@ -4,7 +4,7 @@
 // `crewbo task approve`, the only approval path (ADR 0006).
 
 import { randomBytes } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import * as vscode from "vscode";
 import { Client, type Request } from "./client";
@@ -13,6 +13,8 @@ import {
   canAnswer,
   claimsOn,
   type Claim,
+  claimTag,
+  colorOf,
   conflictPairs,
   crewRows,
   type Handoff,
@@ -58,7 +60,18 @@ export function activate(ctx: vscode.ExtensionContext): Api {
 
   const changed = new vscode.EventEmitter<void>();
   const decoChanged = new vscode.EventEmitter<undefined>();
-  const tree = new CrewTree(() => state, changed.event);
+  const badge = (i: number) => vscode.Uri.joinPath(ctx.extensionUri, "media", "badges", `${i % 8}.svg`);
+  const tree = new CrewTree(() => state, changed.event, badge);
+  // Claim tags (05-interface.md 3.2), one decoration type per teammate
+  // colour; the colours come from bo.js through the build (copy-assets.mjs).
+  const colors: { base: string; tint: string }[] = JSON.parse(readFileSync(join(ctx.extensionPath, "media", "badges", "colors.json"), "utf8"));
+  const tags = colors.map((c) =>
+    vscode.window.createTextEditorDecorationType({
+      after: { margin: "0 0 0 20px", border: `1px solid ${c.base}`, textDecoration: "none; border-radius: 999px; padding: 0 10px; font-size: 13px;" },
+      dark: { after: { color: c.tint } },
+      light: { after: { color: c.base } },
+    }),
+  );
   const view = vscode.window.createTreeView("crewbo.crew", { treeDataProvider: tree });
   const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
   bar.command = "crewbo.crew.focus";
@@ -97,14 +110,15 @@ export function activate(ctx: vscode.ExtensionContext): Api {
         }
         const cl = await client.call({ method: "claim_list", repo: root });
         const ho = await client.call({ method: "claim_requests", repo: root });
-        // A repository outside a room has no handoff steps; that is not an error.
-        next.repos.push({ root, claims: cl.claims ?? [], handoffs: ho.handoffs ?? [] });
+        // A repository outside a room has no handoff steps or crew; that is not an error.
+        const cr = await client.call({ method: "crew", repo: root });
+        next.repos.push({ root, claims: cl.claims ?? [], handoffs: ho.handoffs ?? [], crew: cr.crew, room: cr.room_name, crewError: cr.error });
       }
       state = next;
       down = undefined;
       notify(next);
       if (panel.visible) {
-        await showCrew(next);
+        showCrew(next);
       }
     } catch (err) {
       state = undefined;
@@ -114,21 +128,46 @@ export function activate(ctx: vscode.ExtensionContext): Api {
   };
 
   // showCrew fills the crew panel for the first folder in a room.
-  const showCrew = async (s: State) => {
+  const showCrew = (s: State) => {
     const reduceMotion = vscode.workspace.getConfiguration("workbench").get<string>("reduceMotion") === "on";
-    const root = s.repos[0]?.root;
-    if (!root) {
+    const r = s.repos[0];
+    if (!r) {
       panel.post({ type: "crew", reduceMotion, note: "Open a repository to see its crew." });
       return;
     }
-    const resp = await client.call({ method: "crew", repo: root });
-    if (resp.error) {
-      panel.post({ type: "crew", reduceMotion, note: resp.error.replace(/^crew: /, "") });
+    if (r.crewError) {
+      panel.post({ type: "crew", reduceMotion, note: r.crewError.replace(/^crew: /, "") });
       return;
     }
-    const handoffs = s.repos.find((r) => r.root === root)?.handoffs ?? [];
     const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    panel.post({ type: "crew", reduceMotion, room: resp.room_name, rows: crewRows(resp.crew ?? [], s.tasks, handoffs, time) });
+    panel.post({ type: "crew", reduceMotion, room: r.room, rows: crewRows(r.crew ?? [], s.tasks, r.handoffs, time) });
+  };
+
+  // showTags puts a claim tag on the first line of each visible file that
+  // another member holds: who, and which agent, without covering code.
+  const showTags = () => {
+    for (const editor of vscode.window.visibleTextEditors) {
+      const ranges: vscode.DecorationOptions[][] = tags.map(() => []);
+      const file = editor.document.uri.fsPath;
+      const root = editor.document.uri.scheme === "file" ? repoRoot(dirname(file)) : undefined;
+      const r = state?.repos.find((x) => x.root === root);
+      if (r && root) {
+        const held = claimsOn(relative(root, file).split(sep).join("/"), r.claims, new Date());
+        for (const c of held) {
+          const tag = claimTag(c, r.crew, state?.status.login);
+          if (tag) {
+            const line = editor.document.lineAt(0).range;
+            ranges[tag.color % tags.length].push({
+              range: new vscode.Range(line.end, line.end),
+              hoverMessage: `${holderLabel(c, state?.status.login)} holds ${c.Pattern}`,
+              renderOptions: { after: { contentText: tag.text } },
+            });
+            break;
+          }
+        }
+      }
+      tags.forEach((t, i) => editor.setDecorations(t, ranges[i]));
+    }
   };
 
   const render = () => {
@@ -143,6 +182,7 @@ export function activate(ctx: vscode.ExtensionContext): Api {
     }
     changed.fire();
     decoChanged.fire(undefined);
+    showTags();
   };
 
   // Tell the member once about requests they can answer, tasks waiting for
@@ -304,6 +344,8 @@ export function activate(ctx: vscode.ExtensionContext): Api {
       }
     }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => void poll()),
+    vscode.window.onDidChangeVisibleTextEditors(showTags),
+    ...tags,
   );
 
   // Poll only while the window is focused or visible, so a background
@@ -363,6 +405,7 @@ class CrewTree implements vscode.TreeDataProvider<Node> {
   constructor(
     private readonly state: () => State | undefined,
     readonly onDidChangeTreeData: vscode.Event<void>,
+    private readonly badge: (color: number) => vscode.Uri,
   ) {}
 
   getChildren(n?: Node): Node[] {
@@ -411,7 +454,9 @@ class CrewTree implements vscode.TreeDataProvider<Node> {
             .filter(Boolean)
             .join("\n"),
         );
-        it.iconPath = new vscode.ThemeIcon("lock", new vscode.ThemeColor("crewbo.claimed"));
+        // The holder's badge Bo (05-interface.md 3.1); a lock when they are not in the crew.
+        const color = colorOf(n.claim.Holder.MemberID, s?.repos.find((r) => r.root === n.root)?.crew);
+        it.iconPath = color === undefined ? new vscode.ThemeIcon("lock", new vscode.ThemeColor("crewbo.claimed")) : this.badge(color);
         it.contextValue = n.claim.Holder.MemberID === me ? "claim.mine" : "claim.other";
         return it;
       }

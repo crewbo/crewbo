@@ -1,7 +1,8 @@
 // Copies the brand files the crew panel uses into media/ (git-ignored), next
 // to the panel's own script, so the webview loads Bo from the reference
 // component itself, unchanged (CLAUDE.md: port bo.js, never redraw Bo).
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 const brand = "../docs/brand";
 const out = "media/crew";
@@ -23,3 +24,10 @@ for (const f of ["instrument-sans-latin-400-normal.woff2", "instrument-sans-lati
 for (const [from, to] of Object.entries(files)) {
   copyFileSync(from, to);
 }
+
+// Badge Bo per teammate colour for claim rows, and the colours for claim
+// tags, both from bo.js. No ring: tree rows never stack badges.
+const bo = await import(pathToFileURL(`${brand}/reference/component/bo.js`).href);
+mkdirSync("media/badges", { recursive: true });
+bo.TEAM_COLORS.forEach((c, i) => writeFileSync(`media/badges/${i}.svg`, bo.badgeSVG({ color: c.base, ring: null })));
+writeFileSync("media/badges/colors.json", JSON.stringify(bo.TEAM_COLORS));

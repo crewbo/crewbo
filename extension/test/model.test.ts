@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   badge,
   canAnswer,
+  claimTag,
   type Claim,
   claimsOn,
   conflictPairs,
@@ -165,4 +166,15 @@ test("crewRows follows the brand's precedence and copy", () => {
     ],
   );
   assert.equal(rows[0].label, "ronel, writing session.go");
+});
+
+test("claimTag names the member and their agent, never your own claims", () => {
+  const crew: CrewMember[] = [
+    { login: "ronel", you: true, color: 0, online: true },
+    { login: "riya", color: 1, online: true, agents: [{ agent: "codex", idle: false, at: "" }] },
+  ];
+  assert.deepEqual(claimTag(claim("src/a.go", "riya", "k/s1"), crew, "ronel"), { text: "riya · Codex", color: 1 });
+  assert.deepEqual(claimTag(claim("src/a.go", "riya", "k/terminal"), crew, "ronel"), { text: "riya", color: 1 });
+  assert.equal(claimTag(claim("src/a.go", "ronel", "k/s1"), crew, "ronel"), undefined);
+  assert.equal(claimTag(claim("src/a.go", "dev", "k/s1"), crew, "ronel"), undefined);
 });
