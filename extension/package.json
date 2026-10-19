@@ -123,6 +123,12 @@
         "command": "crewbo.declineTask",
         "title": "Decline",
         "category": "Crewbo"
+      },
+      {
+        "command": "crewbo.sendTask",
+        "title": "Send a task",
+        "category": "Crewbo",
+        "icon": "$(send)"
       }
     ],
     "menus": {
@@ -142,12 +148,21 @@
         {
           "command": "crewbo.declineTask",
           "when": "false"
+        },
+        {
+          "command": "crewbo.sendTask",
+          "when": "crewbo.lead"
         }
       ],
       "view/title": [
         {
           "command": "crewbo.refresh",
           "when": "view == crewbo.crew",
+          "group": "navigation"
+        },
+        {
+          "command": "crewbo.sendTask",
+          "when": "view == crewbo.crew && crewbo.lead",
           "group": "navigation"
         }
       ],
