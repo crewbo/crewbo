@@ -125,6 +125,15 @@ func TestProblems(t *testing.T) {
 		"hooks missing": {func(d *Deps) {
 			d.HookConfig = func(string) []byte { return nil }
 		}, "hooks: codex", Fail, "crewbo hooks install --agent codex"},
+		"one agent without hooks": {func(d *Deps) {
+			hc := d.HookConfig
+			d.HookConfig = func(agent string) []byte {
+				if agent == install.Codex {
+					return nil
+				}
+				return hc(agent)
+			}
+		}, "hooks: codex", Warn, "if you use codex"},
 		"hooks never fired": {func(d *Deps) {
 			d.Status = func(context.Context) (daemon.Status, error) {
 				return daemon.Status{Started: now, Sync: "connected", Agents: map[string]time.Time{install.ClaudeCode: now}}, nil

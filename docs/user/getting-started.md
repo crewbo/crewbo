@@ -66,7 +66,7 @@ codex mcp add crewbo -- /absolute/path/to/crewbo mcp
 crewbo doctor
 ```
 
-It checks the daemon, your sign-in, the server, the room, your git name and email, the hooks, and your shell, and prints a fix under every problem. A `WARN` for an agent's hooks only means that agent has not run since the daemon started: start it, send a prompt and run `crewbo doctor` again.
+It checks the daemon, your sign-in, the server, the room, your git name and email, the hooks, and your shell, and prints a fix under every problem. A `WARN` for an agent's hooks means either that agent has not run since the daemon started (start it, send a prompt and run `crewbo doctor` again) or that it is installed without Crewbo hooks while another agent has them (fine if you do not use it in this repository).
 
 ## Working with Crewbo
 
