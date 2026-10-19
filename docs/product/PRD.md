@@ -12,7 +12,7 @@ Crewbo lets every teammate run their own AI coding agent at the same time, on an
 - **Wedge:** mixed-vendor, cross-machine, cross-OS coordination that is self-hostable and keeps code off third-party servers. No shipping product does all four.
 - **Mechanism:** a local Go daemon enforces leased file claims through each agent's own hooks, shares live intent through a small sync server, and warns about cross-machine conflicts before merge.
 - **Team lead:** dispatches signed tasks to teammates' agents; each teammate approves before anything runs.
-- **Status:** Phase 0 passed (Gate B) and M1 to M4 are built: claims across machines and signed lead dispatch work on Linux and macOS. Org `github.com/crewbo` secured; the `crewbo.dev` domain is planned but not bought yet. Next is M5 (conflict warnings, extension v0).
+- **Status:** M1 to M5 and the Antigravity adapter are built and checked across Linux and macOS; the repository is public. Next: the crew panel (M7), a Crewbo IDE preview (M8) and a website, for a launch about 22 November 2026. Org `github.com/crewbo` secured; the `crewbo.dev` domain is planned but not bought yet.
 
 ## Problem and target users
 
