@@ -51,7 +51,7 @@ A room is one repository shared by one team. Run these inside your clone of the 
 crewbo hooks install
 ```
 
-This adds Crewbo's hooks to every agent it finds (Claude Code, Codex, Antigravity), keeps your own hooks and settings, and writes a backup next to each file it changes. For **Codex**, open Codex, type `/hooks` and trust the crewbo hooks; Codex skips hooks you have not trusted.
+This adds Crewbo's hooks to every agent it finds (Claude Code, Codex, Antigravity), keeps your own hooks and settings, and writes a backup next to each file it changes. The same hooks apply when you prompt from the Claude Code or Codex panel inside VS Code, so you can stay in the editor. For **Codex**, open Codex, type `/hooks` and trust the crewbo hooks; Codex skips hooks you have not trusted.
 
 Optionally, let your agent look up claims while it plans (Antigravity gets this from `crewbo hooks install`):
 
