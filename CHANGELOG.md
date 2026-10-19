@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A task run that changed nothing said "no checkpoint: git user.name and user.email are not set" when git had no identity. An identity is now asked for only when there is something to commit.
 - A task kept showing a conflict (in `crewbo task list`, the dashboard and the editor extension) after it was merged or cancelled, or after the other task was. Those conflicts are no longer listed.
 - `crewbo doctor` failed when an installed agent had no Crewbo hooks, even if the member uses another agent with Crewbo. That is now a warning; it still fails when no agent has hooks.
 - The VS Code extension listed every task the daemon knew, from all rooms, by id. It now lists only the tasks of the rooms of the open folders, labelled by their text (`task_list` takes an optional repository).
