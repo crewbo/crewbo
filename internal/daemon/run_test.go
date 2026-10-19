@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -226,6 +227,13 @@ func TestApprovedTaskRunsWithCodex(t *testing.T) {
 	eventually(t, "the task", func() bool { return f.b.taskState(sent.TaskID).State == "dispatched" })
 	if _, err := f.b.call(Request{Method: MethodTaskApprove, Task: sent.TaskID, Agent: "aider"}); err == nil || !strings.Contains(err.Error(), "unknown agent") {
 		t.Errorf("unknown agent: %v", err)
+	}
+	if runtime.GOOS == "windows" {
+		// Codex dispatch is refused on Windows until U-20 is resolved.
+		if _, err := f.b.call(Request{Method: MethodTaskApprove, Task: sent.TaskID, Agent: "codex"}); err == nil || !strings.Contains(err.Error(), "not supported on Windows") {
+			t.Errorf("approve with Codex on Windows: %v", err)
+		}
+		return
 	}
 	touch(t, filepath.Join(dir, "signed-out"), "")
 	if _, err := f.b.call(Request{Method: MethodTaskApprove, Task: sent.TaskID, Agent: "codex"}); err == nil || !strings.Contains(err.Error(), "run codex login") {
@@ -811,6 +819,7 @@ func TestOwnTaskCheckpointsAndMerges(t *testing.T) {
 	if err != nil || !strings.HasPrefix(resp.Note, "Checkpointed as "+ref+" at ") {
 		t.Fatalf("checkpoint: %+v %v", resp, err)
 	}
+	checkpointedAt := time.Now()
 	first := gitOut(t, bare, "rev-parse", ref)
 	if st := f.b.taskState(id).State; st != "checkpointed" {
 		t.Errorf("state %s", st)
@@ -823,8 +832,14 @@ func TestOwnTaskCheckpointsAndMerges(t *testing.T) {
 
 	work("second\n")
 	event("stop") // within ownEvery of the last checkpoint: not yet
+	within := time.Since(checkpointedAt) < f.b.run.d.ownEvery
 	time.Sleep(400 * time.Millisecond)
-	if got := gitOut(t, bare, "rev-parse", ref); got != first {
+	switch got := gitOut(t, bare, "rev-parse", ref); {
+	case !within:
+		// A slow machine (the Windows runner) got here after the interval,
+		// when an automatic checkpoint is allowed: nothing to check.
+		t.Log("the stop came after the interval; the interval itself was not checked")
+	case got != first:
 		t.Error("an automatic checkpoint ran within the interval")
 	}
 	event("stop") // the interval has passed
