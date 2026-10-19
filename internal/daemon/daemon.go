@@ -285,6 +285,32 @@ func (d *Daemon) touch(req Request, event string, now time.Time) {
 	for _, set := range d.claims {
 		set.Renew(req.Session, now, claims.DefaultLease)
 	}
+	d.shareActivity(s, req, event)
+}
+
+// shareActivity tells the session's room what its agent is doing when
+// that changes (M7-01): the file it is about to edit, working, or idle
+// after its reply. Terminal sessions and repositories outside a room
+// share nothing.
+func (d *Daemon) shareActivity(s *Session, req Request, event string) {
+	if d.sync == nil || s.Agent == "" || s.Repo == "" {
+		return
+	}
+	b, key, _, ok := d.sync.binding(s.Repo)
+	if !ok {
+		return
+	}
+	a := &crewbov1.Activity{RoomId: b.RoomID, SessionId: key + "/" + s.ID, Agent: s.Agent}
+	switch {
+	case event == "stop" || event == "session_start":
+		a.Idle = true
+	case event == "pre_edit" && len(req.Paths) > 0:
+		a.Path = req.Paths[0]
+	}
+	if shared := fmt.Sprint(a.GetIdle(), a.GetPath()); shared != s.shared {
+		s.shared = shared
+		d.sync.sendLive(&crewbov1.Envelope{Id: newEnvelopeID(), Body: &crewbov1.Envelope_Activity{Activity: a}})
+	}
 }
 
 // set returns the claim set for a repository, creating it on first use.

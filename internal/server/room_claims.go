@@ -24,6 +24,8 @@ const (
 	maxRef       = 255
 	maxCommit    = 64 // SHA-256 object ids in hex
 	maxPath      = 4096
+	maxSession   = 256 // a device key and an agent's session id
+	maxAgent     = 32
 	maxText      = 4 << 10 // the start of a task's text on a status (daemon maxStatusText)
 )
 

@@ -239,4 +239,6 @@ type Session struct {
 	Repo      string    `json:"repo"`
 	LastSeen  time.Time `json:"last_seen"`
 	LastEvent string    `json:"last_event"`
+	// shared is the last activity told to the room (shareActivity).
+	shared string
 }

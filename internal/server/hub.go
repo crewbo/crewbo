@@ -76,10 +76,24 @@ func (s *Server) forward(ctx context.Context, c *websocket.Conn, sub *Subscripti
 	}
 }
 
-// forwardPresence sends a room's presence until the watch ends.
+// forwardPresence sends a room's presence and relayed activity until the
+// watch ends (Leave closes both channels together).
 func (s *Server) forwardPresence(ctx context.Context, c *websocket.Conn, w *Watch) {
-	for p := range w.C {
-		if err := send(ctx, c, &crewbov1.Envelope{Body: &crewbov1.Envelope_Presence{Presence: p}}); err != nil {
+	for {
+		var env *crewbov1.Envelope
+		select {
+		case p, ok := <-w.C:
+			if !ok {
+				return
+			}
+			env = &crewbov1.Envelope{Body: &crewbov1.Envelope_Presence{Presence: p}}
+		case a, ok := <-w.A:
+			if !ok {
+				return
+			}
+			env = &crewbov1.Envelope{Body: &crewbov1.Envelope_Activity{Activity: a}}
+		}
+		if err := send(ctx, c, env); err != nil {
 			return
 		}
 	}

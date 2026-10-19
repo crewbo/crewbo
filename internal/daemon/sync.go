@@ -60,6 +60,11 @@ type syncer struct {
 	// snapshots when room logs grow large.
 	cursors map[string]uint64
 	kick    chan struct{} // new outbox entries to send
+	// live holds unanswered, unqueued messages (agent activity) for the
+	// connection; offline or full, they are dropped.
+	live chan *crewbov1.Envelope
+	// crew is the rooms' presence and agent activity as received.
+	crew *crew
 
 	mu        sync.Mutex
 	state     string
@@ -74,6 +79,7 @@ func newSyncer(p platform.Paths, db *sql.DB, log *slog.Logger, apply func(auth.B
 		minBackoff: minBackoff, maxBackoff: maxBackoff, reloadEvery: reloadEvery, state: "starting",
 		pingEvery: pingEvery, pongWait: pongWait,
 		cursors: map[string]uint64{}, kick: make(chan struct{}, 1), waiters: map[string]chan *crewbov1.Envelope{},
+		live: make(chan *crewbov1.Envelope, liveBuffer), crew: newCrew(),
 	}
 }
 
@@ -297,6 +303,24 @@ func (s *syncer) connect(ctx context.Context, cfg config) (bool, error) {
 			}
 		}
 	}()
+	// Send live messages; any left from before this connection are stale.
+	for len(s.live) > 0 {
+		<-s.live
+	}
+	helpers.Add(1)
+	go func() {
+		defer helpers.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case env := <-s.live:
+				if err := writeEnv(ctx, c, env); err != nil {
+					return
+				}
+			}
+		}
+	}()
 	// Send the outbox now and whenever something is queued.
 	s.mu.Lock()
 	s.connected = true
@@ -317,6 +341,14 @@ func (s *syncer) connect(ctx context.Context, cfg config) (bool, error) {
 		}
 		if id := replyID(env); id != "" {
 			s.settle(ctx, id, env, byRoom)
+			continue
+		}
+		if p := env.GetPresence(); p != nil {
+			s.crew.presence(p)
+			continue
+		}
+		if a := env.GetActivity(); a != nil {
+			s.crew.activity(a, time.Now())
 			continue
 		}
 		ev := env.GetEvent()
@@ -456,6 +488,18 @@ func (s *syncer) session() auth.Session {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.current.session
+}
+
+// liveBuffer is how many live messages wait for the connection.
+const liveBuffer = 32
+
+// sendLive hands env to the connection without queueing it durably or
+// waiting for an answer; it is dropped when the buffer is full.
+func (s *syncer) sendLive(env *crewbov1.Envelope) {
+	select {
+	case s.live <- env:
+	default:
+	}
 }
 
 // errNotSent means the request is queued but the server has not answered

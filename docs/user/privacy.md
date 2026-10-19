@@ -15,6 +15,7 @@ The sync server is run by someone on your team (or by you, with `crewbo serve`).
 | Two tasks conflict | The two task ids and commits, and the paths that conflict |
 | You ask for a file, answer, or override | The claim, and the reason you typed |
 | You are connected | That you are online in the room, while your daemon is connected (not stored) |
+| Your agent starts, edits a file or finishes a reply | The agent's name (Claude Code, Codex or Antigravity), the path of the file it is about to edit, and whether it is waiting for you; passed on to the room live, not stored |
 
 ## What the sync server stores
 
