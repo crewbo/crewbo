@@ -183,6 +183,17 @@ func TestTeammateOfflineAtDispatchReceivesTheTask(t *testing.T) {
 	if got := f.a.tasks(); len(got) != 1 || !got[0].Sent || got[0].Assignee != "gavriel953" || got[0].State != "dispatched" || got[0].ID != sent.TaskID {
 		t.Errorf("the lead's list: %+v", got)
 	}
+	// Scoped to a repository: only its room's tasks (not one from another
+	// room), and none for a repository outside a room.
+	if _, err := f.a.run.d.sync.db.Exec(`INSERT INTO tasks (digest, room_id, signed, state, received_unix_ms) VALUES (x'01', 'elsewhere', x'00', 'rejected', 0)`); err != nil {
+		t.Fatal(err)
+	}
+	if resp, err := f.a.call(Request{Method: MethodTaskList, Repo: f.a.repo}); err != nil || len(resp.Tasks) != 1 || resp.Tasks[0].ID != sent.TaskID {
+		t.Errorf("tasks of the room's repository: %+v, %v", resp.Tasks, err)
+	}
+	if resp, err := f.a.call(Request{Method: MethodTaskList, Repo: t.TempDir()}); err != nil || len(resp.Tasks) != 0 {
+		t.Errorf("tasks of a repository outside a room: %+v, %v", resp.Tasks, err)
+	}
 
 	// After a restart the room replays from seq 0; the first task must not
 	// come back as a duplicate or a replay. A second task arriving proves

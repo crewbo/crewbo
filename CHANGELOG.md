@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The VS Code extension listed every task the daemon knew, from all rooms, by id. It now lists only the tasks of the rooms of the open folders, labelled by their text (`task_list` takes an optional repository).
 - `crewbo task approve` treated any character device as a terminal, so a command run by an agent (stdin on `/dev/null`) reached the "Type yes to approve" prompt instead of being refused at once. It now requires a real terminal; nothing was approved, because nothing could type `yes`.
 - `crewbo login` gave up the whole sign-in when one check with GitHub got no answer (seen twice on a slow network during the M4 two-machine check). A lost check is now retried at the next interval until the code expires, and an expiry says what the last network error was.
 - An agent working in a git worktree (`git worktree add`) was not blocked by claims made in the main checkout or shared by teammates, because Crewbo treated each worktree as a separate repository. A linked worktree now shares its repository's claims and room.
