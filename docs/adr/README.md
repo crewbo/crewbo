@@ -21,6 +21,6 @@ To change an accepted decision, write a new ADR that supersedes it and set the o
 | [0015](0015-merge-despite-a-conflicting-task.md) | A member may merge over another task's conflicting checkpoint after confirming | Accepted |
 | [0014](0014-members-merge-through-the-conflict-check.md) | Members merge their own work through the conflict check; every piece of work is a task | Accepted |
 | [0013](0013-antigravity-v1-stretch.md) | Antigravity adapter as a v1 stretch goal | Accepted |
-| [0016](0016-crewbo-ide-preview-at-launch.md) | Crewbo IDE preview at the v1 launch (supersedes ADR 0012's timeline) | Proposed |
+| [0016](0016-crewbo-ide-preview-at-launch.md) | Crewbo IDE preview at the v1 launch (supersedes ADR 0012's timeline) | Accepted |
 
 "Accepted" for 0002 to 0010 means accepted in the PRD (2026-10-10) and pending Ronel's review of this package at Gate A.
