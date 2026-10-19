@@ -1,6 +1,6 @@
 # 0012. Crewbo IDE as a long-term product
 
-- Status: Accepted (2026-10-13)
+- Status: Accepted (2026-10-13); timeline superseded by ADR 0016 (IDE preview at the v1 launch)
 - Date: 2026-10-11
 - Decision owner: Ronel Abraham Mathew
 

@@ -10,9 +10,16 @@ Timeline shifted 1 day earlier than the PRD at Ronel's request (decision log 202
 | M2: Claude Code and Codex hook adapters | Oct 25 to Oct 31 | Gate C |
 | M3: sync server and auth | Nov 1 to Nov 7 (finished early, complete Oct 12) | Gate C |
 | M4: lead dispatch | Nov 8 to Nov 14 (finished early, complete Oct 13) | Gate C |
-| M5: conflict warnings and extension v0 | Nov 15 to Nov 21 | Gate C |
-| M6: dogfood in a real hackathon | Nov 22 to Nov 28 | |
-| Week 8 review | Dec 5 | PRD success criteria |
+| M5: conflict warnings and extension v0 | Nov 15 to Nov 21 (finished early, complete Oct 19) | Gate C |
+| M5b: Antigravity adapter | finished Oct 18 | Gate C |
+| M6: dogfood in a real hackathon | Oct 18 to the review (see the launch plan below) | Gate C approved Oct 18 |
+| M7: the crew and the brand in the editor | Oct 20 to Nov 1 | Gate C |
+| M8: Crewbo IDE preview (ADR 0016) | Nov 2 to Nov 15 | Gate C |
+| **Launch: v0.1.0, extension in both stores, Crewbo IDE preview, website** | **target Nov 22** | release checklist |
+| Dogfood hackathon (M6-09) | a hackathon between Nov 28 and Dec 13 (Ronel to pick) | |
+| Week 8 review (M6-10) | one week after the hackathon | PRD success criteria |
+
+Launch plan (Ronel, 2026-10-19): the IDE ships at launch as a preview (ADR 0016), so the launch moves to about Nov 22 and the dogfood hackathon follows it. This replaces "dates do not move" for M6 to M8: the order holds, and scope inside M7 and M8 shrinks first if a date is at risk (the caret rider, then extra IDE package formats). A hackathon on Oct 30 is too early for the launch; it can serve as an optional friendly test with one or two teams on the current build.
 
 Issue size target: one PR, under 400 changed lines excluding generated code. IDs are stable; GitHub issues are created at each Gate C. "Deps" lists issues that must merge first.
 
@@ -147,6 +154,27 @@ Install on 2 to 5 machines across 3 OSes, run a real hackathon, collect issues, 
 | M6-06 | Release v0.1.0 | Release PR moves Unreleased to 0.1.0; GoReleaser artifacts for 3 OSes, 2 architectures, checksums, signature decision (cosign keyless or minisign); smoke test on Linux, macOS and Windows before publishing | Release checklist in `release-process.md` | M6-01, M6-05, M6-08 |
 | M6-07 | Hackathon sync server runbook | `docs/runbooks/hackathon-server.md`: `crewbo serve` behind a Cloudflare named tunnel on a stable hostname (Ronel's domain), start and stop, backup of `server.db`, network requirements (port 7844 outbound), what to do when the laptop sleeps or the network blocks the tunnel, Tailscale fallback | Dry run with the M5 check machines | M3-04 |
 | M6-08 | Cross-OS verification | Once GitHub Actions minutes return (1 November): CI green on Windows and macOS for everything since #127; a manual Windows run (Claude Code, Codex and Antigravity hooks, dispatch, U-31, U-34) | CI runs; manual report in `docs/research/` | none |
+| M6-12 | Website | One static landing page on the brand (`site/`): what Crewbo is, the dashboard and crew panel images, install steps for the CLI, the extension and the IDE, links to docs and GitHub; published with GitHub Pages at `crewbo.github.io` until `crewbo.dev` is bought, then on `crewbo.dev`; no trackers or third-party scripts (rule 12) | Brand checklist (`docs/brand/09-checklist.md`); phone and desktop widths; links checked | M6-04 |
 | M6-09 | Dogfood event | Onboarding checklist for teams, a survey form, a `dogfood` issue label, daily triage during the event, fixes as their own PRs | Event report | M6-01 to M6-07 |
 | M6-10 | Week-8 review | Report against the PRD success criteria and kill or pivot criteria, from the survey and `crewbo report`; recommendation for v2 | Review with Ronel | M6-09 |
 
+## M7: the crew and the brand in the editor
+
+The brand's crew panel and Bo in the editor (`docs/brand/05-interface.md` sections 3.1 to 3.5, `06-bo-character.md`), and the room data they need. Only vendor and presence are new data leaving a machine, both allowed by rule 12; the privacy page lists them.
+
+| ID | Issue | Acceptance criteria | Test plan | Deps |
+| --- | --- | --- | --- | --- |
+| M7-01 | Room members, presence and agent vendor (protocol and server) | The server sends each daemon the room's members and who is connected, and updates on join, leave, connect and disconnect; a claim carries the agent vendor of the session that holds it (`claude-code`, `codex`, `antigravity`, or none for a terminal); old daemons and servers ignore the new fields | Server tests; cross-daemon test; `buf breaking` | none |
+| M7-02 | Crew view in the daemon | `crew` in the local API: each member with online state (and since when offline), their agents and the files their agents hold, the member's own row first; `crewbo crew` prints it | Daemon tests; CLI test | M7-01 |
+| M7-03 | Crew panel in the extension | A webview view with one row per member: scene Bo at 64 px (ported unchanged from `bo.js`), name, status (`Writing <file>`, `Idle`, `Offline since <time>`), agent name; offline Bo grey; reduced motion respected (`workbench.reduceMotion` and `prefers-reduced-motion`); no model shown unless known (BDR-017) | In-editor check; brand checklist with screenshots against `docs/brand/reference/` | M7-02 |
+| M7-04 | Bo badge on claims in the Crewbo view, and the working-on-this-file line | Claim rows use the 16 px badge Bo in the holder's colour as their icon; a file another member's agent holds shows a quiet line on its first line, `riya · Codex is working on this file` (an `after` decoration, never over code) | In-editor check; brand checklist | M7-02 |
+| M7-05 | Caret rider for the member's own agent (stretch) | While the member's own agent edits an open file, an 18 px Bo rides the changed line (`05-interface.md` 3.4), only for agent edits, never on the human's caret | In-editor check | M7-03 |
+
+## M8: Crewbo IDE preview (ADR 0016)
+
+| ID | Issue | Acceptance criteria | Test plan | Deps |
+| --- | --- | --- | --- | --- |
+| M8-01 | IDE build from VSCodium's scripts | A repository `crewbo/ide` (MIT, from VSCodium's scripts) builds Code OSS with Crewbo's `product.json` (name, icons from `docs/brand/assets`, Open VSX gallery, telemetry off) and the Crewbo `.vsix` built in; a local Linux build starts and shows the Crewbo view | Local build on Omarchy | M6-05 |
+| M8-02 | IDE packages from CI | CI builds Linux (`tar.gz`, `deb`, AppImage), macOS (arm64, x64) and Windows (x64) on a tag and attaches them to a draft release with checksums and attestations | A tagged dry run | M8-01, M6-08 |
+| M8-03 | Signing and first-run defaults | Windows signed through SignPath's open-source programme if approved in time, else marked unsigned; macOS unsigned unless Ronel approves the Apple Developer Program, with the opening steps on the download page; the crew panel open on first run | Install on all three OSes (Ronel: Linux and Windows; gavriel953: macOS) | M8-02, M7-03 |
+| M8-04 | IDE docs and download page | `docs/user/ide.md` and the website: what the IDE is, preview status, Open VSX instead of the Visual Studio Marketplace (and which extensions that leaves out), how to update | Read-through; links checked | M8-03, M6-12 |

@@ -12,7 +12,7 @@ Crewbo lets every teammate run their own AI coding agent at the same time, on an
 - **Wedge:** mixed-vendor, cross-machine, cross-OS coordination that is self-hostable and keeps code off third-party servers. No shipping product does all four.
 - **Mechanism:** a local Go daemon enforces leased file claims through each agent's own hooks, shares live intent through a small sync server, and warns about cross-machine conflicts before merge.
 - **Team lead:** dispatches signed tasks to teammates' agents; each teammate approves before anything runs.
-- **Status:** Phase 0 passed (Gate B) and M1 to M4 are built: claims across machines and signed lead dispatch work on Linux and macOS. Org `github.com/crewbo` and `crewbo.dev` secured. Next is M5 (conflict warnings, extension v0).
+- **Status:** Phase 0 passed (Gate B) and M1 to M4 are built: claims across machines and signed lead dispatch work on Linux and macOS. Org `github.com/crewbo` secured; the `crewbo.dev` domain is planned but not bought yet. Next is M5 (conflict warnings, extension v0).
 
 ## Problem and target users
 
@@ -73,14 +73,14 @@ Each version starts only when the gate before it is passed. Gate numbers are tar
 
 | Version | Goals | Non-goals (deferred to) | Exit gate |
 | --- | --- | --- | --- |
-| v1 Skeleton (Oct to Dec 2026) | Claude Code + Codex adapters; Antigravity adapter as a stretch goal after M5 (ADR 0013); leased file and glob claims; lead dispatch with approval; cross-machine merge-tree warnings; VS Code-family extension and web dashboard; self-hosted sync server | Other agents and Antigravity dispatch (v2); semantic claims (v2); billing (v3); SSO (v4); desktop app (v2 if demanded) | 5 real teams, at least 3 mixing vendors |
+| v1 Skeleton (Oct to Dec 2026) | Claude Code + Codex adapters; Antigravity adapter as a stretch goal after M5 (ADR 0013); leased file and glob claims; lead dispatch with approval; cross-machine merge-tree warnings; VS Code-family extension (in the Visual Studio Marketplace and Open VSX) with the crew panel, web dashboard, Crewbo IDE preview (ADR 0016) and a landing page; self-hosted sync server | Other agents and Antigravity dispatch (v2); semantic claims (v2); billing (v3); SSO (v4); desktop app (v2 if demanded) | 5 real teams, at least 3 mixing vendors |
 | v2 Public beta (Dec 2026 to Feb 2027) | Adapters for Cursor, Gemini CLI and Copilot CLI (and Antigravity if the v1 stretch slipped); Antigravity headless dispatch; semantic claims (symbol, API, schema, migration); optional auto-revert of shell edits; signed installers (winget, Homebrew, AUR, Open VSX); free hosted relay; docs and open-source launch | Billing and paid tiers (v3); rooms over 25 (v3); ACP host mode (v3); mobile app (not planned) | 50 weekly active rooms; 30% of rooms mix vendors |
 | v3 Teams (Mar to Jun 2027) | Paid hosted Team tier with PPP pricing for India; lead policies; agent activity analytics and conflict reports; roles and permissions; rooms up to 50; Postgres and horizontally scaled server; Slack, Linear and GitHub Issues integrations; optional ACP host mode | SSO, SCIM, audit export (v4); on-prem licence (v4) | 10 paying teams |
 | v4 Enterprise (Jul to Dec 2027) | SAML SSO and SCIM; audit log export; licensed on-prem and air-gapped deployment; data residency; claim schema published as an open spec; interop with GitHub Agent HQ and Conductor workspaces | Anything on the permanent list | First enterprise contract or pilot |
 
 **Permanent non-goals:** building our own coding agent or model; hosting or proxying customer code (code moves only through the team's git remote); running agents in our own cloud sandboxes; proxying model inference or reselling tokens.
 
-**Long term, not before v3:** a Crewbo IDE (ADR 0012, accepted). v1 and v2 stay an extension inside the editors teams already use; the IDE is revisited after the v2 exit gate, with evidence that the extension surface blocks a needed feature.
+**Crewbo IDE:** a preview ships at the v1 launch (ADR 0016, superseding ADR 0012's timeline): Code OSS with Crewbo built in, from VSCodium's build scripts. The extension stays the main way to use Crewbo; a full IDE (claim tags, the caret rider and merge previews drawn natively) comes later.
 
 ## v1 scope: core flows
 
