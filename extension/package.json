@@ -38,6 +38,8 @@
   "files": [
     "out/src/**",
     "media/icon.png",
+    "media/mark.svg",
+    "media/crew/**",
     "LICENSE"
   ],
   "engines": {
@@ -74,6 +76,13 @@
         {
           "id": "crewbo.crew",
           "name": "Crewbo"
+        }
+      ],
+      "crewbo": [
+        {
+          "type": "webview",
+          "id": "crewbo.crewPanel",
+          "name": "Crew"
         }
       ]
     },
@@ -212,13 +221,21 @@
           "highContrastLight": "#DC2626"
         }
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "crewbo",
+          "title": "Crewbo",
+          "icon": "media/mark.svg"
+        }
+      ]
+    }
   },
   "scripts": {
-    "build": "tsc -p .",
+    "build": "node scripts/copy-assets.mjs && tsc -p .",
     "test": "tsc -p . && node --test out/test/",
-    "prepackage": "node -e \"const fs=require('fs');fs.mkdirSync('media',{recursive:true});fs.copyFileSync('../docs/brand/assets/png/app-icon-128.png','media/icon.png');fs.copyFileSync('../LICENSE','LICENSE')\"",
-    "package": "tsc -p . && vsce package --no-dependencies"
+    "package": "npm run build && vsce package --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

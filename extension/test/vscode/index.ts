@@ -29,5 +29,12 @@ export async function run(): Promise<void> {
   const item = api.tree.getTreeItem(claimNode);
   assert.equal(item.label, "src/auth.go");
   assert.match(String(item.description), /^claimed · .+, from a terminal$/);
+  // The crew panel opens in its own view container and loads.
+  await vscode.commands.executeCommand("crewbo.crewPanel.focus");
+  const until = Date.now() + 10_000;
+  while (!api.crewPanelVisible() && Date.now() < until) {
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  assert.ok(api.crewPanelVisible(), "the crew panel is visible");
   console.log(`crewbo extension check passed: ${api.statusBar()} | ${claimed.badge} | ${claimed.tooltip} | ${item.description}`);
 }
