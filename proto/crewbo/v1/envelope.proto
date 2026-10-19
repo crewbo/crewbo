@@ -34,7 +34,18 @@ message Envelope {
     TaskStatus task_status = 41;
     ConflictWarning conflict_warning = 51;
     Event event = 60;
+    Presence presence = 61;
   }
+}
+
+// Presence lists the members of a room connected to the server now
+// (M7-01). The server sends it after Welcome and whenever a member of the
+// room connects or disconnects; it is not part of the room's event log, so
+// it is never replayed. Daemons that do not know it ignore it.
+message Presence {
+  string room_id = 1;
+  // GitHub logins, sorted.
+  repeated string online_member_ids = 2;
 }
 
 // Hello is the first frame a daemon sends after connecting.

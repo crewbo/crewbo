@@ -14,6 +14,7 @@ The sync server is run by someone on your team (or by you, with `crewbo serve`).
 | A task changes state | The state (for example running, checkpointed, merged), the checkpoint's branch or ref name and commit id, and for a failed run its error message, which can include a local folder path |
 | Two tasks conflict | The two task ids and commits, and the paths that conflict |
 | You ask for a file, answer, or override | The claim, and the reason you typed |
+| You are connected | That you are online in the room, while your daemon is connected (not stored) |
 
 ## What the sync server stores
 
