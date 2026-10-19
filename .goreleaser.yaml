@@ -16,9 +16,23 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
+    # The binary includes the AGPL-3.0 sync server and the dashboard's OFL
+    # fonts, so every licence ships with it (NOTICE). A files list replaces
+    # GoReleaser's defaults. https://goreleaser.com/customization/archive/
+    files:
+      - README.md
+      - CHANGELOG.md
+      - LICENSE
+      - NOTICE
+      - internal/server/LICENSE
+      - web/fonts/LICENSE-*.txt
 
 checksum:
   name_template: checksums.txt
+  # The extension is listed too, so one attestation covers every download.
+  # https://goreleaser.com/customization/checksum/
+  extra_files:
+    - glob: ./extension/*.vsix
 
 changelog:
   disable: true

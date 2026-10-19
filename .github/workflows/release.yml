@@ -6,6 +6,10 @@ on:
 
 permissions:
   contents: write
+  # Artifact attestations (Sigstore, keyless) for every file in checksums.txt.
+  # https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations
+  id-token: write
+  attestations: write
 
 jobs:
   goreleaser:
@@ -23,6 +27,8 @@ jobs:
       - name: Package the VS Code extension
         working-directory: extension
         run: |
+          # The extension's version must be the release's (publishing-extension.md).
+          test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
           npm ci --ignore-scripts
           npm run package
       - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
@@ -32,3 +38,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Verify a download with: gh attestation verify FILE -R crewbo/crewbo
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: dist/checksums.txt
