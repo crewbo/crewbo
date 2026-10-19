@@ -62,3 +62,49 @@ func TestCrewPresenceAndActivity(t *testing.T) {
 		t.Error("a session without an agent was shared")
 	}
 }
+
+// M7-02: the crew view lists every member, you first, with online state,
+// agents and claims; a member who disconnects shows as offline since then,
+// with no agents.
+func TestCrewView(t *testing.T) {
+	f := newCrossFixture(t)
+	eventually(t, "both members online", func() bool { return len(f.a.online()) == 2 })
+	if _, err := f.b.call(Request{Method: MethodClaimAdd, Session: TerminalSession, Repo: f.b.repo, Patterns: []string{"src/parse/**"}, Member: "gavriel953"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.b.call(Request{Method: MethodDecide, Session: "s1", Agent: "codex", Repo: f.b.repo, Paths: []string{"src/parse/x.go"}}); err != nil {
+		t.Fatal(err)
+	}
+	var crew []CrewMember
+	eventually(t, "the teammate's agent and claim", func() bool {
+		resp, err := f.a.call(Request{Method: MethodCrew, Repo: f.a.repo})
+		if err != nil || len(resp.Crew) != 2 {
+			return false
+		}
+		crew = resp.Crew
+		g := crew[1]
+		return len(g.Agents) == 1 && g.Agents[0].Path == "src/parse/x.go" && len(g.Claims) == 1
+	})
+	me, g := crew[0], crew[1]
+	if me.Login != "RM1338" || !me.You || !me.Lead || !me.Online {
+		t.Errorf("first row: %+v", me)
+	}
+	if g.Login != "gavriel953" || g.You || g.Lead || !g.Online || g.Agents[0].Agent != "codex" || g.Claims[0] != "src/parse/**" {
+		t.Errorf("teammate: %+v", g)
+	}
+	f.b.link.cut()
+	eventually(t, "the teammate offline", func() bool {
+		resp, err := f.a.call(Request{Method: MethodCrew, Repo: f.a.repo})
+		if err != nil || len(resp.Crew) != 2 {
+			return false
+		}
+		g := resp.Crew[1]
+		return !g.Online && !g.OfflineSince.IsZero() && len(g.Agents) == 0
+	})
+	// The lead's own connection drops: nobody can be shown online.
+	f.a.link.cut()
+	eventually(t, "nobody online", func() bool { return len(f.a.online()) == 0 })
+	if _, err := f.a.call(Request{Method: MethodCrew, Repo: t.TempDir()}); err == nil {
+		t.Error("a repository outside a room has a crew")
+	}
+}

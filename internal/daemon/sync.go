@@ -272,6 +272,7 @@ func (s *syncer) connect(ctx context.Context, cfg config) (bool, error) {
 		s.mu.Lock()
 		s.connected = false
 		s.mu.Unlock()
+		s.crew.disconnected(time.Now())
 		helpers.Wait()
 	}()
 	// Restart the connection when the session or bindings change.
@@ -344,7 +345,7 @@ func (s *syncer) connect(ctx context.Context, cfg config) (bool, error) {
 			continue
 		}
 		if p := env.GetPresence(); p != nil {
-			s.crew.presence(p)
+			s.crew.presence(p, time.Now())
 			continue
 		}
 		if a := env.GetActivity(); a != nil {

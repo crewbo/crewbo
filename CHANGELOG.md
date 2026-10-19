@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `crewbo crew` shows the room of the current repository: each member, whether they are online (or since when they are not), what their agents are doing (`Writing src/auth.go`, `Idle`) and the files they hold. Daemons now share each agent's name and the file it is about to edit with the room, live and not stored (see the privacy page).
 - `crewbo task list`, `crewbo task show`, the dashboard and the editor extension list teammates' tasks too: tasks they started for themselves, with the start of their text (up to 4 KiB), and tasks the lead sent to someone else, with their latest state.
 - The VS Code extension can be installed from a `.vsix` file: `task ext:package` builds it, and each release will attach it.
 - `crewbo report` prints counts of your Crewbo use to paste into the dogfood survey: Crewbo version and OS, which agents ran on this computer (sessions, first and last day), each room's members, merged tasks, conflict warnings, handoff requests and lead overrides, active claims and your tasks by state. It holds no file paths, task text or names, and sends nothing.

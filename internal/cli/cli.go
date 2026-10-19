@@ -47,6 +47,7 @@ Commands:
   status    Show whether the daemon is running
   doctor    Check this computer's Crewbo setup and say how to fix problems
   report    Print counts of your Crewbo use to paste into the dogfood survey
+  crew      Show who is in this repository's room and what their agents are doing
   claim     Claim files in this repository so agents leave them alone
   hooks     Install or remove Crewbo's hooks in Claude Code, Codex and Antigravity
   mcp       Serve Crewbo's read-only MCP tools over stdio
@@ -82,6 +83,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runDoctor(ctx, stdout, stderr)
 	case "report":
 		return runReport(ctx, stdout, stderr)
+	case "crew":
+		return runCrew(ctx, stdout, stderr)
 	case "hook":
 		return runHook(ctx, args[1:], stdin, stdout)
 	case "claim":
