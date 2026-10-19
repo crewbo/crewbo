@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `crewbo task list`, `crewbo task show`, the dashboard and the editor extension list teammates' tasks too: tasks they started for themselves, with the start of their text (up to 4 KiB), and tasks the lead sent to someone else, with their latest state.
+
 ### Fixed
 
 - A task kept showing a conflict (in `crewbo task list`, the dashboard and the editor extension) after it was merged or cancelled, or after the other task was. Those conflicts are no longer listed.

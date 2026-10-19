@@ -125,7 +125,10 @@ func (d *Daemon) startOwnTask(ctx context.Context, req Request) Response {
 		return fail("record the task: %v", err)
 	}
 	d.setRun(wt, session)
-	if _, err := d.sendStatus(ctx, b.RoomID, id, crewbov1.TaskState_TASK_STATE_RUNNING, "", 0); err != nil && !errors.Is(err, errNotSent) {
+	env := &crewbov1.Envelope{Id: newEnvelopeID(), Body: &crewbov1.Envelope_TaskStatus{TaskStatus: &crewbov1.TaskStatus{
+		RoomId: b.RoomID, TaskId: id, State: crewbov1.TaskState_TASK_STATE_RUNNING, Text: truncate(body.GetText(), maxStatusText),
+	}}}
+	if _, err := d.sync.submit(ctx, env, 0); err != nil && !errors.Is(err, errNotSent) {
 		d.cfg.Log.Warn("task status not queued", "task_id", id, "err", err)
 	}
 	d.cfg.Log.Info("own task started", "task_id", id, "worktree", wt)

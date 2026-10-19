@@ -143,6 +143,9 @@ var Daemon = Schema{
 		last_unix_ms  INTEGER NOT NULL,
 		sessions      INTEGER NOT NULL DEFAULT 0
 	) WITHOUT ROWID;`,
+	// 11: the text a member's own task carries on its first RUNNING
+	// status, so teammates see what it is.
+	`ALTER TABLE task_status ADD COLUMN text TEXT NOT NULL DEFAULT '';`,
 }
 
 // Server is the schema of the sync server's database (`crewbo serve`).

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"strings"
 	"testing"
 	"time"
 
@@ -138,6 +139,8 @@ func TestTaskStatusIsRecorded(t *testing.T) {
 		t.Fatalf("lead received %v (actor %q)", st, ev.GetActorMemberId())
 	}
 	long := string(make([]byte, maxDetail+1))
+	longText := statusEnv("x8", d.cr.room, "t", crewbov1.TaskState_TASK_STATE_RUNNING, "")
+	longText.GetTaskStatus().Text = strings.Repeat("a", maxText+1)
 	for name, env := range map[string]*crewbov1.Envelope{
 		"no task id":    statusEnv("x1", d.cr.room, "", crewbov1.TaskState_TASK_STATE_APPROVED, ""),
 		"long task id":  statusEnv("x2", d.cr.room, string(make([]byte, maxTaskID+1)), crewbov1.TaskState_TASK_STATE_APPROVED, ""),
@@ -145,6 +148,7 @@ func TestTaskStatusIsRecorded(t *testing.T) {
 		"dispatched":    statusEnv("x4", d.cr.room, "t", crewbov1.TaskState_TASK_STATE_DISPATCHED, ""),
 		"unknown state": statusEnv("x5", d.cr.room, "t", crewbov1.TaskState(99), ""),
 		"long detail":   statusEnv("x6", d.cr.room, "t", crewbov1.TaskState_TASK_STATE_DECLINED, long),
+		"long text":     longText,
 	} {
 		if r := request(t, mate, env); r.GetError().GetCode() != crewbov1.ErrorCode_ERROR_CODE_INVALID {
 			t.Errorf("%s: %v", name, r)
