@@ -11,6 +11,8 @@ Crewbo is a coordination layer that lets every teammate run their own AI coding 
 - Decisions: [docs/adr/](docs/adr/)
 - Engineering: [docs/engineering/](docs/engineering/) (plan, unknowns, decision log, testing, release, worklog)
 
+Related repositories, each with its own `CLAUDE.md` that points back here for shared docs: [`crewbo/ide`](https://github.com/crewbo/ide) (the Crewbo IDE, MIT, M8), [`crewbo/website`](https://github.com/crewbo/website) (crewbo.dev, Apache-2.0, M6-12), [`crewbo/spikes`](https://github.com/crewbo/spikes) (Phase 0 spikes and check results). Their issues live in this repository.
+
 Source precedence: Ronel's explicit instructions > PRD > accepted ADRs > `docs/research/` > own judgement. The research reports use the old name **Sangam** (`sangam hook` = `crewbo hook`) and predate the PRD.
 
 ## Current phase
