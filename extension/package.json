@@ -154,6 +154,11 @@
         "command": "crewbo.joinRoom",
         "title": "Join a room with an invite code",
         "category": "Crewbo"
+      },
+      {
+        "command": "crewbo.invite",
+        "title": "Invite a teammate to this room",
+        "category": "Crewbo"
       }
     ],
     "menus": {
@@ -176,6 +181,10 @@
         },
         {
           "command": "crewbo.sendTask",
+          "when": "crewbo.lead"
+        },
+        {
+          "command": "crewbo.invite",
           "when": "crewbo.lead"
         },
         {

@@ -8,6 +8,7 @@ import {
   claimsOn,
   conflictPairs,
   crewRows,
+  emptyRoom,
   type CrewMember,
   type Handoff,
   handoffLabel,
@@ -203,4 +204,11 @@ test("roomPrompt asks to sign in, then to create or join a room", () => {
   assert.deepEqual(roomPrompt(noRoom, undefined).actions?.map((a) => a.command), ["crewbo.signIn"]);
   assert.deepEqual(roomPrompt(noRoom, "ronel").actions?.map((a) => a.command), ["crewbo.createRoom", "crewbo.joinRoom"]);
   assert.deepEqual(roomPrompt("crew: the daemon is not ready", "ronel"), { note: "the daemon is not ready" });
+});
+
+test("emptyRoom offers the lead an invite when no one else is in the room", () => {
+  const lead: CrewMember = { login: "ronel", you: true, lead: true, color: 0, online: true };
+  assert.deepEqual(emptyRoom([lead])?.actions?.map((a) => a.command), ["crewbo.invite"]);
+  assert.equal(emptyRoom([{ ...lead, lead: false }])?.actions, undefined);
+  assert.equal(emptyRoom([lead, { login: "riya", color: 1, online: true }]), undefined);
 });

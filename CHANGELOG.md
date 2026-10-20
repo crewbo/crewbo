@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Sign in, create a room or join one from the editor: the crew panel of a repository outside a room offers **Sign in with GitHub**, then **Create a room** and **Join with a code**, which run `crewbo login`, `crewbo room create` and `crewbo room join` in a terminal. The same commands are in the Command Palette under Crewbo.
+- Sign in, create a room or join one from the editor: the crew panel of a repository outside a room offers **Sign in with GitHub**, then **Create a room** and **Join with a code**, which run `crewbo login`, `crewbo room create` and `crewbo room join` in a terminal; while the lead is alone in the room, **Invite a teammate** runs `crewbo room invite`. The same commands are in the Command Palette under Crewbo.
 - A lead can ask their own agent to split the work: the new MCP tools `crewbo_crew` (who is in the room and what they are doing) and `crewbo_draft_task` let the agent draft one task per teammate. Drafts are never sent by the agent: the lead reviews, edits and sends or drops each one under **Drafted tasks** in the Crewbo view.
 - The Crewbo IDE (preview) opens the crew panel on first run, and offers to install Claude Code and Codex from Open VSX if they are missing.
 - The room lead can send a task from VS Code: **Send a task** at the top of the Crewbo view asks who, which files and what to do, then signs and sends it like `crewbo task create`.

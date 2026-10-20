@@ -18,6 +18,7 @@ import {
   colorOf,
   conflictPairs,
   crewRows,
+  emptyRoom,
   roomPrompt,
   sendTaskPicks,
   taskPaths,
@@ -178,7 +179,7 @@ export function activate(ctx: vscode.ExtensionContext): Api {
       return;
     }
     const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    panel.post({ type: "crew", reduceMotion, room: r.room, rows: crewRows(r.crew ?? [], s.tasks, r.handoffs, time) });
+    panel.post({ type: "crew", reduceMotion, room: r.room, rows: crewRows(r.crew ?? [], s.tasks, r.handoffs, time), foot: emptyRoom(r.crew ?? []) });
   };
 
   // showTags puts a claim tag on the first line of each visible file that
@@ -371,6 +372,9 @@ export function activate(ctx: vscode.ExtensionContext): Api {
     }),
     vscode.commands.registerCommand("crewbo.createRoom", () => {
       crewboTerminal("crewbo room create", ["room", "create"]);
+    }),
+    vscode.commands.registerCommand("crewbo.invite", () => {
+      crewboTerminal("crewbo room invite", ["room", "invite"]);
     }),
     vscode.commands.registerCommand("crewbo.joinRoom", async () => {
       const code = await vscode.window.showInputBox({
@@ -671,7 +675,7 @@ class TaskTexts implements vscode.TextDocumentContentProvider {
  */
 class CrewPanel implements vscode.WebviewViewProvider {
   // The only commands the webview may run (its buttons, roomPrompt in model.ts).
-  private static readonly commands = ["crewbo.signIn", "crewbo.createRoom", "crewbo.joinRoom"];
+  private static readonly commands = ["crewbo.signIn", "crewbo.createRoom", "crewbo.joinRoom", "crewbo.invite"];
   private view?: vscode.WebviewView;
   constructor(
     private readonly media: vscode.Uri,
@@ -691,7 +695,7 @@ class CrewPanel implements vscode.WebviewViewProvider {
     w.html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${w.cspSource}; font-src ${w.cspSource}; script-src 'nonce-${nonce}' ${w.cspSource};">
 <link rel="stylesheet" href="${uri("tokens.css")}"><link rel="stylesheet" href="${uri("bo.css")}"><link rel="stylesheet" href="${uri("crew.css")}">
-</head><body><p class="head" id="head"></p><div class="crew" id="crew" role="list"></div>
+</head><body><p class="head" id="head"></p><div class="crew" id="crew" role="list"></div><div class="foot" id="foot"></div>
 <script type="module" nonce="${nonce}" src="${uri("crew.js")}"></script></body></html>`;
     w.onDidReceiveMessage((m: { type?: string; command?: string }) => {
       if (m?.type === "ready") {

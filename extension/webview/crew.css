@@ -25,6 +25,7 @@ body {
 .note { font-size: 13px; color: var(--cb-color-gray-400); }
 /* Compact buttons on a dark panel (05-interface.md, the toast's Hand off
    and Not yet): white fill and ink text, or transparent with a 1 px border. */
+.foot { margin-top: var(--cb-space-2); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--cb-space-1); }
 .actions button { height: 34px; padding: 0 14px; border-radius: var(--cb-radius-controlSm); font: inherit; font-size: 13px; font-weight: var(--cb-font-weight-semibold); cursor: pointer; }
 .actions .primary { background: var(--cb-color-paper); color: var(--cb-color-ink); border: none; }
