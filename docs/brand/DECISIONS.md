@@ -131,3 +131,15 @@ Format: `BDR-NNN · title · date · status`.
 **Decision:** The Crewbo IDE shows the mark wherever Code OSS showed its logo: the title bar and the Welcome tab use `mark-black.svg` on light themes and `mark-white.svg` on dark and high-contrast dark themes, unchanged. The empty-editor watermark (Code OSS's "letterpress", up to 256 px) is the same two files drawn faint with CSS opacity: 10% on light themes, 30% on dark and high-contrast themes, chosen from screenshots of the IDE so the mark recedes behind the shortcut list (Code OSS's grey watermark was fainter on light themes). The files stay black and white; only the watermark is drawn faint.
 **Rejected:** A full-strength 256 px mark in every empty editor (too loud for a background element); no watermark at all; a grey or tinted copy of the mark (§02 allows only the black and white versions, so no new file is drawn).
 **Why:** The IDE must not show VSCodium's or Microsoft's logo (ADR 0016), and a watermark only works if it recedes. Ronel, M8-03.
+
+## BDR-022 · A display serif for the website · 2026-10-21 · Accepted
+
+**Decision:** The website's headlines (the hero and section titles) use **Instrument Serif** 400 (`font.family.display`, `type.display` 72 px and `type.displayH2` 52 px), self-hosted from `assets/fonts/` (Fontsource 5.3.0, SIL OFL 1.1). Everything else, and all product UI (extension, IDE, dashboard, CLI), stays Instrument Sans and JetBrains Mono.
+**Rejected:** A serif in the product (the code is the hero, P2); a display face from another family (Instrument Serif is the companion of Instrument Sans, so the two sit together); loading it from Google Fonts.
+**Why:** Ronel wanted the site to read like the YC launches he pointed to (tryopentag.com, inkbox.ai), which set headlines in a distinctive display face. Ronel, crewbo/website#3.
+
+## BDR-023 · The spelled Bo wordmark in the website footer · 2026-10-21 · Accepted
+
+**Decision:** The website footer may spell `crewbo` in the brand mark (`markSVG`, ink, 32 px marks on a 24 px grid, a 5 × 7 letter grid), beside the mark at 168 px. Only on the website footer and only at 1200 px wide or more; below that, the mark alone. Hovering one mark shows a teammate's face Bo; hovering the row turns the large mark into Bo (ink) for one merged bob.
+**Rejected:** Spelling it in teammate colours at rest (the brand mark is always ink); using it as a logo anywhere else.
+**Why:** Ronel's idea after heyclicky.com's footer, which spells the name in its own icons; shaped with him in crewbo/website#3.
