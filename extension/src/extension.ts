@@ -18,6 +18,7 @@ import {
   colorOf,
   conflictPairs,
   crewRows,
+  roomPrompt,
   sendTaskPicks,
   taskPaths,
   type Handoff,
@@ -173,7 +174,7 @@ export function activate(ctx: vscode.ExtensionContext): Api {
       return;
     }
     if (r.crewError) {
-      panel.post({ type: "crew", reduceMotion, note: r.crewError.replace(/^crew: /, "") });
+      panel.post({ type: "crew", reduceMotion, ...roomPrompt(r.crewError, s.status.login) });
       return;
     }
     const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -333,6 +334,15 @@ export function activate(ctx: vscode.ExtensionContext): Api {
     term.show();
   };
 
+  const crewboTerminal = (name: string, args: string[]) => {
+    const cwd = repos()[0];
+    if (!cwd && args[0] === "room") {
+      void vscode.window.showWarningMessage("Open the repository first: a room belongs to one repository.");
+      return;
+    }
+    vscode.window.createTerminal({ name, shellPath: bin(), shellArgs: args, cwd }).show();
+  };
+
   const pathOf = (arg: unknown): { root: string; path: string } | undefined => {
     const n = arg as Node | undefined;
     if (n && "kind" in n && n.kind === "claim") {
@@ -345,6 +355,33 @@ export function activate(ctx: vscode.ExtensionContext): Api {
 
   ctx.subscriptions.push(
     vscode.commands.registerCommand("crewbo.refresh", poll),
+    // Sign-in and rooms run the real crewbo commands in a terminal, started
+    // without a shell: the device code, the invite code and any error stay
+    // where the member reads them. The next poll picks up the room.
+    vscode.commands.registerCommand("crewbo.signIn", async () => {
+      const server = await vscode.window.showInputBox({
+        prompt: "Your team's Crewbo sync server address",
+        placeHolder: "https://crewbo.example.com",
+        ignoreFocusOut: true,
+        validateInput: (v) => (/^https?:\/\/\S+$/.test(v.trim()) ? undefined : "Enter the address, starting with https://"),
+      });
+      if (server) {
+        crewboTerminal("crewbo login", ["login", "--server", server.trim()]);
+      }
+    }),
+    vscode.commands.registerCommand("crewbo.createRoom", () => {
+      crewboTerminal("crewbo room create", ["room", "create"]);
+    }),
+    vscode.commands.registerCommand("crewbo.joinRoom", async () => {
+      const code = await vscode.window.showInputBox({
+        prompt: "The invite code your team's lead shared",
+        ignoreFocusOut: true,
+        validateInput: (v) => (/^[^\s-]\S*$/.test(v.trim()) ? undefined : "Paste the invite code"),
+      });
+      if (code) {
+        crewboTerminal("crewbo room join", ["room", "join", code.trim()]);
+      }
+    }),
     vscode.commands.registerCommand("crewbo.sendDraft", async (n: Node) => {
       if (n?.kind !== "draft") {
         return;
@@ -633,6 +670,8 @@ class TaskTexts implements vscode.TextDocumentContentProvider {
  * from the network: scripts and fonts come from the extension's media.
  */
 class CrewPanel implements vscode.WebviewViewProvider {
+  // The only commands the webview may run (its buttons, roomPrompt in model.ts).
+  private static readonly commands = ["crewbo.signIn", "crewbo.createRoom", "crewbo.joinRoom"];
   private view?: vscode.WebviewView;
   constructor(
     private readonly media: vscode.Uri,
@@ -654,7 +693,13 @@ class CrewPanel implements vscode.WebviewViewProvider {
 <link rel="stylesheet" href="${uri("tokens.css")}"><link rel="stylesheet" href="${uri("bo.css")}"><link rel="stylesheet" href="${uri("crew.css")}">
 </head><body><p class="head" id="head"></p><div class="crew" id="crew" role="list"></div>
 <script type="module" nonce="${nonce}" src="${uri("crew.js")}"></script></body></html>`;
-    w.onDidReceiveMessage((m: { type?: string }) => m?.type === "ready" && this.shown());
+    w.onDidReceiveMessage((m: { type?: string; command?: string }) => {
+      if (m?.type === "ready") {
+        this.shown();
+      } else if (m?.type === "run" && CrewPanel.commands.includes(m.command ?? "")) {
+        void vscode.commands.executeCommand(m.command!);
+      }
+    });
     view.onDidChangeVisibility(() => view.visible && this.shown());
   }
 

@@ -15,6 +15,7 @@ import {
   holderLabel,
   needsApproval,
   overlaps,
+  roomPrompt,
   sendTaskPicks,
   type State,
   statusText,
@@ -195,4 +196,11 @@ test("sendTaskPicks and taskPaths", () => {
   ]);
   assert.deepEqual(taskPaths(" src/auth/**, ,docs/a.md "), ["src/auth/**", "docs/a.md"]);
   assert.deepEqual(taskPaths(""), []);
+});
+
+test("roomPrompt asks to sign in, then to create or join a room", () => {
+  const noRoom = "crew: this repository is not in a room; join one with `crewbo room join` or create one with `crewbo room create`";
+  assert.deepEqual(roomPrompt(noRoom, undefined).actions?.map((a) => a.command), ["crewbo.signIn"]);
+  assert.deepEqual(roomPrompt(noRoom, "ronel").actions?.map((a) => a.command), ["crewbo.createRoom", "crewbo.joinRoom"]);
+  assert.deepEqual(roomPrompt("crew: the daemon is not ready", "ronel"), { note: "the daemon is not ready" });
 });
