@@ -2,6 +2,7 @@
 // reference component, unchanged (copied next to this file at build time).
 import { boSVG, panelView, sceneSVG, teamColor } from "./bo.js";
 
+const vscode = acquireVsCodeApi(); // may be called only once
 const head = document.getElementById("head");
 const list = document.getElementById("crew");
 let order = ""; // the rows' names in the order drawn
@@ -49,6 +50,20 @@ window.addEventListener("message", (e) => {
     p.className = "note";
     p.textContent = m.note;
     list.replaceChildren(p);
+    // Buttons for a repository outside a room: the extension runs only its
+    // own sign-in and room commands (CrewPanel.commands).
+    if (m.actions?.length) {
+      const bar = document.createElement("div");
+      bar.className = "actions";
+      m.actions.forEach((a, i) => {
+        const b = document.createElement("button");
+        b.className = i === 0 ? "primary" : "secondary";
+        b.textContent = a.label;
+        b.addEventListener("click", () => vscode.postMessage({ type: "run", command: a.command }));
+        bar.append(b);
+      });
+      list.append(bar);
+    }
     return;
   }
   const next = [];
@@ -76,4 +91,4 @@ window.addEventListener("message", (e) => {
 });
 
 // Ask for the crew once this script listens; earlier messages are lost.
-acquireVsCodeApi().postMessage({ type: "ready" });
+vscode.postMessage({ type: "ready" });

@@ -139,6 +139,21 @@
         "command": "crewbo.dropDraft",
         "title": "Drop this draft",
         "category": "Crewbo"
+      },
+      {
+        "command": "crewbo.signIn",
+        "title": "Sign in",
+        "category": "Crewbo"
+      },
+      {
+        "command": "crewbo.createRoom",
+        "title": "Create a room for this repository",
+        "category": "Crewbo"
+      },
+      {
+        "command": "crewbo.joinRoom",
+        "title": "Join a room with an invite code",
+        "category": "Crewbo"
       }
     ],
     "menus": {

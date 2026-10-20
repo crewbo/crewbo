@@ -330,3 +330,28 @@ export interface Draft {
   patterns?: string[];
   created: string;
 }
+
+/** A button the crew panel shows; command is one of the extension's own. */
+export interface PanelAction {
+  command: "crewbo.signIn" | "crewbo.createRoom" | "crewbo.joinRoom";
+  label: string;
+}
+
+// roomPrompt is what the crew panel shows for a repository outside a room:
+// sign in first, then create or join one. Other crew errors stay as they are.
+export function roomPrompt(crewError: string, login: string | undefined): { note: string; actions?: PanelAction[] } {
+  const note = crewError.replace(/^crew: /, "");
+  if (!note.startsWith("this repository is not in a room")) {
+    return { note };
+  }
+  if (!login) {
+    return { note: "Sign in to create a room for this repository or join your team's.", actions: [{ command: "crewbo.signIn", label: "Sign in with GitHub" }] };
+  }
+  return {
+    note: "This repository is not in a room yet. Create one and invite your team, or join with an invite code.",
+    actions: [
+      { command: "crewbo.createRoom", label: "Create a room" },
+      { command: "crewbo.joinRoom", label: "Join with a code" },
+    ],
+  };
+}

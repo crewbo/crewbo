@@ -36,12 +36,16 @@ crewbo login --server https://your-team-server
 
 Crewbo shows a code: open https://github.com/login/device, enter it and approve. Crewbo asks GitHub for no permissions beyond your public profile.
 
+In the editor, **Sign in with GitHub** in the crew panel (or **Crewbo: Sign in** in the Command Palette) asks for the server address and runs the same command in a terminal.
+
 ## 5. Join your team's room
 
 A room is one repository shared by one team. Run these inside your clone of the repository.
 
 - **The lead, once:** `crewbo room create`, then `crewbo room invite` prints a join command; send it to your teammates privately.
 - **Everyone else:** `crewbo room join CODE`.
+
+In the editor, the crew panel of a repository outside a room offers **Create a room** and **Join with a code**; they run the same commands in a terminal, where the invite code appears.
 
 `crewbo room status` shows the room, its lead and who may merge.
 
