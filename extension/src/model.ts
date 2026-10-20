@@ -333,7 +333,7 @@ export interface Draft {
 
 /** A button the crew panel shows; command is one of the extension's own. */
 export interface PanelAction {
-  command: "crewbo.signIn" | "crewbo.createRoom" | "crewbo.joinRoom";
+  command: "crewbo.signIn" | "crewbo.createRoom" | "crewbo.joinRoom" | "crewbo.invite";
   label: string;
 }
 
@@ -354,4 +354,14 @@ export function roomPrompt(crewError: string, login: string | undefined): { note
       { command: "crewbo.joinRoom", label: "Join with a code" },
     ],
   };
+}
+
+// emptyRoom is the line and button under the rows when the lead is alone in
+// the room (docs/brand/08-voice.md, "Empty room"): only the lead invites.
+export function emptyRoom(crew: CrewMember[]): { note: string; actions?: PanelAction[] } | undefined {
+  if (crew.length !== 1 || !crew[0].you) {
+    return undefined;
+  }
+  const note = "No one else is here yet. Share the room invite with your team.";
+  return crew[0].lead ? { note, actions: [{ command: "crewbo.invite", label: "Invite a teammate" }] } : { note };
 }

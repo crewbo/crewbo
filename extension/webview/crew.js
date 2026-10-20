@@ -5,6 +5,7 @@ import { boSVG, panelView, sceneSVG, teamColor } from "./bo.js";
 const vscode = acquireVsCodeApi(); // may be called only once
 const head = document.getElementById("head");
 const list = document.getElementById("crew");
+const foot = document.getElementById("foot");
 let order = ""; // the rows' names in the order drawn
 const drawn = new Map(); // row name to [key, element]: only changed rows redraw, so Bo's motion is not restarted every poll
 
@@ -35,6 +36,21 @@ function row(r) {
   return el;
 }
 
+// Buttons for sign-in and rooms: the extension runs only its own commands
+// (CrewPanel.commands).
+function actions(items) {
+  const bar = document.createElement("div");
+  bar.className = "actions";
+  items.forEach((a, i) => {
+    const b = document.createElement("button");
+    b.className = i === 0 ? "primary" : "secondary";
+    b.textContent = a.label;
+    b.addEventListener("click", () => vscode.postMessage({ type: "run", command: a.command }));
+    bar.append(b);
+  });
+  return bar;
+}
+
 window.addEventListener("message", (e) => {
   const m = e.data;
   if (m?.type !== "crew") return;
@@ -50,20 +66,8 @@ window.addEventListener("message", (e) => {
     p.className = "note";
     p.textContent = m.note;
     list.replaceChildren(p);
-    // Buttons for a repository outside a room: the extension runs only its
-    // own sign-in and room commands (CrewPanel.commands).
-    if (m.actions?.length) {
-      const bar = document.createElement("div");
-      bar.className = "actions";
-      m.actions.forEach((a, i) => {
-        const b = document.createElement("button");
-        b.className = i === 0 ? "primary" : "secondary";
-        b.textContent = a.label;
-        b.addEventListener("click", () => vscode.postMessage({ type: "run", command: a.command }));
-        bar.append(b);
-      });
-      list.append(bar);
-    }
+    foot.replaceChildren();
+    if (m.actions?.length) list.append(actions(m.actions));
     return;
   }
   const next = [];
@@ -87,6 +91,19 @@ window.addEventListener("message", (e) => {
   } else {
     list.replaceChildren(...next);
     order = names;
+  }
+  // Under the rows: the empty-room line, and the lead's invite button.
+  const key = JSON.stringify(m.foot ?? null);
+  if (foot.dataset.key !== key) {
+    foot.dataset.key = key;
+    foot.replaceChildren();
+    if (m.foot) {
+      const p = document.createElement("p");
+      p.className = "note";
+      p.textContent = m.foot.note;
+      foot.append(p);
+      if (m.foot.actions?.length) foot.append(actions(m.foot.actions));
+    }
   }
 });
 

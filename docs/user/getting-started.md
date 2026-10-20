@@ -45,7 +45,7 @@ A room is one repository shared by one team. Run these inside your clone of the 
 - **The lead, once:** `crewbo room create`, then `crewbo room invite` prints a join command; send it to your teammates privately.
 - **Everyone else:** `crewbo room join CODE`.
 
-In the editor, the crew panel of a repository outside a room offers **Create a room** and **Join with a code**; they run the same commands in a terminal, where the invite code appears.
+In the editor, the crew panel of a repository outside a room offers **Create a room** and **Join with a code**. While the lead is alone in the room, the panel offers **Invite a teammate** (also **Crewbo: Invite a teammate to this room**), which runs `crewbo room invite` in a terminal, where the join command appears.
 
 `crewbo room status` shows the room, its lead and who may merge.
 
