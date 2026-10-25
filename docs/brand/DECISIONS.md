@@ -143,3 +143,9 @@ Format: `BDR-NNN · title · date · status`.
 **Decision:** The website footer may spell `crewbo` in the brand mark (`markSVG`, ink, 32 px marks on a 24 px grid, a 5 × 7 letter grid), beside the mark at 168 px. Only on the website footer and only at 1200 px wide or more; below that, the mark alone. Hovering one mark shows a teammate's face Bo; hovering the row turns the large mark into Bo (ink) for one merged bob.
 **Rejected:** Spelling it in teammate colours at rest (the brand mark is always ink); using it as a logo anywhere else.
 **Why:** Ronel's idea after heyclicky.com's footer, which spells the name in its own icons; shaped with him in crewbo/website#3.
+
+## BDR-024 · Gradient light and a keyword colour in the launch film · 2026-10-25 · Accepted
+
+**Decision:** The launch film (and its cut-downs) may light its backgrounds with soft gradients built from Cobalt and Teal (`base` and `tint`) on paper or ink, and may set one keyword per line in Cobalt (`#1D4ED8` on light, its `tint` `#93C5FD` on dark). Everything else in the film follows the brand: the logo is the black or white mark and lockup, unchanged; Bo comes from `bo.js`; product UI is shown as it is.
+**Rejected:** Gradients or an accent colour in the product UI, the website or the docs (05-interface.md stands there); a coloured, outlined or glowing logo (02-logo.md, Misuse).
+**Why:** Every launch film Ronel chose as a reference (references in the film project: Numtera, LangEase, Google Vids and five more) lights its scenes with gradients and colours one word in a headline, and flat fields read as bland next to them. Ronel, for the launch film only.
