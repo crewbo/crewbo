@@ -8,17 +8,17 @@ Crewbo lets everyone on your team run their own coding agent (Claude Code, Codex
 - At least one agent: Claude Code, Codex or Antigravity, signed in
 - A GitHub account
 - The address of your team's sync server (your lead has it; to run one yourself, see [Running the sync server](#running-the-sync-server))
-- Until the first release, Go (the version in Crewbo's `go.mod`) and [Task](https://taskfile.dev) to build Crewbo
+- Until the first release, [Go](https://go.dev/dl/) to build Crewbo
 
 ## 2. Install Crewbo
 
 ```sh
-git clone https://github.com/crewbo/crewbo
-cd crewbo
-task build            # creates bin/crewbo (bin\crewbo.exe on Windows)
+go install github.com/crewbo/crewbo/cmd/crewbo@latest
 ```
 
-Put `bin/crewbo` in a folder **without spaces** in its path, and add that folder to your `PATH`. Codex and Antigravity run hooks as shell commands, and a space in the path breaks them without any error.
+Go puts `crewbo` in `$(go env GOPATH)/bin` (usually `~/go/bin`, or `%USERPROFILE%\go\bin` on Windows) unless `GOBIN` is set; add that folder to your `PATH`. The folder's path must have **no spaces**: Codex and Antigravity run hooks as shell commands, and a space in the path breaks them without any error. If your user folder has a space, set `GOBIN` to a folder without one (`go env -w GOBIN=C:\tools\bin`) before installing.
+
+To build from a clone instead, run `task build` ([Task](https://taskfile.dev)), which creates `bin/crewbo` (`bin\crewbo.exe` on Windows).
 
 ## 3. Start the daemon
 
