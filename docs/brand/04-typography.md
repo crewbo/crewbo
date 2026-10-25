@@ -8,6 +8,7 @@
 |---|---|---|---|
 | Display, UI and body | **Instrument Sans** | 400, 500, 600 (700 only for Bo's z glyphs) | SIL OFL 1.1 |
 | Code, CLI, labels, hex values, model names | **JetBrains Mono** | 400, 500 | SIL OFL 1.1 |
+| Website headlines only (BDR-022) | **Instrument Serif** | 400 (normal, italic) | SIL OFL 1.1 |
 
 Self-host from `assets/fonts/` (WOFF2, Latin subset, from Fontsource 5.x). Do not load from Google Fonts in the product: the desktop app and extension must work offline, and Google Fonts leaks requests. The canvas reference pages load from Google Fonts only for convenience.
 
@@ -27,7 +28,8 @@ Inside VS Code webviews, use the editor's font (`var(--vscode-editor-font-family
 
 | Token | Family | Size | Weight | Line height | Tracking | Use |
 |---|---|---|---|---|---|---|
-| `type.display` | Sans | 64 | 600 | 1.0 | −2 px | Landing hero only |
+| `type.display` | Serif | 72 | 400 | 1.0 | −1.5 px | Website hero headline (BDR-022) |
+| `type.displayH2` | Serif | 52 | 400 | 1.05 | −1 px | Website section titles (BDR-022) |
 | `type.h1` | Sans | 56 | 600 | 1.05 | −1.6 px | Page title |
 | `type.h2` | Sans | 44 | 600 | 1.1 | −1.2 px | Section title |
 | `type.h3` | Sans | 22 | 600 | 1.3 | 0 | Card title, principle name |
