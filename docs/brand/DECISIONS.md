@@ -143,3 +143,9 @@ Format: `BDR-NNN · title · date · status`.
 **Decision:** The website footer may spell `crewbo` in the brand mark (`markSVG`, ink, 32 px marks on a 24 px grid, a 5 × 7 letter grid), beside the mark at 168 px. Only on the website footer and only at 1200 px wide or more; below that, the mark alone. Hovering one mark shows a teammate's face Bo; hovering the row turns the large mark into Bo (ink) for one merged bob.
 **Rejected:** Spelling it in teammate colours at rest (the brand mark is always ink); using it as a logo anywhere else.
 **Why:** Ronel's idea after heyclicky.com's footer, which spells the name in its own icons; shaped with him in crewbo/website#3.
+
+## BDR-024 · Gradient light, glass and a keyword colour in the launch film · 2026-10-25 · Accepted
+
+**Decision:** The launch film (and its cut-downs) may light its field with one soft Cobalt glow rising from the bottom centre (team Cobalt `base` `#1D4ED8` fading to transparent, on paper or ink), may show product panels as glass (a translucent white fill, a frosted backdrop blur and a 1 px edge, with no shadow), and may set one keyword per line in Cobalt (`#1D4ED8` on light, its `tint` `#93C5FD` on dark). Everything else in the film follows the brand: the logo is the black or white mark and lockup, unchanged; Bo comes from `bo.js`; product text is the product's own.
+**Rejected:** Gradients, glass or an accent colour in the product UI, the website or the docs (05-interface.md stands there); several spots of coloured light (Ronel: one light from behind); a coloured, outlined or glowing logo (02-logo.md, Misuse); Teal, Amber, Maroon and Violet as the film's accent (tried in renders; Ronel chose Cobalt).
+**Why:** Every launch film Ronel chose as a reference (eleven, led by Numtera and Zelios' iBanPay) lights its field from behind and colours one word per headline, and the product reads as an object when shown as glass. Ronel, for the launch film only, 2026-10-26.
